@@ -23,6 +23,9 @@ def main():
     argparser.add_argument(
         "-dump-calltree", help="输出调用树", action="store_true", default=False
     )
+    argparser.add_argument(
+        "-dump-symtab", help="输出符号表", action="store_true", default=False
+    )
     args = argparser.parse_args()
     try:
         reader = FileReader(args.file)
@@ -43,7 +46,8 @@ def main():
         symtab = Symtab(ast.location)
         ast.accept(DeclAnalyzer(symtab))
 
-        symtab.print()
+        if args.dump_symtab:
+            symtab.print()
 
         if args.dump_ast and ast != None:
             ast.accept(DumpVisitor())
