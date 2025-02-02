@@ -11,7 +11,7 @@ from AST.Node import (
     ReproducibleAttr,
     TranslationUnit,
 )
-from AST.Visitor import Visitor, DumpVisitor
+from AST.Visitor import Visitor, DumpVisitor, FormatVisitor
 from AST.Transformer import Transformer
 from AST.Expr import (
     Expr,
@@ -82,4 +82,7 @@ from AST.Decl import (
     FunctionDef,
     DeclStmt,
     Declaration,
+    SpecifierOrQualifier,
+    TypeQualifierKind,
+    SingleDeclration,
 )

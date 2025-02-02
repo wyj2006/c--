@@ -208,7 +208,7 @@ class Preprocessor(Lexer):
                 else:
                     self.skipGroup()
         elif token.kind == TokenKind.IF:
-            read_until_line_end()  # TODO:
+            read_until_line_end()  # TODO: 因为这步需要对表达式求值, 下同
         elif token.kind == TokenKind.ELIF:
             read_until_line_end()  # TODO:
         elif token.kind == TokenKind.ENDIF:

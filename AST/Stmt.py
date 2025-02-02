@@ -9,10 +9,6 @@ if TYPE_CHECKING:
 class Stmt(Node):
     """与语句有关的语法树节点"""
 
-    attribute_specifiers: list[AttributeSpecifier]
-
-    _fields = Node._fields + ("attribute_specifiers",)
-
 
 class AttributeDeclStmt(Stmt):
     """属性声明语句"""

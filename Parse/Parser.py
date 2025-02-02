@@ -73,6 +73,7 @@ from AST import (
     TranslationUnit,
     FunctionDef,
     Stmt,
+    TypeQualifierKind,
 )
 from Basic import Diagnostic, Token, TokenGen, TokenKind, Error
 from Parse.Wrapper import may_update_type_symbol, may_enter_scope, update_call_tree
@@ -364,7 +365,6 @@ class Parser:
             else:
                 self.restore(z)
                 return None
-        self.restore(z)
         return a
 
     @update_call_tree
@@ -1257,7 +1257,7 @@ class Parser:
             self.restore(b)
             return None
         a.append(b)
-        while self.curtoken().kind == TokenKind.R_BRACE:
+        while self.curtoken().kind != TokenKind.R_BRACE:
             if b := self.member_declaration():
                 a.append(b)
             else:
@@ -1524,7 +1524,7 @@ class Parser:
             and (b := self.typeof_specifier_argument())
             and self.expect(TokenKind.R_PAREN)
         ):
-            return TypeOfSpecifier(arg=b, location=a.location)
+            return TypeOfSpecifier(arg=b, is_unqual=False, location=a.location)
         self.restore(z)
         if (
             (a := self.expect(TokenKind.TYPEOF_UNQUAL))
@@ -1532,7 +1532,7 @@ class Parser:
             and (b := self.typeof_specifier_argument())
             and self.expect(TokenKind.R_PAREN)
         ):
-            return TypeOfSpecifier(arg=b, location=a.location)
+            return TypeOfSpecifier(arg=b, is_unqual=True, location=a.location)
         self.restore(z)
         return None
 
@@ -1561,14 +1561,19 @@ class Parser:
             volatile
             _Atomic
         """
+        token_qualifier = {
+            TokenKind.CONST: TypeQualifierKind.CONST,
+            TokenKind.RESTRICT: TypeQualifierKind.RESTRICT,
+            TokenKind.VOLATILE: TypeQualifierKind.VOLATILE,
+            TokenKind._ATOMIC: TypeQualifierKind._ATOMIC,
+        }
         z = self.save()
-        if a := (
-            self.expect(TokenKind.CONST)
-            or self.expect(TokenKind.RESTRICT)
-            or self.expect(TokenKind.VOLATILE)
-            or self.expect(TokenKind._ATOMIC)
-        ):
-            return TypeQualifier(qualifier_name=a.text, location=a.location)
+        token = self.curtoken()
+        if token.kind in token_qualifier.keys() and self.expect(token.kind):
+            return TypeQualifier(
+                qualifier=token_qualifier[token.kind],
+                location=token.location,
+            )
         self.restore(z)
         return None
 
@@ -1872,7 +1877,12 @@ class Parser:
             return None
         a.append(b)
         while self.curtoken().kind == TokenKind.COMMA:
-            if self.expect(TokenKind.COMMA) and (b := self.parameter_declaration()):
+            y = self.save()
+            self.expect(TokenKind.COMMA)
+            if self.curtoken().kind == TokenKind.ELLIPSIS:
+                self.restore(y)
+                break
+            if b := self.parameter_declaration():
                 a.append(b)
             else:
                 self.restore(z)
@@ -2290,7 +2300,7 @@ class Parser:
         if (
             self.expect(TokenKind.L_SQUARE)
             and self.expect(TokenKind.L_SQUARE)
-            and (a := self.attribute_list())
+            and (a := self.attribute_list()) != None
             and self.expect(TokenKind.R_SQUARE)
             and self.expect(TokenKind.R_SQUARE)
         ):

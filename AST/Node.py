@@ -4,8 +4,10 @@ from Basic import Location, Token
 class Node:
     """语法树节点"""
 
+    attribute_specifiers: list["AttributeSpecifier"]
+
     location: Location  # 语法树对应代码的位置
-    _fields: tuple[str] = tuple()  # 子节点名称
+    _fields: tuple[str] = ("attribute_specifiers",)  # 子节点名称
     _attributes: tuple[str] = ("location",)  # 节点属性
 
     def __init__(self, **kwargs):
@@ -17,8 +19,7 @@ class Node:
             method = getattr(visitor, f"visit_{cls.__name__}", None)
             if method == None:
                 continue
-            method(self, *args, **kwargs)
-            break
+            return method(self, *args, **kwargs)
 
 
 class Attribute(Node):

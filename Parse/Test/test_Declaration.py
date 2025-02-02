@@ -15,7 +15,7 @@ def test_simple_declaration():
             declarators=[
                 TypeOrVarDecl(
                     declarator=PointerDeclarator(
-                        qualifiers=[TypeQualifier(qualifier_name="const")],
+                        qualifiers=[TypeQualifier(qualifier=TypeQualifierKind.CONST)],
                         declarator=PointerDeclarator(
                             declarator=NameDeclarator(name="a")
                         ),

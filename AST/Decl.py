@@ -1,24 +1,36 @@
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
+from Basic import Type
 from AST.Node import Node, AttributeSpecifier
-from AST.Stmt import Stmt
+from AST.Stmt import Stmt, CompoundStmt
 
 if TYPE_CHECKING:
     from AST.Expr import Expr
 
 
 class Declaration(Node):
-    attribute_specifiers: list[AttributeSpecifier]
+    # 虽然叫specifiers, 却还包含了storageclass和qualifier
     specifiers: list["SpecifierOrQualifier"]
     specifier_attributes: list[AttributeSpecifier]  # 跟在说明符后面的可选的属性列表
     declarators: list["Declarator"]
 
     _fields = Node._fields + (
-        "attribute_specifiers",
         "specifiers",
         "specifier_attributes",
         "declarators",
     )
+
+
+class SingleDeclration(Declaration):
+    declarator: "Declarator"
+
+    @property
+    def declarators(self):
+        return [self.declarator]
+
+    _fields = list(Declaration._fields)
+    _fields.remove("declarators")
+    _fields = tuple(_fields) + ("declarator",)
 
 
 class DeclStmt(Stmt, Declaration):
@@ -49,14 +61,22 @@ class StorageClass(SpecifierOrQualifier):
 
 class Declarator(Node):
     declarator: "Declarator"
-    attribute_specifiers: list[AttributeSpecifier]
 
-    _fields = Node._fields + ("declarator", "attribute_specifiers")
+    _fields = Node._fields + ("declarator",)
 
 
 class TypeOrVarDecl(Declarator):
+    name: str
+    type: Type
+    is_typedef: bool
+
     initializer: "Expr"
 
+    _attributes = Declarator._attributes + (
+        "name",
+        "type",
+        "is_typedef",
+    )
     _fields = Declarator._fields + ("initializer",)
 
 
@@ -109,15 +129,24 @@ class AtomicSpecifier(SpecifierOrQualifier):
 
 
 class TypeOfSpecifier(SpecifierOrQualifier):
-    arg: Node
+    arg: Union["Expr", "TypeName"]
+    is_unqual: bool
 
+    _attributes = SpecifierOrQualifier._attributes + ("is_unqual",)
     _fields = SpecifierOrQualifier._fields + ("arg",)
 
 
-class TypeQualifier(SpecifierOrQualifier):
-    qualifier_name: str
+class TypeQualifierKind(Enum):
+    CONST = "const"
+    RESTRICT = "restrict"
+    VOLATILE = "volatile"
+    _ATOMIC = "_Atomic"
 
-    _attributes = SpecifierOrQualifier._attributes + ("qualifier_name",)
+
+class TypeQualifier(SpecifierOrQualifier):
+    qualifier: TypeQualifierKind
+
+    _attributes = SpecifierOrQualifier._attributes + ("qualifier",)
 
 
 class FunctionSpecifier(SpecifierOrQualifier):
@@ -140,22 +169,19 @@ class AlignSepcifier(SpecifierOrQualifier):
 
 class RecordDecl(SpecifierOrQualifier):
     struct_or_union: str
-    attribute_specifiers: list[AttributeSpecifier]
     name: str
     members_declaration: list[Node]
 
     _attributes = SpecifierOrQualifier._attributes + ("struct_or_union", "name")
-    _fields = SpecifierOrQualifier._fields + (
-        "attribute_specifiers",
-        "members_declaration",
-    )
+    _fields = SpecifierOrQualifier._fields + ("members_declaration",)
 
 
 class FieldDecl(Declaration):
     pass
 
 
-class MemberDecl(Declarator):
+class MemberDecl(TypeOrVarDecl):
+    is_typedef = False
     bit_field: "Expr"
 
     _fields = Declarator._fields + ("bit_field",)
@@ -163,62 +189,42 @@ class MemberDecl(Declarator):
 
 class Enumerator(Node):
     name: str
-    attribute_specifiers: list[AttributeSpecifier]
     value: "Expr"
 
     _attributes = Node._attributes + ("name",)
-    _fields = Node._fields + (
-        "attribute_specifiers",
-        "value",
-    )
+    _fields = Node._fields + ("value",)
 
 
 class EnumDecl(SpecifierOrQualifier):
-    attribute_specifiers: list[AttributeSpecifier]
     name: str
     specifiers: list[SpecifierOrQualifier]
     enumerators: list[Enumerator]
 
     _attributes = SpecifierOrQualifier._attributes + ("name",)
     _fields = SpecifierOrQualifier._fields + (
-        "attribute_specifiers",
         "specifiers",
         "enumerators",
     )
 
 
-class ParamDecl(Declaration):
-    declarator: Declarator
+class ParamDecl(SingleDeclration):
+    name: str
+    type: Node
 
-    @property
-    def declarators(self):
-        return [self.declarator]
-
-    _fields = list(Declaration._fields)
-    _fields.remove("declarators")
-    _fields = tuple(_fields) + ("declarator",)
+    _attributes = SingleDeclration._attributes + ("name", "type")
 
 
-class TypeName(Declaration):
-    declarator: Declarator
+class TypeName(SingleDeclration):
+    type: Node
 
-    @property
-    def declarators(self):
-        return [self.declarator]
-
-    _fields = list(Declaration._fields)
-    _fields.remove("declarators")
-    _fields = tuple(_fields) + ("declarator",)
+    _attributes = SingleDeclration._attributes + ("type",)
 
 
-class FunctionDef(Declaration):
-    declarator: Declarator
-    body: Stmt
+class FunctionDef(SingleDeclration):
+    func_name: str
+    func_type: Node
+    body: CompoundStmt
 
-    @property
-    def declarators(self):
-        return [self.declarator]
+    _attributes = SingleDeclration._attributes + ("func_name", "func_type")
 
-    _fields = list(Declaration._fields)
-    _fields.remove("declarators")
-    _fields = tuple(_fields) + ("declarator", "body")
+    _fields = SingleDeclration._fields + ("body",)

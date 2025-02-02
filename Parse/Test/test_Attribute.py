@@ -1,5 +1,4 @@
 from Common import *
-from Parse import generate_diagnostic
 
 
 def test_attribute():

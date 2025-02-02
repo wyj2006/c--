@@ -1,7 +1,8 @@
 import colorama
 from argparse import ArgumentParser
 from AST import DumpVisitor
-from Basic import Error, FileReader, Diagnostics
+from Analyze import DeclAnalyzer
+from Basic import Error, FileReader, Diagnostics, Symtab
 from Lex import Preprocessor
 from Parse import Parser, generate_diagnostic
 
@@ -19,6 +20,9 @@ def main():
     argparser.add_argument(
         "-dump-ast", help="输出AST", action="store_true", default=False
     )
+    argparser.add_argument(
+        "-dump-calltree", help="输出调用树", action="store_true", default=False
+    )
     args = argparser.parse_args()
     try:
         reader = FileReader(args.file)
@@ -32,8 +36,15 @@ def main():
                 print(token)
         if ast == None:
             diagnostics = generate_diagnostic(parser.call_tree)
-            # parser.call_tree.print()
+            if args.dump_calltree:
+                parser.call_tree.print()
             raise diagnostics
+
+        symtab = Symtab(ast.location)
+        ast.accept(DeclAnalyzer(symtab))
+
+        symtab.print()
+
         if args.dump_ast and ast != None:
             ast.accept(DumpVisitor())
     except Error as e:

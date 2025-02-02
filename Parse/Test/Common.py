@@ -1,12 +1,13 @@
+import inspect
 import sys
 import os
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 from AST import *
-from Basic import FileReader, TokenKind
-from Lex import Preprocessor
-from Parse import Parser
+from Basic import *
+from Lex import *
+from Parse import *
 
 
 def check_ast(node: Node, expected: Node):
@@ -25,7 +26,10 @@ def check_ast(node: Node, expected: Node):
 
 
 def get_parser(filename: str):
-    reader = FileReader(os.path.join(os.path.dirname(__file__), filename))
+    caller_frame = inspect.stack()[1]
+    caller_file = caller_frame[1]
+
+    reader = FileReader(os.path.join(os.path.dirname(caller_file), filename))
     lexer = Preprocessor(reader)
     parser = Parser(lexer)
     return parser
