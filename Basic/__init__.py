@@ -3,7 +3,7 @@
 from Basic.Token import TokenKind, Token, TokenGen
 from Basic.Location import Location
 from Basic.FileReader import FileReader
-from Basic.Diagnostic import Diagnostic, Error, DiagnosticKind, Diagnostics
+from Basic.Diagnostic import Diagnostic, Error, DiagnosticKind, Diagnostics, Note
 from Basic.Symtab import (
     Symtab,
     Symbol,
@@ -25,4 +25,11 @@ from Basic.Symtab import (
     LABEL_NAMES,
     ORDINARY_NAMES,
     MEMBER_NAMES,
+    Object,
+    Member,
+    EnumConst,
+    Parameter,
+    Function,
+    ArrayPtrType,
+    AutoType,
 )

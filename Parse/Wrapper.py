@@ -2,19 +2,20 @@
 各种各样的装饰器
 """
 
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, TypeVar
 from AST import Declaration, StorageClass, StorageClassSpecifier, NameDeclarator
-from Basic import Diagnostic, Error, Token
 from Parse.CallTree import CallTree
 
 if TYPE_CHECKING:
     from Parse.Parser import Parser
 
+_T = TypeVar("_T")
 
-def may_update_type_symbol(parser_method):
+
+def may_update_type_symbol(parser_method: Callable[["Parser"], _T]):
     """该Parser方法的返回值可能能够用来更新Parser.type_symbol"""
 
-    def wrapper(self: "Parser", *args, **kwargs):
+    def wrapper(self: "Parser", *args, **kwargs) -> _T:
         node = parser_method(self, *args, **kwargs)
         if not isinstance(node, Declaration):
             return node
@@ -38,10 +39,10 @@ def may_update_type_symbol(parser_method):
     return wrapper
 
 
-def may_enter_scope(parser_method):
+def may_enter_scope(parser_method: Callable[["Parser"], _T]):
     """该Parser方法对应的语法结构可能会进入一个新的作用域"""
 
-    def wrapper(self: "Parser", *args, **kwargs):
+    def wrapper(self: "Parser", *args, **kwargs) -> _T:
         type_symbol = tuple(self.type_symbol)
         ret = parser_method(self, *args, **kwargs)
         self.type_symbol = list(type_symbol)
@@ -50,12 +51,12 @@ def may_enter_scope(parser_method):
     return wrapper
 
 
-def update_call_tree(parser_method: Callable):
+def update_call_tree(parser_method: Callable[["Parser"], _T]):
     """被装饰的方法调用时将会更新Parser的调用树"""
     method_name = parser_method.__code__.co_name
     count = 1
 
-    def wrapper(self: "Parser", *args, **kwargs):
+    def wrapper(self: "Parser", *args, **kwargs) -> _T:
         nonlocal count
 
         name = f"{method_name}#{count}"

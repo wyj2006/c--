@@ -1,187 +1,347 @@
 from Common import *
 
 
-def test_DeclAnalyzer():
-    parser = get_parser("decl_analyzer.txt")
+def test_Basic():
+    parser = get_parser("basic.txt")
     ast: TranslationUnit = parser.start()
 
     symtab = Symtab(ast.location)
     ast.accept(DeclAnalyzer(symtab))
 
-    funcdef: FunctionDef = ast.body[0]
-
-    main_func_type: Type = funcdef.func_type
-    check_type(
-        main_func_type,
-        FunctionType(
-            [
-                BasicType(BasicTypeKind.INT),
-                ArrayType(PointerType(BasicType(BasicTypeKind.CHAR)), None),
-            ],
-            BasicType(BasicTypeKind.INT),
-        ),
-    )
-
-    # 循环16次
-    for i, t in enumerate(
-        [
-            {"name": "a", "type": BasicType(BasicTypeKind.INT)},
-            {"name": "b", "type": PointerType(BasicType(BasicTypeKind.INT))},
-            {
-                "name": "c",
-                "type": ArrayType(
-                    ArrayType(BasicType(BasicTypeKind.INT), IntegerLiteral(value="6")),
-                    IntegerLiteral(value="5"),
+    check_ast(
+        ast,
+        TranslationUnit(
+            body=[
+                DeclStmt(
+                    declarators=[
+                        TypeOrVarDecl(name="a", type=BasicType(BasicTypeKind.INT))
+                    ]
                 ),
-            },
-            {
-                "name": "d",
-                "type": PointerType(
-                    ArrayType(
-                        ArrayType(
-                            BasicType(BasicTypeKind.INT), IntegerLiteral(value="6")
+                DeclStmt(
+                    declarators=[
+                        TypeOrVarDecl(
+                            name="b", type=PointerType(BasicType(BasicTypeKind.INT))
+                        )
+                    ]
+                ),
+                DeclStmt(
+                    declarators=[
+                        TypeOrVarDecl(
+                            name="c",
+                            type=ArrayType(
+                                ArrayType(
+                                    BasicType(BasicTypeKind.INT),
+                                    IntegerLiteral(value="6"),
+                                ),
+                                IntegerLiteral(value="5"),
+                            ),
+                        )
+                    ]
+                ),
+                DeclStmt(
+                    declarators=[
+                        TypeOrVarDecl(
+                            name="d",
+                            type=PointerType(
+                                ArrayType(
+                                    ArrayType(
+                                        BasicType(BasicTypeKind.INT),
+                                        IntegerLiteral(value="6"),
+                                    ),
+                                    IntegerLiteral(value="5"),
+                                )
+                            ),
+                        )
+                    ]
+                ),
+                DeclStmt(
+                    declarators=[
+                        TypeOrVarDecl(
+                            name="e",
+                            type=ArrayType(
+                                ArrayType(
+                                    PointerType(BasicType(BasicTypeKind.INT)),
+                                    IntegerLiteral(value="6"),
+                                ),
+                                IntegerLiteral(value="5"),
+                            ),
+                        )
+                    ]
+                ),
+                DeclStmt(
+                    declarators=[
+                        TypeOrVarDecl(name="f", type=BasicType(BasicTypeKind.LONGLONG))
+                    ]
+                ),
+                DeclStmt(
+                    declarators=[
+                        TypeOrVarDecl(
+                            name="g", type=BasicType(BasicTypeKind.UNSIGNEDLONGLONG)
+                        )
+                    ]
+                ),
+                DeclStmt(
+                    declarators=[
+                        TypeOrVarDecl(
+                            name="h", type=BasicType(BasicTypeKind.UNSIGNEDLONGLONG)
+                        )
+                    ]
+                ),
+                DeclStmt(
+                    declarators=[
+                        TypeOrVarDecl(name="i", type=BasicType(BasicTypeKind.LONG))
+                    ]
+                ),
+                DeclStmt(
+                    declarators=[
+                        TypeOrVarDecl(
+                            name="j", type=BitIntType(IntegerLiteral(value="8"))
+                        )
+                    ]
+                ),
+                DeclStmt(
+                    declarators=[
+                        TypeOrVarDecl(
+                            name="k",
+                            type=BitIntType(IntegerLiteral(value="9"), signed=False),
+                        )
+                    ]
+                ),
+                DeclStmt(
+                    declarators=[
+                        TypeOrVarDecl(
+                            name="l",
+                            type=QualifiedType(
+                                [TypeQualifier(qualifier=TypeQualifierKind.CONST)],
+                                BasicType(BasicTypeKind.INT),
+                            ),
+                        )
+                    ]
+                ),
+                DeclStmt(
+                    declarators=[
+                        TypeOrVarDecl(
+                            name="m", type=AtomicType(BasicType(BasicTypeKind.INT))
+                        )
+                    ]
+                ),
+                DeclStmt(
+                    declarators=[
+                        TypeOrVarDecl(
+                            name="n",
+                            type=AtomicType(PointerType(BasicType(BasicTypeKind.INT))),
+                        )
+                    ]
+                ),
+                DeclStmt(
+                    declarators=[
+                        TypeOrVarDecl(
+                            name="o",
+                            type=TypeofType(
+                                BinaryOperator(
+                                    op=BinOpKind.ADD,
+                                    left=IntegerLiteral(value="1"),
+                                    right=IntegerLiteral(value="1"),
+                                )
+                            ),
+                        )
+                    ]
+                ),
+                DeclStmt(
+                    declarators=[
+                        TypeOrVarDecl(
+                            name="p",
+                            type=TypeofType(
+                                PointerType(PointerType(BasicType(BasicTypeKind.INT)))
+                            ),
+                        )
+                    ]
+                ),
+                DeclStmt(
+                    declarators=[
+                        TypeOrVarDecl(
+                            name="v",
+                            type=QualifiedType(
+                                [TypeQualifier(qualifier=TypeQualifierKind.CONST)],
+                                PointerType(
+                                    QualifiedType(
+                                        [
+                                            TypeQualifier(
+                                                qualifier=TypeQualifierKind.CONST
+                                            )
+                                        ],
+                                        BasicType(BasicTypeKind.INT),
+                                    )
+                                ),
+                            ),
                         ),
-                        IntegerLiteral(value="5"),
-                    )
+                        TypeOrVarDecl(
+                            name="w",
+                            type=QualifiedType(
+                                [TypeQualifier(qualifier=TypeQualifierKind.CONST)],
+                                BasicType(BasicTypeKind.INT),
+                            ),
+                        ),
+                    ]
                 ),
-            },
-            {
-                "name": "e",
-                "type": ArrayType(
-                    ArrayType(
-                        PointerType(BasicType(BasicTypeKind.INT)),
-                        IntegerLiteral(value="6"),
+                FunctionDef(
+                    func_name="main",
+                    func_type=FunctionType(
+                        [
+                            BasicType(BasicTypeKind.INT),
+                            ArrayType(PointerType(BasicType(BasicTypeKind.CHAR)), None),
+                        ],
+                        BasicType(BasicTypeKind.INT),
                     ),
-                    IntegerLiteral(value="5"),
                 ),
-            },
-            {"name": "f", "type": BasicType(BasicTypeKind.LONGLONG)},
-            {"name": "g", "type": BasicType(BasicTypeKind.UNSIGNEDLONGLONG)},
-            {"name": "h", "type": BasicType(BasicTypeKind.UNSIGNEDLONGLONG)},
-            {"name": "i", "type": BasicType(BasicTypeKind.LONG)},
-            {"name": "j", "type": BitIntType(IntegerLiteral(value="8"))},
-            {"name": "k", "type": BitIntType(IntegerLiteral(value="9"), signed=False)},
-            {
-                "name": "l",
-                "type": QualifiedType(
-                    [TypeQualifier(qualifier=TypeQualifierKind.CONST)],
-                    BasicType(BasicTypeKind.INT),
-                ),
-            },
-            {"name": "m", "type": AtomicType(BasicType(BasicTypeKind.INT))},
-            {
-                "name": "n",
-                "type": AtomicType(PointerType(BasicType(BasicTypeKind.INT))),
-            },
-            {
-                "name": "o",
-                "type": TypeofType(
-                    BinaryOperator(
-                        op=BinOpKind.ADD,
-                        left=IntegerLiteral(value="1"),
-                        right=IntegerLiteral(value="1"),
-                    )
-                ),
-            },
-            {
-                "name": "p",
-                "type": TypeofType(
-                    PointerType(PointerType(BasicType(BasicTypeKind.INT)))
-                ),
-            },
-        ]
-    ):
-        decl_stmt: DeclStmt = funcdef.body.items[i]
-        type_or_var_decl: TypeOrVarDecl = decl_stmt.declarators[0]
-        assert type_or_var_decl.is_typedef == False
-        assert type_or_var_decl.name == t["name"]
-        check_type(type_or_var_decl.type, t["type"])
-
-    i += 1
-    decl_stmt: DeclStmt = funcdef.body.items[i]
-    var_type = QualifiedType(
-        [TypeQualifier(qualifier=TypeQualifierKind.CONST)],
-        PointerType(
-            QualifiedType(
-                [TypeQualifier(qualifier=TypeQualifierKind.CONST)],
-                BasicType(BasicTypeKind.INT),
-            )
+            ]
         ),
     )
-    for type_or_var_decl, t in zip(decl_stmt.declarators, [{"name": "v"}]):
-        assert type_or_var_decl.is_typedef == False
-        assert type_or_var_decl.name == t["name"]
-        check_type(type_or_var_decl.type, var_type)
 
-    i += 1
-    decl_stmt: DeclStmt = funcdef.body.items[i]
-    type_or_var_decl: TypeOrVarDecl = decl_stmt.declarators[0]
-    assert type_or_var_decl.is_typedef == True
-    assert type_or_var_decl.name == "A"
-    check_type(type_or_var_decl.type, BasicType(BasicTypeKind.INT))
 
-    i += 1
-    decl_stmt: DeclStmt = funcdef.body.items[i]
-    type_or_var_decl: TypeOrVarDecl = decl_stmt.declarators[0]
-    assert type_or_var_decl.is_typedef == False
-    assert type_or_var_decl.name == "q"
-    check_type(type_or_var_decl.type, TypedefType("A", BasicType(BasicTypeKind.INT)))
-    typedef_type = type_or_var_decl.type
+def test_SymtabRelated():
+    parser = get_parser("symtab_related.txt")
+    ast: TranslationUnit = parser.start()
 
-    i += 1
-    decl_stmt: DeclStmt = funcdef.body.items[i]
-    type_or_var_decl: TypeOrVarDecl = decl_stmt.declarators[0]
-    assert type_or_var_decl.is_typedef == False
-    assert type_or_var_decl.name == "r"
-    check_type(
-        type_or_var_decl.type,
-        QualifiedType(
-            [TypeQualifier(qualifier=TypeQualifierKind.CONST)],
-            typedef_type,
+    symtab = Symtab(ast.location)
+    ast.accept(DeclAnalyzer(symtab))
+
+    typedef_type = symtab.lookup("A")
+    struct_type = symtab.lookup("B", TAG_NAMES)
+    enum_type = symtab.lookup("C", TAG_NAMES)
+
+    assert ast.body[0].declarators[0].is_typedef
+    assert ast.body[1].declarators[0].type is typedef_type
+    assert ast.body[2].declarators[0].type.type is typedef_type
+    assert (
+        ast.body[3].specifiers[0].members_declaration[0].declarators[0].type
+        is typedef_type
+    )
+    assert ast.body[4].declarators[0].type is struct_type
+    assert ast.body[6].declarators[0].type is enum_type
+
+    check_ast(
+        ast,
+        TranslationUnit(
+            body=[
+                DeclStmt(  # 0
+                    declarators=[
+                        TypeOrVarDecl(name="A", type=BasicType(BasicTypeKind.INT))
+                    ]
+                ),
+                DeclStmt(declarators=[TypeOrVarDecl(name="q", type=typedef_type)]),  # 1
+                DeclStmt(  # 2
+                    declarators=[
+                        TypeOrVarDecl(
+                            name="r",
+                            type=QualifiedType(
+                                [TypeQualifier(qualifier=TypeQualifierKind.CONST)],
+                                typedef_type,
+                            ),
+                        )
+                    ]
+                ),
+                DeclStmt(  # 3
+                    specifiers=[
+                        RecordDecl(
+                            struct_or_union="struct",
+                            name="B",
+                            type=struct_type,
+                            members_declaration=[
+                                FieldDecl(
+                                    declarators=[
+                                        MemberDecl(name="a", type=typedef_type)
+                                    ]
+                                )
+                            ],
+                        )
+                    ],
+                    declarators=[TypeOrVarDecl(name="s", type=struct_type)],
+                ),
+                DeclStmt(  # 4
+                    specifiers=[
+                        RecordDecl(struct_or_union="struct", name="B", type=struct_type)
+                    ],
+                    declarators=[TypeOrVarDecl(name="x", type=struct_type)],
+                ),
+                DeclStmt(  # 5
+                    specifiers=[
+                        EnumDecl(
+                            name="C",
+                            enumerators=[
+                                Enumerator(name="D", enum_type=enum_type),
+                                Enumerator(name="B", enum_type=enum_type),
+                                Enumerator(name="C", enum_type=enum_type),
+                            ],
+                        )
+                    ],
+                    declarators=[TypeOrVarDecl(name="t", type=enum_type)],
+                ),
+                DeclStmt(  # 6
+                    specifiers=[EnumDecl(name="C")],
+                    declarators=[TypeOrVarDecl(name="u", type=enum_type)],
+                ),
+            ],
         ),
     )
-    assert id(typedef_type) == id(type_or_var_decl.type.type)
 
-    i += 1
-    decl_stmt: DeclStmt = funcdef.body.items[i]
-    type_or_var_decl: TypeOrVarDecl = decl_stmt.declarators[0]
-    assert type_or_var_decl.is_typedef == False
-    assert type_or_var_decl.name == "s"
-    check_type(
-        type_or_var_decl.type,
-        RecordType("struct", "B"),
-    )
-    record_type = type_or_var_decl.type
 
-    i += 1
-    decl_stmt: DeclStmt = funcdef.body.items[i]
-    type_or_var_decl: TypeOrVarDecl = decl_stmt.declarators[0]
-    assert type_or_var_decl.is_typedef == False
-    assert type_or_var_decl.name == "x"
-    check_type(
-        type_or_var_decl.type,
-        record_type,
-    )
-    assert id(record_type) == id(type_or_var_decl.type)
+def test_Funcdef():
+    parser = get_parser("funcdef.txt")
+    ast: TranslationUnit = parser.start()
 
-    i += 1
-    decl_stmt: DeclStmt = funcdef.body.items[i]
-    type_or_var_decl: TypeOrVarDecl = decl_stmt.declarators[0]
-    assert type_or_var_decl.is_typedef == False
-    assert type_or_var_decl.name == "t"
-    check_type(
-        type_or_var_decl.type,
-        EnumType("C"),
-    )
-    enum_type = type_or_var_decl.type
+    symtab = Symtab(ast.location)
+    ast.accept(DeclAnalyzer(symtab))
 
-    i += 1
-    decl_stmt: DeclStmt = funcdef.body.items[i]
-    type_or_var_decl: TypeOrVarDecl = decl_stmt.declarators[0]
-    assert type_or_var_decl.is_typedef == False
-    assert type_or_var_decl.name == "u"
-    check_type(
-        type_or_var_decl.type,
-        enum_type,
+    check_ast(
+        ast,
+        TranslationUnit(
+            body=[
+                FunctionDef(
+                    func_name="main",
+                    func_type=FunctionType(
+                        [
+                            BasicType(BasicTypeKind.INT),
+                            ArrayPtrType(
+                                ArrayType(
+                                    PointerType(BasicType(BasicTypeKind.CHAR)), None
+                                )
+                            ),
+                        ],
+                        BasicType(BasicTypeKind.INT),
+                    ),
+                ),
+                DeclStmt(
+                    declarators=[
+                        TypeOrVarDecl(
+                            name="f",
+                            type=FunctionType(
+                                [
+                                    PointerType(
+                                        FunctionType(
+                                            [BasicType(BasicTypeKind.INT)],
+                                            BasicType(BasicTypeKind.INT),
+                                        )
+                                    )
+                                ],
+                                BasicType(BasicTypeKind.INT),
+                            ),
+                        ),
+                        TypeOrVarDecl(name="a", type=BasicType(BasicTypeKind.INT)),
+                    ]
+                ),
+                DeclStmt(
+                    declarators=[
+                        TypeOrVarDecl(
+                            name="printf",
+                            type=FunctionType(
+                                [PointerType(BasicType(BasicTypeKind.CHAR))],
+                                BasicType(BasicTypeKind.VOID),
+                                has_varparam=True,
+                            ),
+                        )
+                    ]
+                ),
+            ]
+        ),
     )
-    assert id(enum_type) == id(type_or_var_decl.type)

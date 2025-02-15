@@ -50,8 +50,8 @@ def test_postfix_expression():
             func=Reference(name="f"),
             args=[IntegerLiteral(value="1"), IntegerLiteral(value="2")],
         ),
-        Member(target=Reference(name="b"), member_name="c", is_arrow=False),
-        Member(target=Reference(name="b"), member_name="c", is_arrow=True),
+        MemberRef(target=Reference(name="b"), member_name="c", is_arrow=False),
+        MemberRef(target=Reference(name="b"), member_name="c", is_arrow=True),
         UnaryOperator(op=UnaryOpKind.POSTFIX_INC, operand=Reference(name="b")),
         UnaryOperator(op=UnaryOpKind.POSTFIX_DEC, operand=Reference(name="b")),
     ):

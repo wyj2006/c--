@@ -10,7 +10,7 @@ from AST import (
     GenericAssociation,
     ArraySubscript,
     FunctionCall,
-    Member,
+    MemberRef,
     UnaryOperator,
     UnaryOpKind,
     CompoundLiteral,
@@ -35,7 +35,7 @@ from AST import (
     TypeQualifier,
     FunctionSpecifier,
     TypedefSpecifier,
-    AlignSepcifier,
+    AlignSpecifier,
     PointerDeclarator,
     ArrayDeclarator,
     FunctionDeclarator,
@@ -310,7 +310,7 @@ class Parser:
                 and self.expect(TokenKind.PERIOD)
                 and (b := self.expect(TokenKind.IDENTIFIER))
             ):
-                a = Member(
+                a = MemberRef(
                     target=a,
                     member_name=b.text,
                     is_arrow=False,
@@ -321,7 +321,7 @@ class Parser:
                 and self.expect(TokenKind.ARROW)
                 and (b := self.expect(TokenKind.IDENTIFIER))
             ):
-                a = Member(
+                a = MemberRef(
                     target=a,
                     member_name=b.text,
                     is_arrow=True,
@@ -954,7 +954,7 @@ class Parser:
                 attribute_specifiers=[],
                 specifiers=a[0],
                 specifier_attributes=a[1],
-                declarators=b,
+                declarators=b if b != None else [],
                 location=token.location,
             )
         self.restore(z)
@@ -969,7 +969,7 @@ class Parser:
                 attribute_specifiers=a,
                 specifiers=b[0],
                 specifier_attributes=b[1],
-                declarators=c,
+                declarators=c if c != None else [],
                 location=token.location,
             )
         self.restore(z)
@@ -1287,7 +1287,7 @@ class Parser:
                 attribute_specifiers=a,
                 specifiers=b[0],
                 specifier_attributes=b[1],
-                declarators=c,
+                declarators=c if c != None else [],
                 location=token.location,
             )
         self.restore(z)
@@ -1619,7 +1619,7 @@ class Parser:
             and (b := self.type_name())
             and self.expect(TokenKind.R_PAREN)
         ):
-            return AlignSepcifier(type_or_expr=b, location=a.location)
+            return AlignSpecifier(type_or_expr=b, location=a.location)
         self.restore(z)
         if (
             (a := self.expect(TokenKind.ALIGNAS))
@@ -1627,7 +1627,7 @@ class Parser:
             and (b := self.constant_expression())
             and self.expect(TokenKind.R_PAREN)
         ):
-            return AlignSepcifier(type_or_expr=b, location=a.location)
+            return AlignSpecifier(type_or_expr=b, location=a.location)
         self.restore(z)
         return None
 
@@ -1906,6 +1906,7 @@ class Parser:
             return ParamDecl(
                 attribute_specifiers=a,
                 specifiers=b[0],
+                specifier_attributes=b[1],
                 declarator=c,
                 location=token.location,
             )
@@ -1917,7 +1918,8 @@ class Parser:
         ):
             return ParamDecl(
                 attribute_specifiers=a,
-                specifiers=b,
+                specifiers=b[0],
+                specifier_attributes=b[1],
                 declarator=c,
                 location=token.location,
             )

@@ -6,6 +6,7 @@ from AST.Expr import (
     FloatLiteral,
     CharLiteral,
     StringLiteral,
+    Reference,
 )
 from AST.Node import Node
 
@@ -52,12 +53,28 @@ class DumpVisitor(Visitor):
 
     def visit_BinaryOperator(self, node: BinaryOperator, indent=0):
         print(" " * 2 * indent + node.__class__.__name__, end=" ")
-        print(node.op.value)
+        for i in node._attributes:
+            if i == "op":
+                print(node.op.value, end=" ")
+                continue
+            if hasattr(node, i):
+                print(getattr(node, i), end=" ")
+            else:
+                print(end="")
+        print()
         self.generic_visit(node, lambda node, _: node.accept(self, indent + 1))
 
     def visit_UnaryOperator(self, node: UnaryOperator, indent=0):
         print(" " * 2 * indent + node.__class__.__name__, end=" ")
-        print(node.op.value)
+        for i in node._attributes:
+            if i == "op":
+                print(node.op.value, end=" ")
+                continue
+            if hasattr(node, i):
+                print(getattr(node, i), end=" ")
+            else:
+                print(end="")
+        print()
         self.generic_visit(node, lambda node, _: node.accept(self, indent + 1))
 
 
@@ -105,5 +122,8 @@ class FormatVisitor(Visitor):
     def visit_UnaryOperator(self, node: UnaryOperator):
         # TODO: 优先级
         return node.op.value + node.operand.accept(self)
+
+    def visit_Reference(self, node: Reference):
+        return node.name
 
     # FIXME:

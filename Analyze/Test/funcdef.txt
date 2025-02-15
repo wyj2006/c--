@@ -1,0 +1,6 @@
+int main(int argc,char* argv[])
+{
+}
+
+int f(int g(int)),a;
+extern void printf(char* msg, ...);

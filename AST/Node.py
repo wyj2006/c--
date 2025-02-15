@@ -1,4 +1,4 @@
-from Basic import Location, Token
+from Basic import Location, Token, Symtab
 
 
 class Node:
@@ -7,6 +7,9 @@ class Node:
     attribute_specifiers: list["AttributeSpecifier"]
 
     location: Location  # 语法树对应代码的位置
+
+    _symtab: Symtab  # 如果进入语法树会进入一个新的作用域, 这个变量将会保存这个作用域对应的Symtab
+
     _fields: tuple[str] = ("attribute_specifiers",)  # 子节点名称
     _attributes: tuple[str] = ("location",)  # 节点属性
 

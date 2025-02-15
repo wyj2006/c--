@@ -9,6 +9,7 @@ from enum import Enum
 class DiagnosticKind(Enum):
     ERROR = "error"
     WARNING = "warning"
+    NOTE = "note"
 
 
 class Diagnostic(Exception):
@@ -23,6 +24,8 @@ class Diagnostic(Exception):
             print(Fore.RED + "错误", end=": ")
         elif self.kind == DiagnosticKind.WARNING:
             print(Fore.YELLOW + "警告", end=": ")
+        elif self.kind == DiagnosticKind.NOTE:
+            print(Fore.BLUE + "附注", end=": ")
         print(self.msg)
         indent = " " * 4
         for loc in self.location:
@@ -43,8 +46,13 @@ class Error(Diagnostic):
         super().__init__(msg, location, DiagnosticKind.ERROR)
 
 
+class Note(Diagnostic):
+    def __init__(self, msg: str, location: Location):
+        super().__init__(msg, location, DiagnosticKind.NOTE)
+
+
 class Diagnostics(Exception):
-    def __init__(self, diagnostic_list: list[Error]):
+    def __init__(self, diagnostic_list: list[Diagnostic]):
         self.list = diagnostic_list
 
     def __add__(self, other: Union[list[Diagnostic], "Diagnostics"]):

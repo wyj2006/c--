@@ -2,6 +2,7 @@ from enum import Enum
 from typing import Any, Union
 from AST.Node import Node
 from AST.Decl import TypeName, StorageClass
+from Basic import Symbol
 
 
 class Expr(Node):
@@ -40,8 +41,9 @@ class Reference(Expr):
     """对名字的引用"""
 
     name: str
+    symbol: Symbol  # 名字对应的符号
 
-    _attributes = Expr._attributes + ("name",)
+    _attributes = Expr._attributes + ("name", "symbol")
 
 
 class GenericAssociation(Expr):
@@ -80,7 +82,7 @@ class FunctionCall(Expr):
     _fields = Expr._fields + ("func", "args")
 
 
-class Member(Expr):
+class MemberRef(Expr):
     """成员"""
 
     target: Expr

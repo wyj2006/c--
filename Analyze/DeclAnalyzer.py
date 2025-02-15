@@ -1,6 +1,5 @@
 from typing import TypedDict
 from AST import (
-    Visitor,
     Declarator,
     NameDeclarator,
     BasicTypeSpecifier,
@@ -26,16 +25,13 @@ from AST import (
     TypeName,
     BitIntSpecifier,
     SingleDeclration,
-    CompoundStmt,
-    IfStmt,
-    SwitchStmt,
-    ForStmt,
-    WhileStmt,
-    DoWhileStmt,
     Node,
+    Enumerator,
+    FunctionSpecifier,
+    AlignSpecifier,
+    MemberDecl,
 )
 from Basic import (
-    Symtab,
     BasicType,
     PointerType,
     ArrayType,
@@ -49,42 +45,45 @@ from Basic import (
     BitIntType,
     Error,
     TAG_NAMES,
+    ArrayPtrType,
+    BasicTypeKind,
+    AutoType,
 )
+from Analyze.Analyzer import Analyzer, block_scope, func_prototype_scope, AnalyzerState
 
 
 class DeclInfoDict(TypedDict):
     qualifiers: list[TypeQualifier]
-    store_classes: list[StorageClass]
+    storage_classes: list[StorageClass]
     name: str
     type: Node
     is_func_prototype: bool
+    function_specifiers: list[FunctionSpecifier]
+    align_specifiers: list[AlignSpecifier]
 
 
 def default_declinfo_dict() -> DeclInfoDict:
     return {
         "name": "",
         "qualifiers": [],
-        "store_classes": [],
+        "storage_classes": [],
         "type": None,
         "is_func_prototype": True,
+        "function_specifiers": [],
+        "align_specifiers": [],
     }
 
 
-def block_scope(func):
-    def inner(self: "DeclAnalyzer", node: Node, *args, **kwargs):
-        self.cur_symtab = self.cur_symtab.enterScope(node.location)
-        func(self, node, *args, **kwargs)
-        self.cur_symtab = self.cur_symtab.leaveScope()
+class DeclAnalyzer(Analyzer):
+    """
+    完成的任务:
+    1. 根据声明的specifier和declarator生成对应的类型
+    2. 将一些类型加入符号表: typedef, struct, union,enum
+    3. 获取声明的变量名(如果有的话)
+    4. 将这些信息和其它specifier或storage_class汇集到一个Node(TypeOrVarDecl)里面供后续步骤使用
 
-    return inner
-
-
-class DeclAnalyzer(Visitor):
-    """在该Visitor中, 每个方法都会额外传一个DeclInfoDict类型的参数"""
-
-    def __init__(self, symtab: Symtab):
-        super().__init__()
-        self.cur_symtab = symtab
+    在该Visitor中, 每个方法都会额外传一个DeclInfoDict类型的参数
+    """
 
     def visit_Node(self, node, decl_info=None):
         self.generic_visit(
@@ -94,8 +93,7 @@ class DeclAnalyzer(Visitor):
 
     def sortSpecifiers(self, specifiers: list[SpecifierOrQualifier]):
         """
-        排序Declaration.specifiers
-        并对BasicTypeSpecifier进行组合
+        排序Declaration.specifiers, 方便以后的操作
         """
 
         def get_key(a: SpecifierOrQualifier):
@@ -159,10 +157,8 @@ class DeclAnalyzer(Visitor):
         for declarator in node.declarators:
             # 每个declarator使用独立的DeclInfoDict
             # 但由声明符声明的类型是共享的
-            sub_decl_info = default_declinfo_dict()
-            sub_decl_info["store_classes"] = decl_info["store_classes"]
-            sub_decl_info["type"] = decl_info["type"]
-            sub_decl_info["is_func_prototype"] = decl_info["is_func_prototype"]
+            sub_decl_info = decl_info.copy()
+            sub_decl_info["qualifiers"] = []
             declarator.accept(self, sub_decl_info)
 
     def visit_SingleDeclration(
@@ -174,7 +170,8 @@ class DeclAnalyzer(Visitor):
             specifier.accept(self, decl_info)
         # specifier的这些东西与declarator是分开的
         decl_info["qualifiers"] = []
-        node.declarator.accept(self, decl_info)
+        if node.declarator != None:
+            node.declarator.accept(self, decl_info)
 
         return decl_info  # 给派生类用的
 
@@ -182,23 +179,14 @@ class DeclAnalyzer(Visitor):
         decl_info = self.visit_SingleDeclration(node, decl_info)
         node.type = decl_info["type"]
 
+    @block_scope
     def visit_FunctionDef(self, node: FunctionDef, decl_info: DeclInfoDict = None):
-        self.cur_symtab = self.cur_symtab.enterScope(node.location)
-
-        decl_info = decl_info if decl_info != None else default_declinfo_dict()
-        decl_info["is_func_prototype"] = False
-
         decl_info = self.visit_SingleDeclration(node, decl_info)
 
         node.func_name = decl_info["name"]
         node.func_type = decl_info["type"]
 
-        if node.body.items == None:
-            node.body.items = []
-        for item in node.body.items:
-            item.accept(self, None)
-
-        self.cur_symtab.leaveScope()
+        self._visit_CompoundStmt(node.body)
 
     def visit_Declarator(self, node: Declarator, decl_info: DeclInfoDict):
         self.generic_visit(
@@ -210,17 +198,30 @@ class DeclAnalyzer(Visitor):
         self.visit_Declarator(node, decl_info)
         node.name = decl_info["name"]
         node.type = decl_info["type"]
-        if (
-            decl_info["store_classes"]
-            and decl_info["store_classes"][0].specifier == StorageClassSpecifier.TYPEDEF
-        ):
-            node.is_typedef = True
+        node.storage_classes = decl_info["storage_classes"]
+        node.function_specifiers = decl_info["function_specifiers"]
+
+        if len(decl_info["align_specifiers"]) > 1:
+            raise Error(
+                "只能有一个对齐说明符", decl_info["align_specifiers"][1].location
+            )
+        node.align_specifier = (
+            decl_info["align_specifiers"][0] if decl_info["align_specifiers"] else None
+        )
+
+        if node.is_typedef:
             if not self.cur_symtab.addSymbol(
                 node.name, TypedefType(node.name, node.type)
             ):
                 raise Error(f"重定义: {node.name}", node.location)
-        else:
-            node.is_typedef = False
+
+        if hasattr(node, "initializer") and node.initializer != None:
+            node.initializer.accept(self, None)
+
+    def visit_MemberDecl(self, node: MemberDecl, decl_info: DeclInfoDict):
+        self.visit_TypeOrVarDecl(node, decl_info)
+        if node.bit_field != None:
+            node.bit_field.accept(self, None)
 
     def visit_NameDeclarator(self, node: NameDeclarator, decl_info: DeclInfoDict):
         decl_info["name"] = node.name
@@ -244,6 +245,10 @@ class DeclAnalyzer(Visitor):
             node.is_static,
             node.attribute_specifiers,
         )
+        if self.state == AnalyzerState.FUNCPARAM:
+            decl_info["type"] = ArrayPtrType(
+                decl_info["type"]
+            )  # 将数组类型的形参调整到对应的指针类型
         if decl_info["qualifiers"]:
             decl_info["type"] = QualifiedType(
                 decl_info["qualifiers"], decl_info["type"]
@@ -251,28 +256,49 @@ class DeclAnalyzer(Visitor):
 
         self.visit_Declarator(node, decl_info)
 
-    def visit_FunctionDeclarator(
-        self, node: FunctionDeclarator, decl_info: DeclInfoDict
-    ):
-        return_type = decl_info["type"]
-        decl_info["type"] = functype = FunctionType(
-            [], return_type, node.has_varparam, node.attribute_specifiers
-        )  # 不完整
-        node.declarator.accept(self, decl_info)
+        if node.size != None:
+            node.size.accept(self, None)
 
-        if decl_info["is_func_prototype"]:
-            self.cur_symtab = self.cur_symtab.enterScope(node.location)
+    @func_prototype_scope
+    def visitParam(
+        self,
+        node: FunctionDeclarator,
+        functype: FunctionType,
+    ):
         for parameter in node.parameters:
             parameter.accept(self, None)
             functype.parameters_type.append(parameter.type)
-        if decl_info["is_func_prototype"]:
-            self.cur_symtab = self.cur_symtab.leaveScope()
+
+    def visit_FunctionDeclarator(
+        self,
+        node: FunctionDeclarator,
+        decl_info: DeclInfoDict,
+    ):
+        return_type = decl_info["type"]
+        decl_info["type"] = functype = FunctionType(
+            [],
+            return_type,
+            node.has_varparam,
+            node.attribute_specifiers,
+        )  # 此时的functype是不完整的
+        node.declarator.accept(self, decl_info)
+
+        self.visitParam(node, functype)
 
     def visit_ParamDecl(self, node: ParamDecl, decl_info: DeclInfoDict = None):
         decl_info = self.visit_SingleDeclration(node, decl_info)
 
         node.name = decl_info["name"]
         node.type = decl_info["type"]
+
+        if (
+            node.name
+            and isinstance(node.type, BasicType)
+            and node.type.kind == BasicTypeKind.VOID
+        ):
+            raise Error("形参不能拥有 void 类型", node.location)
+        if isinstance(node.type, FunctionType):
+            node.type = PointerType(node.type)
 
     def visit_BasicTypeSpecifier(
         self, node: BasicTypeSpecifier, decl_info: DeclInfoDict
@@ -306,11 +332,15 @@ class DeclAnalyzer(Visitor):
         if not name:
             name = f"<unnamed {node.struct_or_union} at {node.location}>"
 
-        if (a := self.cur_symtab.lookup(name, TAG_NAMES)) != None:
-            decl_info["type"] = a
+        if (
+            (a := self.cur_symtab.lookup(name, TAG_NAMES)) != None
+            and isinstance(a, RecordType)
+            and a.struct_or_union == node.struct_or_union
+        ):
+            node.type = decl_info["type"] = a
             return
 
-        decl_info["type"] = RecordType(
+        decl_info["type"] = node.type = RecordType(
             node.struct_or_union, name, node.attribute_specifiers
         )
 
@@ -330,20 +360,40 @@ class DeclAnalyzer(Visitor):
         if not name:
             name = f"<unnamed enum at {node.location}>"
 
-        if (a := self.cur_symtab.lookup(name, TAG_NAMES)) != None:
-            decl_info["type"] = a
+        if (a := self.cur_symtab.lookup(name, TAG_NAMES)) != None and isinstance(
+            a, EnumType
+        ):
+            node.type = decl_info["type"] = a
             return
 
-        decl_info["type"] = EnumType(name, node.attribute_specifiers)
+        if node.specifiers == None:
+            node.specifiers = []
+        _decl_info = default_declinfo_dict()
+        for specifier in self.sortSpecifiers(node.specifiers):
+            specifier.accept(self, _decl_info)
+        node.underlying_type = _decl_info["type"]
+
+        node.type = decl_info["type"] = EnumType(
+            name, node.underlying_type, node.attribute_specifiers
+        )
 
         if not self.cur_symtab.addSymbol(name, decl_info["type"], TAG_NAMES):
             raise Error(f"重定义: {name}", node.location)
 
         for i in node.enumerators:
-            i.accept(self, None)
+            i.accept(self, decl_info)
+
+    def visit_Enumerator(self, node: Enumerator, decl_info: DeclInfoDict):
+        # Enumerator也像一个声明
+        node.enum_type = decl_info["type"]
+        if node.value != None:
+            node.value.accept(self, None)
 
     def visit_StorageClass(self, node: StorageClass, decl_info: DeclInfoDict):
-        decl_info["store_classes"].append(node)
+        if node.specifier == StorageClassSpecifier.AUTO:
+            decl_info["type"] = AutoType(None)
+        else:
+            decl_info["storage_classes"].append(node)
 
     def visit_TypeQualifier(self, node: TypeQualifier, decl_info: DeclInfoDict):
         if node.qualifier == TypeQualifierKind._ATOMIC:
@@ -365,45 +415,11 @@ class DeclAnalyzer(Visitor):
             decl_info["type"] = TypeofType(node.arg.type, node.is_unqual)
 
     def visit_BitIntSpecifier(self, node: BitIntSpecifier, decl_info: DeclInfoDict):
+        node.size.accept(self, None)
         decl_info["type"] = BitIntType(node.size)
 
-    @block_scope
-    def visit_CompoundStmt(self, node: CompoundStmt, _: DeclInfoDict = None):
-        if node.items == None:
-            node.items = []
-        for item in node.items:
-            item.accept(self, None)
+    def visit_FunctionSpecifier(self, node: FunctionSpecifier, decl_info: DeclInfoDict):
+        decl_info["function_specifiers"].append(node)
 
-    @block_scope
-    def visit_IfStmt(self, node: IfStmt, _=None):
-        node.condition_expr.accept(self, None)
-        node.body.accept(self, None)
-        if node.else_body != None:
-            node.else_body.accept(self, None)
-
-    @block_scope
-    def visit_SwitchStmt(self, node: SwitchStmt, _=None):
-        node.condition_expr.accept(self, None)
-        node.body.accept(self, None)
-
-    @block_scope
-    def visit_ForStmt(self, node: ForStmt, _=None):
-        if hasattr(node, "init_decl"):
-            node.init_decl.accept(self, None)
-        if hasattr(node, "init_expr"):
-            node.init_expr.accept(self, None)
-        if node.condition_expr != None:
-            node.condition_expr.accept(self, None)
-        if node.increase_expr != None:
-            node.increase_expr.accept(self, None)
-        node.body.accept(self, None)
-
-    @block_scope
-    def visit_WhileStmt(self, node: WhileStmt, _=None):
-        node.condition_expr.accept(self, None)
-        node.body.accept(self, None)
-
-    @block_scope
-    def visit_DoWhileStmt(self, node: DoWhileStmt, _=None):
-        node.condition_expr.accept(self, None)
-        node.body.accept(self, None)
+    def visit_AlignSepcifier(self, node: AlignSpecifier, decl_info: DeclInfoDict):
+        decl_info["align_specifiers"].append(node)

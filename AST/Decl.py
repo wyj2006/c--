@@ -1,6 +1,6 @@
 from enum import Enum
 from typing import TYPE_CHECKING, Union
-from Basic import Type
+from Basic import Type, EnumType, RecordType, FunctionType
 from AST.Node import Node, AttributeSpecifier
 from AST.Stmt import Stmt, CompoundStmt
 
@@ -26,6 +26,8 @@ class SingleDeclration(Declaration):
 
     @property
     def declarators(self):
+        if self.declarator == None:
+            return []
         return [self.declarator]
 
     _fields = list(Declaration._fields)
@@ -68,15 +70,23 @@ class Declarator(Node):
 class TypeOrVarDecl(Declarator):
     name: str
     type: Type
-    is_typedef: bool
+
+    storage_classes: list[StorageClass]  # 由DeclAnalyzer设置
+    function_specifiers: list["FunctionSpecifier"]
+    align_specifier: "AlignSpecifier"
+
+    @property
+    def is_typedef(self):
+        if not hasattr(self, "storage_classes"):
+            return False
+        for storage_class in self.storage_classes:
+            if storage_class.specifier == StorageClassSpecifier.TYPEDEF:
+                return True
+        return False
 
     initializer: "Expr"
 
-    _attributes = Declarator._attributes + (
-        "name",
-        "type",
-        "is_typedef",
-    )
+    _attributes = Declarator._attributes + ("name", "type", "is_typedef")
     _fields = Declarator._fields + ("initializer",)
 
 
@@ -161,7 +171,7 @@ class TypedefSpecifier(SpecifierOrQualifier):
     _attributes = SpecifierOrQualifier._attributes + ("specifier_name",)
 
 
-class AlignSepcifier(SpecifierOrQualifier):
+class AlignSpecifier(SpecifierOrQualifier):
     type_or_expr: Node
 
     _attributes = SpecifierOrQualifier._attributes + ("type_or_expr",)
@@ -170,9 +180,10 @@ class AlignSepcifier(SpecifierOrQualifier):
 class RecordDecl(SpecifierOrQualifier):
     struct_or_union: str
     name: str
+    type: RecordType
     members_declaration: list[Node]
 
-    _attributes = SpecifierOrQualifier._attributes + ("struct_or_union", "name")
+    _attributes = SpecifierOrQualifier._attributes + ("struct_or_union", "name", "type")
     _fields = SpecifierOrQualifier._fields + ("members_declaration",)
 
 
@@ -181,7 +192,6 @@ class FieldDecl(Declaration):
 
 
 class MemberDecl(TypeOrVarDecl):
-    is_typedef = False
     bit_field: "Expr"
 
     _fields = Declarator._fields + ("bit_field",)
@@ -190,17 +200,20 @@ class MemberDecl(TypeOrVarDecl):
 class Enumerator(Node):
     name: str
     value: "Expr"
+    enum_type: EnumType
 
-    _attributes = Node._attributes + ("name",)
+    _attributes = Node._attributes + ("name", "enum_type")
     _fields = Node._fields + ("value",)
 
 
 class EnumDecl(SpecifierOrQualifier):
     name: str
+    type: EnumType
+    underlying_type: Type
     specifiers: list[SpecifierOrQualifier]
     enumerators: list[Enumerator]
 
-    _attributes = SpecifierOrQualifier._attributes + ("name",)
+    _attributes = SpecifierOrQualifier._attributes + ("name", "underlying_type")
     _fields = SpecifierOrQualifier._fields + (
         "specifiers",
         "enumerators",
@@ -209,20 +222,20 @@ class EnumDecl(SpecifierOrQualifier):
 
 class ParamDecl(SingleDeclration):
     name: str
-    type: Node
+    type: Type
 
     _attributes = SingleDeclration._attributes + ("name", "type")
 
 
 class TypeName(SingleDeclration):
-    type: Node
+    type: Type
 
     _attributes = SingleDeclration._attributes + ("type",)
 
 
 class FunctionDef(SingleDeclration):
     func_name: str
-    func_type: Node
+    func_type: FunctionType
     body: CompoundStmt
 
     _attributes = SingleDeclration._attributes + ("func_name", "func_type")
