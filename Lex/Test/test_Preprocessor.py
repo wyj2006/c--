@@ -13,7 +13,7 @@ def examplestest(examples, handle=None):
     for example in examples:
         print(example["filename"], "=" * 64)
         reader = FileReader(
-            os.path.join(os.path.dirname(__file__), example["filename"])
+            os.path.join(os.path.dirname(__file__), "Codes", example["filename"])
         )
         lexer = Preprocessor(reader)
         if handle != None:

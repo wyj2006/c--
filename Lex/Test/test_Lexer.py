@@ -12,7 +12,7 @@ from Lex import Lexer
 def examplestest(examples):
     for example in examples:
         reader = FileReader(
-            os.path.join(os.path.dirname(__file__), example["filename"])
+            os.path.join(os.path.dirname(__file__), "Codes", example["filename"])
         )
         lexer = Lexer(reader)
         expected_exception = example.get("expected_exception", [])

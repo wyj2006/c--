@@ -1,4 +1,10 @@
-from Parse.Test.Common import *
+import inspect
+import os
+
+from AST import *
+from Basic import *
+from Lex import *
+from Parse import *
 from Analyze import *
 
 
@@ -38,3 +44,13 @@ def check_ast(node: Node, expected: Node):
                     check_type(v, val[i])
         else:
             assert attr == val
+
+
+def get_parser(filename: str):
+    caller_frame = inspect.stack()[1]
+    caller_file = caller_frame[1]
+
+    reader = FileReader(os.path.join(os.path.dirname(caller_file), "Codes", filename))
+    lexer = Preprocessor(reader)
+    parser = Parser(lexer)
+    return parser

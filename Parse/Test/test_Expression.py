@@ -1,4 +1,4 @@
-from Common import *
+from Test.Common import *
 
 
 def test_primary_expression():
