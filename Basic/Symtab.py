@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import TYPE_CHECKING, TypedDict, Union
+from typing import TYPE_CHECKING, Union
 from Basic.Location import Location
 
 if TYPE_CHECKING:
@@ -10,15 +10,15 @@ if TYPE_CHECKING:
         StorageClass,
         FunctionSpecifier,
         AlignSpecifier,
-        SpecifierOrQualifier,
+        SingleDeclration,
     )
 
 # 提供给符号表的命名空间名
-LABEL_NAMES = "label names"
-TAG_NAMES = "tag names"
-MEMBER_NAMES = "member names"
-ORDINARY_NAMES = "ordinary identifiers"
-# TODO: 属性命名空间
+LABEL_NAMES = "label_names"
+TAG_NAMES = "tag_names"
+MEMBER_NAMES = "member_names"
+ORDINARY_NAMES = "ordinary_names"
+ATTRIBUTE_NAMES = "attribute_names"
 
 
 class Symtab:
@@ -27,14 +27,37 @@ class Symtab:
     一个作用域对应一个符号表
     """
 
-    def __init__(self, begin_location: Location = None):
-        self.parent: Symtab = None
+    def __init__(self, begin_location: Location = None, parent: "Symtab" = None):
+        self.parent: Symtab = parent
         self.children: list[Symtab] = []  # 嵌套的作用域
         self.begin_location: Location = begin_location  # 作用域开始位置
-        self.namespaces: dict[str, Namespace] = {  # TODO: 属性命名空间
-            LABEL_NAMES: Namespace(LABEL_NAMES),
-            TAG_NAMES: Namespace(TAG_NAMES),
-            ORDINARY_NAMES: Namespace(ORDINARY_NAMES),
+
+        self.label_names = {}
+        self.tag_names = {}
+        self.ordinary_names = {}
+        self.member_names = {}
+
+    @property
+    def attribute_names(self):
+        from AST import (
+            NoReturnAttr,
+            NodiscardAttr,
+            DeprecatedAttr,
+            FallthroughAttr,
+            MaybeUnusedAttr,
+            UnsequencedAttr,
+            ReproducibleAttr,
+        )
+
+        return {
+            "deprecated": DeprecatedAttr,
+            "fallthrough": FallthroughAttr,
+            "maybe_unused": MaybeUnusedAttr,
+            "nodiscard": NodiscardAttr,
+            "noreturn": NoReturnAttr,
+            "_Noreturn": NoReturnAttr,
+            "unsequenced": UnsequencedAttr,
+            "reproducible": ReproducibleAttr,
         }
 
     def enterScope(self, begin_location: Location):
@@ -42,8 +65,7 @@ class Symtab:
             if child.begin_location == begin_location:
                 break
         else:
-            child = Symtab(begin_location)
-            child.parent = self
+            child = Symtab(begin_location, self)
             self.children.append(child)
         return child
 
@@ -51,27 +73,37 @@ class Symtab:
         return self.parent
 
     def lookup(self, name: str, namespace_name=ORDINARY_NAMES):
-        p = self
+        p: Symtab = self
         while p != None:
             try:
-                return p.namespaces[namespace_name].lookup(name)
+                return getattr(p, namespace_name, {})[name]
             except KeyError:
                 p = p.parent
         return None
 
     def addSymbol(self, name: str, symbol: "Symbol", namespace_name=ORDINARY_NAMES):
-        return self.namespaces[namespace_name].addSymbol(name, symbol)
+        """
+        添加符号
+        如果符号已存在, 返回False, 否则返回True
+        """
+        namespace = getattr(self, namespace_name, {})
+        if name in namespace:
+            return False
+        namespace[name] = symbol
+        return True
 
     def print(self, indent=0):
         print(" " * 4 * indent, self)
-        for namespace_name in self.namespaces:
+        for namespace_name in (LABEL_NAMES, TAG_NAMES, ORDINARY_NAMES, ORDINARY_NAMES):
+            namespace: dict = getattr(self, namespace_name)
             print(
                 " " * 4 * (indent + 1),
                 namespace_name,
-                f"({len(self.namespaces[namespace_name].symbols)})",
+                f"({len(namespace)})",
                 ":",
             )
-            self.namespaces[namespace_name].print(indent + 2)
+            for name, symbol in namespace.items():
+                print(" " * 4 * (indent + 2), name, ":", symbol)
         for child in self.children:
             child.print(indent + 1)
 
@@ -88,38 +120,8 @@ class Symbol:
             attribute_specifiers if attribute_specifiers != None else []
         )
 
-
-class Namespace(Symbol):
-    """命名空间"""
-
-    def __init__(self, name: str):
-        super().__init__()
-        self.name = name
-        self.symbols: dict[str, Symbol] = {}
-
-    def lookup(self, name):
-        return self.symbols[name]
-
-    def addSymbol(self, name: str, symbol: Symbol):
-        """返回False说明重定义"""
-        if name in self.symbols:
-            return False
-        self.symbols[name] = symbol
-        return True
-
-    def print(self, indent=0):
-        from AST import FormatVisitor
-
-        for name, symbol in self.symbols.items():
-            print(" " * 4 * indent, name, ":", symbol)
-            if isinstance(symbol, RecordType):
-                symbol.member.print(indent + 1)
-            elif isinstance(symbol, EnumType):
-                for i in symbol.enumerators:
-                    print(" " * 4 * (indent + 1), i.name, ":", end=" ")
-                    if i.value != None:
-                        print(i.value.accept(FormatVisitor()), end="")
-                    print()
+        self.define_location: Location = None  # 定义的位置
+        self.declare_locations: list[Location] = []  # 声明的位置
 
 
 class Object(Symbol):
@@ -166,7 +168,7 @@ class Parameter(Object):
     """函数参数"""
 
 
-class EnumConst:
+class EnumConst(Symbol):
     """枚举常量"""
 
     def __init__(
@@ -176,10 +178,10 @@ class EnumConst:
         value: "Expr",
         attribute_specifiers=None,
     ):
+        super().__init__(attribute_specifiers)
         self.name = name
         self.enum_type = enum_type
         self.value = value
-        self.attribute_specifiers = attribute_specifiers
 
     def __str__(self):
         from AST import FormatVisitor
@@ -189,7 +191,7 @@ class EnumConst:
         return f"{self.__class__.__name__}({self.name}, {self.enum_type}, {value_str})"
 
 
-class Function:
+class Function(Symbol):
     """函数"""
 
     def __init__(
@@ -199,57 +201,29 @@ class Function:
         function_specifiers: list["FunctionSpecifier"] = None,
         attribute_specifiers=None,
     ):
+        super().__init__(attribute_specifiers)
         self.name = name
         self.type = type
         self.function_specifiers = (
             function_specifiers if function_specifiers != None else []
         )
-        self.attribute_specifiers = attribute_specifiers
 
     def __str__(self):
         return f"{self.__class__.__name__}({self.name}, {self.type})"
-
-
-class TypeStrDict(TypedDict):
-    """
-    生成类型字符串的中间体
-    比如对于类型 int*(*[1])[2] 该字典为
-    {
-        "specifier":"int",
-        "declarators":[
-            {
-                "pointer":"*",
-                "direct":"[1]",
-            },
-            {
-                "pointer:"*",
-                "direct":"[2]"
-            }
-        ]
-    }
-    """
-
-    specifier: str
-    declarators: list
 
 
 class Type(Symbol):
     """类型符号"""
 
     def __str__(self):
-        # TODO: 更好的方法
-        typestrdict = {"specifier": "", "declarators": [{"pointer": "", "direct": ""}]}
-        self.genString(typestrdict)
-        declarators = ""
-        for i, declarator in enumerate(typestrdict["declarators"]):
-            declarators = declarator["pointer"] + declarators
-            declarators += declarator["direct"]
-            if i < len(typestrdict["declarators"]) - 1:
-                declarators = "(" + declarators + ")"  # 体现优先级
-        return typestrdict["specifier"] + declarators
+        from AST import SingleDeclration, FormatVisitor
 
-    def genString(self, typestrdict: TypeStrDict):
-        assert False, "你应该自己实现这个方法"
+        declaration = SingleDeclration(specifiers=[], declarator=None)
+        self.genDeclaration(declaration)
+        return declaration.accept(FormatVisitor())
+
+    def genDeclaration(self, declaration: "SingleDeclration"):
+        pass
 
 
 class BasicTypeKind(Enum):
@@ -264,7 +238,7 @@ class BasicTypeKind(Enum):
     UNSIGNEDSHORT = "unsigned short"
     UNSIGNEDINT = "unsigned int"
     UNSIGNEDLONG = "unsigned long"
-    UNSIGNEDLONGLONG = "unsigned long long "
+    UNSIGNEDLONGLONG = "unsigned long long"
     FLOAT = "float"
     DOUBLE = "double"
     LONGDOUBLE = "long double"
@@ -338,8 +312,12 @@ class BasicType(Type):
         super().__init__()
         self.kind = kind
 
-    def genString(self, typestrdict):
-        typestrdict["specifier"] = self.kind.value
+    def genDeclaration(self, declaration):
+        from AST import BasicTypeSpecifier
+
+        declaration.specifiers.append(
+            BasicTypeSpecifier(specifier_name=self.kind.value)
+        )
 
     def __eq__(self, other):
         return isinstance(other, BasicType) and self.kind == other.kind
@@ -351,12 +329,12 @@ class BitIntType(Type):
         self.size = size
         self.signed = signed
 
-    def genString(self, typestrdict):
-        from AST import FormatVisitor
+    def genDeclaration(self, declaration):
+        from AST import BasicTypeSpecifier, BitIntSpecifier
 
-        typestrdict["specifier"] = (
-            f"{'unsigned ' if not self.signed else ''}_BitInt({self.size.accept(FormatVisitor())})"
-        )
+        if not self.signed:
+            declaration.specifiers.append(BasicTypeSpecifier(specifier_name="unsigned"))
+        declaration.specifiers.append(BitIntSpecifier(size=self.size))
 
     def __eq__(self, other):
         return (
@@ -375,12 +353,12 @@ class PointerType(Type):
         super().__init__(attribute_specifiers)
         self.pointee_type = pointee_type
 
-    def genString(self, typestrdict):
-        typestrdict["declarators"][-1]["pointer"] += "*"
-        if isinstance(self.pointee_type, (ArrayType, FunctionType)):
-            # 优先级
-            typestrdict["declarators"].append({"pointer": "", "direct": ""})
-        self.pointee_type.genString(typestrdict)
+    def genDeclaration(self, declaration):
+        from AST import PointerDeclarator
+
+        declarator = PointerDeclarator(qualifiers=[], declarator=declaration.declarator)
+        declaration.declarator = declarator
+        self.pointee_type.genDeclaration(declaration)
 
     def __eq__(self, other):
         return (
@@ -403,14 +381,6 @@ class ArrayType(Type):
         self.is_star_modified = is_star_modified
         self.is_static = is_static
 
-    def genString(self, typestrdict):
-        from AST import FormatVisitor
-
-        typestrdict["declarators"][-1][
-            "direct"
-        ] += f"[{self.size.accept(FormatVisitor()) if self.size!=None else ''}]"
-        self.element_type.genString(typestrdict)
-
     def __eq__(self, other):
         return (
             isinstance(other, ArrayType)
@@ -419,6 +389,19 @@ class ArrayType(Type):
             and self.is_star_modified == other.is_star_modified
             and self.is_static == other.is_static
         )
+
+    def genDeclaration(self, declaration):
+        from AST import ArrayDeclarator
+
+        declarator = ArrayDeclarator(
+            size=self.size,
+            is_star_modified=self.is_star_modified,
+            is_static=self.is_static,
+            qualifiers=[],
+            declarator=declaration.declarator,
+        )
+        declaration.declarator = declarator
+        self.element_type.genDeclaration(declaration)
 
 
 class ArrayPtrType(PointerType):
@@ -442,18 +425,24 @@ class FunctionType(Type):
         self.return_type = return_type
         self.has_varparam = has_varparam
 
-    def genString(self, typestrdict):
-        self.return_type.genString(typestrdict)
-        direct = typestrdict["declarators"][-1]["direct"]
-        direct += "("
-        for i, parameter_type in enumerate(self.parameters_type):
-            direct += str(parameter_type)
-            if i < len(self.parameters_type) - 1:
-                direct += ", "
-        if self.has_varparam:
-            direct += ",..."
-        direct += ")"
-        typestrdict["declarators"][-1]["direct"] = direct
+    def genDeclaration(self, declaration):
+        from AST import FunctionDeclarator, ParamDecl
+
+        declarator = FunctionDeclarator(
+            parameters=[],
+            has_varparam=self.has_varparam,
+            qualifiers=[],
+            declarator=declaration.declarator,
+        )
+
+        for i in self.parameters_type:
+            param_decl = ParamDecl(specifiers=[], declarator=None)
+            i.genDeclaration(param_decl)
+            declarator.parameters.append(param_decl)
+
+        declaration.declarator = declarator
+
+        self.return_type.genDeclaration(declaration)
 
     def __eq__(self, other):
         return (
@@ -474,17 +463,21 @@ class RecordType(Type):
         super().__init__(attribute_specifiers)
         self.struct_or_union = struct_or_union
         self.name = name
-        self.member: Namespace = None  # Namespace(MEMBER_NAMES)
+        self.members: dict[str, Member] = {}
 
-    def genString(self, typestrdict):
-        typestrdict["specifier"] = f"{self.struct_or_union} {self.name}"
+    def genDeclaration(self, declaration):
+        from AST import RecordDecl
+
+        declaration.specifiers.append(
+            RecordDecl(struct_or_union=self.struct_or_union, name=self.name)
+        )
 
     def __eq__(self, other):
         return (
             isinstance(other, RecordType)
             and self.struct_or_union == other.struct_or_union
             and self.name == other.name
-            and self.member == other.member
+            and self.members == other.members
         )
 
 
@@ -494,8 +487,13 @@ class TypedefType(Type):
         self.name = name
         self.type = type
 
-    def genString(self, typestrdict):
-        typestrdict["specifier"] = f"{self.name}:{self.type}"
+    def __str__(self):
+        return f"{self.name}:{self.type}"
+
+    def genDeclaration(self, declaration):
+        from AST import TypedefSpecifier
+
+        declaration.specifiers.append(TypedefSpecifier(specifier_name=self.name))
 
     def __eq__(self, other):
         return (
@@ -515,10 +513,12 @@ class EnumType(Type):
         super().__init__(attribute_specifiers)
         self.name = name
         self.underlying_type = underlying_type
-        self.enumerators: list[EnumConst] = []
+        self.enumerators: dict[str, EnumConst] = {}
 
-    def genString(self, typestrdict):
-        typestrdict["specifier"] = f"enum {self.name}"
+    def genDeclaration(self, declaration):
+        from AST import EnumDecl
+
+        declaration.specifiers.append(EnumDecl(name=self.name))
 
     def __eq__(self, other):
         return (
@@ -536,8 +536,13 @@ class AtomicType(Type):
         super().__init__(attribute_specifiers)
         self.type = type
 
-    def genString(self, typestrdict):
-        typestrdict["specifier"] = f"_Atomic({self.type})"
+    def genDeclaration(self, declaration):
+        from AST import AtomicSpecifier, TypeName
+
+        type_name = TypeName(specifiers=[], declarator=None)
+        self.type.genDeclaration(type_name)
+
+        declaration.specifiers.append(AtomicSpecifier(type_name=type_name))
 
     def __eq__(self, other):
         return isinstance(other, AtomicType) and self.type == other.type
@@ -560,16 +565,18 @@ class TypeofType(Type):
 
         return isinstance(self.type_or_expr, Expr)
 
-    def genString(self, typestrdict):
-        from AST import FormatVisitor
+    def genDeclaration(self, declaration):
+        from AST import TypeName, TypeOfSpecifier
 
-        typestrdict["specifier"] = f"typeof{'_unqual' if self.is_unqual else ''}("
-        typestrdict["specifier"] += (
-            str(self.type_or_expr)
-            if not self.is_typeof_expr
-            else self.type_or_expr.accept(FormatVisitor())
+        if isinstance(self.type_or_expr, Type):
+            arg = TypeName(specifiers=[], declarator=None)
+            self.type_or_expr.genDeclaration(arg)
+        else:
+            arg = self.type_or_expr
+
+        declaration.specifiers.append(
+            TypeOfSpecifier(arg=arg, is_unqual=self.is_unqual)
         )
-        typestrdict["specifier"] += ")"
 
     def __eq__(self, other):
         return (
@@ -587,13 +594,12 @@ class QualifiedType(Type):
         self.qualifiers = qualifiers
         self.type = type
 
-    def genString(self, typestrdict):
-        self.type.genString(typestrdict)
-        qualifier_str = " ".join([i.qualifier.value for i in self.qualifiers])
-        if isinstance(self.type, PointerType):
-            typestrdict["declarators"][-1]["pointer"] += qualifier_str
+    def genDeclaration(self, declaration):
+        self.type.genDeclaration(declaration)
+        if isinstance(self.type, (PointerType, ArrayType, FunctionType)):
+            declaration.declarator.qualifiers.extend(self.qualifiers)
         else:
-            typestrdict["specifier"] = qualifier_str + " " + typestrdict["specifier"]
+            declaration.specifiers = self.qualifiers + declaration.specifiers
 
     def __eq__(self, other):
         return (
@@ -608,8 +614,10 @@ class AutoType(Type):
         super().__init__(attribute_specifiers)
         self.type = type
 
-    def genString(self, typestrdict):
-        typestrdict["specifier"] = f"auto:{self.type}"
+    def __str__(self):
+        if self.type == None:
+            return "auto"
+        return f"auto:{self.type}"
 
     def __eq__(self, other):
         return isinstance(other, AutoType) and self.type == other.type

@@ -1,7 +1,7 @@
 import colorama
 from argparse import ArgumentParser
 from AST import DumpVisitor
-from Analyze import DeclAnalyzer, SymtabFiller
+from Analyze import DeclAnalyzer, SymtabFiller, AttrAnalyzer
 from Basic import Error, FileReader, Diagnostics, Symtab
 from Lex import Preprocessor
 from Parse import Parser, generate_diagnostic
@@ -44,6 +44,7 @@ def main():
             raise diagnostics
 
         symtab = Symtab(ast.location)
+        ast.accept(AttrAnalyzer(symtab))
         ast.accept(DeclAnalyzer(symtab))
         ast.accept(SymtabFiller(symtab))
 

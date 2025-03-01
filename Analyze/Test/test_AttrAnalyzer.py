@@ -1,0 +1,27 @@
+from Test.Common import *
+
+
+def test_Attribute():
+    parser = get_parser("attribute.txt")
+    ast: TranslationUnit = parser.start()
+
+    symtab = Symtab(ast.location)
+    ast.accept(AttrAnalyzer(symtab))
+
+    check_ast(
+        ast,
+        TranslationUnit(
+            body=[
+                AttributeDeclStmt(
+                    attribute_specifiers=[
+                        AttributeSpecifier(
+                            attributes=[
+                                DeprecatedAttr(),
+                                Attribute(prefix_name="hal", name="daisy"),
+                            ]
+                        )
+                    ]
+                )
+            ]
+        ),
+    )

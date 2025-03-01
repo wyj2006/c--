@@ -27,7 +27,6 @@ from AST import (
     SingleDeclration,
     Node,
     Enumerator,
-    FunctionSpecifier,
     AlignSpecifier,
     MemberDecl,
 )
@@ -48,6 +47,7 @@ from Basic import (
     ArrayPtrType,
     BasicTypeKind,
     AutoType,
+    Diagnostics,
 )
 from Analyze.Analyzer import Analyzer, block_scope, func_prototype_scope, AnalyzerState
 
@@ -58,8 +58,7 @@ class DeclInfoDict(TypedDict):
     name: str
     type: Node
     is_func_prototype: bool
-    function_specifiers: list[FunctionSpecifier]
-    align_specifiers: list[AlignSpecifier]
+    declaration: Declaration
 
 
 def default_declinfo_dict() -> DeclInfoDict:
@@ -69,8 +68,7 @@ def default_declinfo_dict() -> DeclInfoDict:
         "storage_classes": [],
         "type": None,
         "is_func_prototype": True,
-        "function_specifiers": [],
-        "align_specifiers": [],
+        "declaration": None,
     }
 
 
@@ -150,9 +148,12 @@ class DeclAnalyzer(Analyzer):
 
     def visit_Declaration(self, node: Declaration, decl_info: DeclInfoDict = None):
         decl_info = decl_info if decl_info != None else default_declinfo_dict()
+        decl_info["declaration"] = node
 
         for specifier in self.sortSpecifiers(node.specifiers):
             specifier.accept(self, decl_info)
+
+        decl_info["type"].attribute_specifiers.extend(node.specifier_attributes)
 
         for declarator in node.declarators:
             # 每个declarator使用独立的DeclInfoDict
@@ -165,9 +166,11 @@ class DeclAnalyzer(Analyzer):
         self, node: SingleDeclration, decl_info: DeclInfoDict = None
     ):
         decl_info = decl_info if decl_info != None else default_declinfo_dict()
+        decl_info["declaration"] = node
 
         for specifier in self.sortSpecifiers(node.specifiers):
             specifier.accept(self, decl_info)
+        decl_info["type"].attribute_specifiers.extend(node.specifier_attributes)
         # specifier的这些东西与declarator是分开的
         decl_info["qualifiers"] = []
         if node.declarator != None:
@@ -198,16 +201,14 @@ class DeclAnalyzer(Analyzer):
         self.visit_Declarator(node, decl_info)
         node.name = decl_info["name"]
         node.type = decl_info["type"]
+        node.declaration = decl_info["declaration"]
         node.storage_classes = decl_info["storage_classes"]
-        node.function_specifiers = decl_info["function_specifiers"]
 
-        if len(decl_info["align_specifiers"]) > 1:
-            raise Error(
-                "只能有一个对齐说明符", decl_info["align_specifiers"][1].location
-            )
-        node.align_specifier = (
-            decl_info["align_specifiers"][0] if decl_info["align_specifiers"] else None
-        )
+        align_specifiers = [
+            i for i in node.declaration.specifiers if isinstance(i, AlignSpecifier)
+        ]
+        if len(align_specifiers) > 1:
+            raise Error("只能有一个对齐说明符", align_specifiers[1].location)
 
         if node.is_typedef:
             if not self.cur_symtab.addSymbol(
@@ -332,20 +333,22 @@ class DeclAnalyzer(Analyzer):
         if not name:
             name = f"<unnamed {node.struct_or_union} at {node.location}>"
 
-        if (
-            (a := self.cur_symtab.lookup(name, TAG_NAMES)) != None
-            and isinstance(a, RecordType)
-            and a.struct_or_union == node.struct_or_union
-        ):
-            node.type = decl_info["type"] = a
-            return
-
         decl_info["type"] = node.type = RecordType(
             node.struct_or_union, name, node.attribute_specifiers
         )
 
-        if not self.cur_symtab.addSymbol(name, decl_info["type"], TAG_NAMES):
-            raise Error(f"重定义: {name}", node.location)
+        if not self.cur_symtab.addSymbol(name, node.type, TAG_NAMES):
+            old_symbol = self.cur_symtab.lookup(name, TAG_NAMES)
+            if node.type != old_symbol:
+                raise Diagnostics(
+                    [
+                        Error(f"重定义: {name}", node.location),
+                        Node("上一个定义", old_symbol.define_location),
+                    ]
+                )
+            node.type = decl_info["type"] = old_symbol
+
+        node.type.declare_locations.append(node.location)
 
         for i in node.members_declaration:
             i.accept(self, None)
@@ -360,12 +363,6 @@ class DeclAnalyzer(Analyzer):
         if not name:
             name = f"<unnamed enum at {node.location}>"
 
-        if (a := self.cur_symtab.lookup(name, TAG_NAMES)) != None and isinstance(
-            a, EnumType
-        ):
-            node.type = decl_info["type"] = a
-            return
-
         if node.specifiers == None:
             node.specifiers = []
         _decl_info = default_declinfo_dict()
@@ -377,8 +374,18 @@ class DeclAnalyzer(Analyzer):
             name, node.underlying_type, node.attribute_specifiers
         )
 
-        if not self.cur_symtab.addSymbol(name, decl_info["type"], TAG_NAMES):
-            raise Error(f"重定义: {name}", node.location)
+        if not self.cur_symtab.addSymbol(name, node.type, TAG_NAMES):
+            old_symbol = self.cur_symtab.lookup(name, TAG_NAMES)
+            if node.type != old_symbol:
+                raise Diagnostics(
+                    [
+                        Error(f"重定义: {name}", node.location),
+                        Node("上一个定义", old_symbol.define_location),
+                    ]
+                )
+            node.type = decl_info["type"] = old_symbol
+
+        node.type.declare_locations.append(node.location)
 
         for i in node.enumerators:
             i.accept(self, decl_info)
@@ -417,9 +424,3 @@ class DeclAnalyzer(Analyzer):
     def visit_BitIntSpecifier(self, node: BitIntSpecifier, decl_info: DeclInfoDict):
         node.size.accept(self, None)
         decl_info["type"] = BitIntType(node.size)
-
-    def visit_FunctionSpecifier(self, node: FunctionSpecifier, decl_info: DeclInfoDict):
-        decl_info["function_specifiers"].append(node)
-
-    def visit_AlignSepcifier(self, node: AlignSpecifier, decl_info: DeclInfoDict):
-        decl_info["align_specifiers"].append(node)

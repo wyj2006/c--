@@ -48,14 +48,7 @@ from AST import (
     Designator,
     StaticAssert,
     Attribute,
-    DeprecatedAttr,
-    NoReturnAttr,
     AttributeSpecifier,
-    NodiscardAttr,
-    FallthroughAttr,
-    MaybeUnusedAttr,
-    UnsequencedAttr,
-    ReproducibleAttr,
     LabelStmt,
     CaseStmt,
     DefaultStmt,
@@ -1237,7 +1230,7 @@ class Parser:
                 struct_or_union=a.text,
                 attribute_specifiers=b,
                 name=c.text if c != None else "",
-                members_declaration=None,
+                members_declaration=[],
                 location=a.location,
             )
         self.restore(z)
@@ -1417,7 +1410,7 @@ class Parser:
                 attribute_specifiers=None,
                 name=b.text,
                 specifiers=c,
-                enumerators=None,
+                enumerators=[],
                 location=a.location,
             )
         self.restore(z)
@@ -1939,6 +1932,7 @@ class Parser:
         ):
             return TypeName(
                 specifiers=a[0],
+                specifier_attributes=[],
                 specifiers_attributes=a[1],
                 declarator=b,
                 location=token.location,
@@ -2369,30 +2363,19 @@ class Parser:
         """
         z = self.save()
         token = self.curtoken()
-        if token.kind == TokenKind.IDENTIFIER:
-            standard_attribute = {
-                "deprecated": DeprecatedAttr,
-                "fallthrough": FallthroughAttr,
-                "maybe_unused": MaybeUnusedAttr,
-                "nodiscard": NodiscardAttr,
-                "noreturn": NoReturnAttr,
-                "_Noreturn": NoReturnAttr,
-                "unsequenced": UnsequencedAttr,
-                "reproducible": ReproducibleAttr,
-            }
-            if token.text in standard_attribute:
-                self.expect(TokenKind.IDENTIFIER)
-                return standard_attribute[token.text](location=token.location)
-            if (
-                self.expect(TokenKind.IDENTIFIER)
-                and self.expect(TokenKind.COLONCOLON)
-                and (b := self.expect(TokenKind.IDENTIFIER))
-            ):
-                return Attribute(
-                    prefix_name=token.text,
-                    name=b.text,
-                    location=token.location,
-                )
+        if (
+            (a := self.expect(TokenKind.IDENTIFIER))
+            and self.expect(TokenKind.COLONCOLON)
+            and (b := self.expect(TokenKind.IDENTIFIER))
+        ):
+            return Attribute(
+                prefix_name=a.text,
+                name=b.text,
+                location=token.location,
+            )
+        self.restore(z)
+        if a := self.expect(TokenKind.IDENTIFIER):
+            return Attribute(prefix_name="", name=a.text, location=token.location)
         self.restore(z)
         return None
 
@@ -2468,8 +2451,14 @@ class Parser:
             and self.expect(TokenKind.R_BRACE)
         ):
             return a
-        a = self.expect(self.curtoken().kind)
-        return a
+        if self.curtoken().kind not in (
+            TokenKind.R_PAREN,
+            TokenKind.R_SQUARE,
+            TokenKind.R_BRACE,
+        ):
+            return self.expect(self.curtoken().kind)
+        self.restore(z)
+        return None
 
     @update_call_tree
     def statement(self):

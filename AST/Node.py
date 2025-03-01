@@ -4,7 +4,7 @@ from Basic import Location, Token, Symtab
 class Node:
     """语法树节点"""
 
-    attribute_specifiers: list["AttributeSpecifier"]
+    attribute_specifiers: list["AttributeSpecifier"] = []
 
     location: Location  # 语法树对应代码的位置
 
@@ -25,12 +25,13 @@ class Node:
             return method(self, *args, **kwargs)
 
 
+# TODO: 考虑是否继承于Symbol
 class Attribute(Node):
     prefix_name: str
     name: str
     args: list[Token]
 
-    _attributes = Node._attributes + ("prefix_name", "name", "args")
+    _attributes = Node._attributes + ("prefix_name", "name")
 
 
 class DeprecatedAttr(Attribute):

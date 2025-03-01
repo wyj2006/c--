@@ -4,7 +4,6 @@ from AST import (
     TypeOrVarDecl,
     ParamDecl,
     FunctionDef,
-    Node,
     Enumerator,
     RecordDecl,
     MemberDecl,
@@ -12,24 +11,24 @@ from AST import (
     FunctionSpecifier,
     StorageClassSpecifier,
     EnumDecl,
+    AlignSpecifier,
 )
 from Basic import (
     Object,
     Error,
     Member,
     EnumConst,
-    ORDINARY_NAMES,
     MEMBER_NAMES,
-    Namespace,
+    TAG_NAMES,
+    Symbol,
     Parameter,
     Function,
     FunctionType,
     EnumType,
     Note,
     Diagnostics,
-    Symbol,
-    Diagnostic,
     ArrayType,
+    Warning,
 )
 
 
@@ -38,26 +37,6 @@ class SymtabFiller(Analyzer):
     完成的任务:
     1. 将有关的符号插入符号表中
     """
-
-    def addSymbol(
-        self,
-        node: Node,
-        name: str,
-        *args,
-        cls=Object,
-        namespace_name=ORDINARY_NAMES,
-    ) -> Symbol:
-        new_symbol = cls(name, *args)
-        new_symbol.define_location = node.location
-        if not self.cur_symtab.addSymbol(name, new_symbol, namespace_name):
-            symbol = self.cur_symtab.lookup(name, namespace_name)
-            raise Diagnostics(
-                [
-                    Error(f"重定义: {name}", node.location),
-                    Note("上一个定义", symbol.define_location),
-                ]
-            )
-        return new_symbol
 
     def visit_TypeOrVarDecl(self, node: TypeOrVarDecl):
         if node.is_typedef:
@@ -106,32 +85,52 @@ class SymtabFiller(Analyzer):
                 node.storage_classes[1].location,
             )
 
-        cls = Object
-        args = (node.type, node.storage_classes, node.align_specifier)
         if isinstance(node.type, FunctionType):
-            cls = Function
-            args = (node.type, node.function_specifiers)
+            symbol = Function(
+                node.name,
+                node.type,
+                node.function_specifiers,
+                node.attribute_specifiers,
+            )
         elif node.function_specifiers:
             raise Error(
                 f"非函数不能有 {node.function_specifiers[0].specifier_name} 说明符",
                 node.function_specifiers[0].location,
             )
+        else:
+            symbol = Object(
+                node.name,
+                node.type,
+                node.storage_classes,
+                node.align_specifier,
+                node.attribute_specifiers,
+            )
 
-        try:
-            symbol = self.addSymbol(node, node.name, *args, cls=cls)
-        except Diagnostic as e:
-            symbol: Union[Object, Function] = self.cur_symtab.lookup(node.name)
-            # cls==Object and symbol.type!=node.type or cls==Function and symbol.type!=node.type
-            if symbol.type != node.type:
-                raise e
+        if not self.cur_symtab.addSymbol(node.name, symbol):
+            old_symbol: Union[Object, Function] = self.cur_symtab.lookup(node.name)
+            diagnostics = Diagnostics(
+                [
+                    Error(f"重定义: {node.name}", node.location),
+                    Note("上一个定义", old_symbol.define_location),
+                ]
+            )
+            if (
+                not isinstance(old_symbol, symbol.__class__)
+                and symbol.type != old_symbol.type
+            ):
+                raise diagnostics
             if (
                 isinstance(symbol, Object)
-                and symbol.initializer != None
+                and old_symbol.define_location != None
                 and node.initializer != None
-            ):  # 重定义
-                raise e
+            ):
+                raise diagnostics
+            symbol = old_symbol
+
+        symbol.declare_locations.append(node.location)
 
         if node.initializer != None:
+            symbol.define_location = node.location
             node.initializer.accept(self)
 
         if isinstance(symbol, Object):
@@ -142,18 +141,33 @@ class SymtabFiller(Analyzer):
     def visit_MemberDecl(self, node: MemberDecl):
         if isinstance(node.type, FunctionType):
             raise Error("成员不能是函数", node.location)
-        self.addSymbol(
-            node,
+
+        symbol = Member(
             node.name,
             node.type,
             node.bit_field,
-            node.storage_classes,
+            node.storage_classes,  # 实际上Member是不会有storage_class的, 这是在语法分析时的限制
             node.align_specifier,
-            cls=Member,
-            namespace_name=MEMBER_NAMES,
+            node.attribute_specifiers,
         )
 
+        if not self.cur_symtab.addSymbol(
+            node.name, symbol, namespace_name=MEMBER_NAMES
+        ):
+            old_symbol = self.cur_symtab.lookup(node.name, namespace_name=MEMBER_NAMES)
+            raise Diagnostics(
+                [
+                    Error(f"重定义: {node.name}", node.location),
+                    Note("上一个定义", old_symbol.define_location),
+                ]
+            )
+        symbol.define_location = node.location
+        symbol.declare_locations.append(node.location)
+
     def visit_ParamDecl(self, node: ParamDecl):
+        if not node.name:
+            return
+
         storage_classes: list[StorageClass] = [
             i for i in node.specifiers if isinstance(i, StorageClass)
         ]
@@ -169,65 +183,105 @@ class SymtabFiller(Analyzer):
                 "对形参允许的存储类说明符仅有 register", storage_classes[i].location
             )
 
-        self.addSymbol(
-            node,
-            node.name,
-            node.type,
-            storage_classes,
-            cls=Parameter,
+        align_specifiers = [i for i in node.specifiers if isinstance(i, AlignSpecifier)]
+        if align_specifiers:
+            raise Error("函数参数没有对齐说明符", node.location)
+
+        symbol = Parameter(
+            node.name, node.type, storage_classes, None, node.attribute_specifiers
         )
+
+        if not self.cur_symtab.addSymbol(node.name, symbol):
+            old_symbol = self.cur_symtab.lookup(node.name)
+            raise Diagnostics(
+                [
+                    Error(f"重定义: {node.name}", node.location),
+                    Note("上一个定义", old_symbol.define_location),
+                ]
+            )
+        symbol.define_location = node.location
+        symbol.declare_locations.append(node.location)
 
     def visit_FunctionDef(self, node: FunctionDef):
         if isinstance(node.func_type.return_type, ArrayType):
             raise Error("函数返回类型不能是数组", node.location)
-        self.addSymbol(
-            node,
+        symbol = Function(
             node.func_name,
             node.func_type,
             [i for i in node.specifiers if isinstance(i, FunctionSpecifier)],
-            cls=Function,
+            node.attribute_specifiers,
         )
+
+        if not self.cur_symtab.addSymbol(node.func_name, symbol):
+            old_symbol = self.cur_symtab.lookup(node.func_name)
+            diagnostics = Diagnostics(
+                [
+                    Error(f"重定义: {node.func_name}", node.location),
+                    Note("上一个定义", old_symbol.define_location),
+                ]
+            )
+            if not isinstance(old_symbol, Function) or symbol.type != old_symbol.type:
+                raise diagnostics
+            if old_symbol.define_location != None:
+                raise diagnostics
+            symbol = old_symbol
+        symbol.define_location = node.location
         super().visit_FunctionDef(node)
 
     def visit_Enumerator(self, node: Enumerator):
         if node.value != None:
             node.value.accept(self)
-        enumconst: EnumConst = self.addSymbol(
-            node,
-            node.name,
-            node.enum_type,
-            node.value,
-            cls=EnumConst,
+        symbol: EnumConst = EnumConst(
+            node.name, node.enum_type, node.value, node.attribute_specifiers
         )
-        enum_type: EnumType = enumconst.enum_type
-        if enumconst not in enum_type.enumerators:
-            enum_type.enumerators.append(enumconst)
+
+        if not self.cur_symtab.addSymbol(node.name, symbol):
+            old_symbol = self.cur_symtab.lookup(node.name)
+            raise Diagnostics(
+                [
+                    Error(f"重定义: {node.name}", node.location),
+                    Note("上一个定义", old_symbol.define_location),
+                ]
+            )
+
+        symbol.define_location = node.location
+        symbol.declare_locations.append(node.location)
+
+        enum_type: EnumType = symbol.enum_type
+        enum_type.enumerators[symbol.name] = symbol
 
     def visit_EnumDecl(self, node: EnumDecl):
-        if node.enumerators and node.type.enumerators:
-            raise Error(f"重定义: {node.type.name}", node.location)
+        if not node.enumerators:
+            return
+        symbol: Symbol = self.cur_symtab.lookup(node.name, TAG_NAMES)
+        if symbol.define_location != None:
+            raise Diagnostics(
+                [
+                    Error(f"重定义: {node.type.name}", node.location),
+                    Note("上一个定义", symbol.define_location),
+                ]
+            )
+        symbol.define_location = node.location
         self.generic_visit(node)
 
     def visit_RecordDecl(self, node: RecordDecl):
-        if node.members_declaration == None:
+        if not node.members_declaration:
             return
 
-        if node.type.member != None:
-            raise Error(f"重定义: {node.type.name}", node.location)
+        symbol: Symbol = self.cur_symtab.lookup(node.name, TAG_NAMES)
+        if symbol.define_location != None:
+            raise Diagnostics(
+                [
+                    Error(f"重定义: {node.type.name}", node.location),
+                    Note("上一个定义", symbol.define_location),
+                ]
+            )
+        symbol.define_location = node.location
 
-        if MEMBER_NAMES in self.cur_symtab.namespaces:
-            _member_names = self.cur_symtab[MEMBER_NAMES]
-        else:
-            _member_names = None
-
-        self.cur_symtab.namespaces[MEMBER_NAMES] = node.type.member = Namespace(
-            MEMBER_NAMES
-        )
+        _member_names = self.cur_symtab.member_names
+        self.cur_symtab.member_names = node.type.members = {}
 
         for i in node.members_declaration:
             i.accept(self)
 
-        if _member_names == None:
-            self.cur_symtab.namespaces.pop(MEMBER_NAMES)
-        else:
-            self.cur_symtab.namespaces[MEMBER_NAMES] = _member_names
+        self.cur_symtab.member_names = _member_names

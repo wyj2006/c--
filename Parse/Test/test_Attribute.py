@@ -9,7 +9,7 @@ def test_attribute():
             attribute_specifiers=[
                 AttributeSpecifier(
                     attributes=[
-                        DeprecatedAttr(),
+                        Attribute(prefix_name="", name="deprecated"),
                         Attribute(prefix_name="hal", name="daisy"),
                     ]
                 )

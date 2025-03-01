@@ -9,6 +9,21 @@ from AST.Expr import (
     Reference,
 )
 from AST.Node import Node
+from AST.Decl import (
+    Declaration,
+    FunctionDeclarator,
+    ArrayDeclarator,
+    PointerDeclarator,
+    NameDeclarator,
+    BasicTypeSpecifier,
+    BitIntSpecifier,
+    RecordDecl,
+    EnumDecl,
+    AtomicSpecifier,
+    TypedefSpecifier,
+    TypeQualifier,
+    TypeOfSpecifier,
+)
 
 
 class Visitor:
@@ -125,5 +140,98 @@ class FormatVisitor(Visitor):
 
     def visit_Reference(self, node: Reference):
         return node.name
+
+    def visit_Declaration(self, node: Declaration):
+        l = []
+        for i in node.specifiers + node.declarators:
+            a = i.accept(self)
+            assert a != None, i
+            l.append(a)
+        return " ".join(l)
+
+    def visit_NameDeclarator(self, node: NameDeclarator):
+        return node.name
+
+    def visit_PointerDeclarator(self, node: PointerDeclarator):
+        code: str = "*" + " ".join([i.accept(self) for i in node.qualifiers])
+
+        if isinstance(node.declarator, (FunctionDeclarator, ArrayDeclarator)):
+            code = "(" + code + ")"
+
+        if node.declarator != None:
+            code += node.declarator.accept(self)
+        return code.strip()
+
+    def visit_ArrayDeclarator(self, node: ArrayDeclarator):
+        if node.declarator != None:
+            code: str = node.declarator.accept(self)
+        else:
+            code = ""
+
+        code += "["
+
+        if node.is_static:
+            code += "static "
+
+        if node.is_star_modified:
+            code += "* "
+
+        for i in node.qualifiers:
+            code += i.accept(self) + " "
+
+        if node.size != None:
+            code += node.size.accept(self)
+
+        code = code.strip()
+        code += "]"
+        return code.strip()
+
+    def visit_FunctionDeclarator(self, node: FunctionDeclarator):
+        if node.declarator != None:
+            code: str = node.declarator.accept(self)
+        else:
+            code = ""
+
+        code += "("
+
+        for param in node.parameters:
+            code += param.accept(self) + ","
+
+        if node.has_varparam:
+            code += "..."
+
+        code = code.strip(",")
+        code += ")"
+        return code.strip()
+
+    def visit_BasicTypeSpecifier(self, node: BasicTypeSpecifier):
+        return node.specifier_name
+
+    def visit_BitIntSpecifier(self, node: BitIntSpecifier):
+        return f"_BitInt({node.size.accept(self)})"
+
+    def visit_RecordDecl(self, node: RecordDecl):
+        return f"{node.struct_or_union} {node.name}"  # TODO: 生成成员声明的字符串
+
+    def visit_EnumDecl(self, node: EnumDecl):
+        return f"enum {node.name}"  # TODO: 生成枚举值的字符串
+
+    def visit_AtomicSpecifier(self, node: AtomicSpecifier):
+        return f"_Atomic({node.type_name.accept(self)})"
+
+    def visit_TypedefSpecifier(self, node: TypedefSpecifier):
+        return node.specifier_name
+
+    def visit_TypeQualifier(self, node: TypeQualifier):
+        return node.qualifier.value
+
+    def visit_TypeOfSpecifier(self, node: TypeOfSpecifier):
+        code = "typeof"
+        if node.is_unqual:
+            code += "_unqual"
+        code += "("
+        code += node.arg.accept(self)
+        code += ")"
+        return code
 
     # FIXME:

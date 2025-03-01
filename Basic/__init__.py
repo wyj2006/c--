@@ -3,11 +3,17 @@
 from Basic.Token import TokenKind, Token, TokenGen
 from Basic.Location import Location
 from Basic.FileReader import FileReader
-from Basic.Diagnostic import Diagnostic, Error, DiagnosticKind, Diagnostics, Note
+from Basic.Diagnostic import (
+    Diagnostic,
+    Error,
+    DiagnosticKind,
+    Diagnostics,
+    Note,
+    Warning,
+)
 from Basic.Symtab import (
     Symtab,
     Symbol,
-    Namespace,
     Type,
     BasicType,
     BasicTypeKind,
@@ -25,6 +31,7 @@ from Basic.Symtab import (
     LABEL_NAMES,
     ORDINARY_NAMES,
     MEMBER_NAMES,
+    ATTRIBUTE_NAMES,
     Object,
     Member,
     EnumConst,

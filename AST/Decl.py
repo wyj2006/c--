@@ -71,9 +71,29 @@ class TypeOrVarDecl(Declarator):
     name: str
     type: Type
 
+    declaration: Declaration  # 相当于父节点
     storage_classes: list[StorageClass]  # 由DeclAnalyzer设置
+
+    @property
+    def function_specifiers(self) -> list["FunctionSpecifier"]:
+        if hasattr(self, "declaration"):
+            return [
+                i
+                for i in self.declaration.specifiers
+                if isinstance(i, FunctionSpecifier)
+            ]
+        return []
+
     function_specifiers: list["FunctionSpecifier"]
     align_specifier: "AlignSpecifier"
+
+    @property
+    def align_specifier(self) -> "AlignSpecifier":
+        if hasattr(self, "declaration"):
+            for i in self.declaration.specifiers:
+                if isinstance(i, AlignSpecifier):
+                    return i
+        return None
 
     @property
     def is_typedef(self):
@@ -83,6 +103,10 @@ class TypeOrVarDecl(Declarator):
             if storage_class.specifier == StorageClassSpecifier.TYPEDEF:
                 return True
         return False
+
+    @property
+    def attribute_specifiers(self):
+        return self.declaration.attribute_specifiers
 
     initializer: "Expr"
 

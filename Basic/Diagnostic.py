@@ -1,5 +1,4 @@
 from typing import Union
-import colorama
 from colorama import Fore
 
 from Basic.Location import Location
@@ -49,6 +48,11 @@ class Error(Diagnostic):
 class Note(Diagnostic):
     def __init__(self, msg: str, location: Location):
         super().__init__(msg, location, DiagnosticKind.NOTE)
+
+
+class Warning(Diagnostic):
+    def __init__(self, msg: str, location: Location):
+        super().__init__(msg, location, DiagnosticKind.WARNING)
 
 
 class Diagnostics(Exception):
