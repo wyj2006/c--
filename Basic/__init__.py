@@ -40,3 +40,4 @@ from Basic.Symtab import (
     ArrayPtrType,
     AutoType,
 )
+from Basic.FlagManager import FlagManager

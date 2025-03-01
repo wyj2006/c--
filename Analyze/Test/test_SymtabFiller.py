@@ -1,3 +1,4 @@
+import pytest
 from Test.Common import *
 
 
@@ -34,3 +35,57 @@ def test_Scope():
         hasattr(nested, "_symtab")
         and nested._symtab == symtab.children[1].children[0].children[0]
     )
+
+
+def test_DeclPointRecord():
+    parser = get_parser("decl_point_record.txt")
+    ast: TranslationUnit = parser.start()
+
+    symtab = Symtab(ast.location)
+    ast.accept(DeclAnalyzer(symtab))
+    try:
+        ast.accept(SymtabFiller(symtab))
+    except (Diagnostic, Diagnostics):
+        pytest.fail("期望没有错误, 但产生了一个错误")
+
+
+def test_DeclPointEnumConst():
+    parser = get_parser("decl_point_enumconst.txt")
+    ast: TranslationUnit = parser.start()
+
+    symtab = Symtab(ast.location)
+    ast.accept(DeclAnalyzer(symtab))
+    ast.accept(SymtabFiller(symtab))
+
+    symtab0: Symtab = symtab.children[0]
+    x1: EnumConst = symtab0.lookup("x")
+
+    symtab00: Symtab = symtab0.children[0]
+    x2: EnumConst = symtab00.lookup("x")
+    y: EnumConst = symtab00.lookup("y")
+
+    assert x1 is not x2
+    assert x1 is x2.value.left.symbol
+    assert x2 is y.value.left.symbol
+
+
+def test_DeclPointOther():
+    parser = get_parser("decl_point_other.txt")
+    ast: TranslationUnit = parser.start()
+
+    symtab = Symtab(ast.location)
+    ast.accept(DeclAnalyzer(symtab))
+
+    try:
+        ast.accept(SymtabFiller(symtab))
+    except (Diagnostic, Diagnostics):
+        pytest.fail("期望没有错误, 但产生了一个错误")
+
+    symtab0: Symtab = symtab.children[0]
+    x1: Object = symtab0.lookup("x")
+
+    symtab00: Symtab = symtab0.children[0]
+    x2: Object = symtab00.lookup("x")
+
+    assert x1 is not x2
+    assert x2.initializer.symbol is x2

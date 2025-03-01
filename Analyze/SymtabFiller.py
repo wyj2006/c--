@@ -1,5 +1,5 @@
 from typing import Union
-from Analyze.Analyzer import Analyzer
+from Analyze.Analyzer import Analyzer, AnalyzerFlag, block_scope
 from AST import (
     TypeOrVarDecl,
     ParamDecl,
@@ -12,6 +12,7 @@ from AST import (
     StorageClassSpecifier,
     EnumDecl,
     AlignSpecifier,
+    Reference,
 )
 from Basic import (
     Object,
@@ -28,7 +29,7 @@ from Basic import (
     Note,
     Diagnostics,
     ArrayType,
-    Warning,
+    Symtab,
 )
 
 
@@ -36,9 +37,12 @@ class SymtabFiller(Analyzer):
     """
     完成的任务:
     1. 将有关的符号插入符号表中
+    2. 确定 Reference 引用的符号
     """
 
     def visit_TypeOrVarDecl(self, node: TypeOrVarDecl):
+        node.declarator.accept(self)
+
         if node.is_typedef:
             return
 
@@ -142,6 +146,8 @@ class SymtabFiller(Analyzer):
         if isinstance(node.type, FunctionType):
             raise Error("成员不能是函数", node.location)
 
+        self.generic_visit(node)
+
         symbol = Member(
             node.name,
             node.type,
@@ -154,7 +160,9 @@ class SymtabFiller(Analyzer):
         if not self.cur_symtab.addSymbol(
             node.name, symbol, namespace_name=MEMBER_NAMES
         ):
-            old_symbol = self.cur_symtab.lookup(node.name, namespace_name=MEMBER_NAMES)
+            old_symbol: Symbol = self.cur_symtab.lookup(
+                node.name, namespace_name=MEMBER_NAMES
+            )
             raise Diagnostics(
                 [
                     Error(f"重定义: {node.name}", node.location),
@@ -166,6 +174,11 @@ class SymtabFiller(Analyzer):
 
     def visit_ParamDecl(self, node: ParamDecl):
         if not node.name:
+            return
+
+        self.generic_visit(node)
+
+        if not self.flag.has(AnalyzerFlag.FUNCDEF):
             return
 
         storage_classes: list[StorageClass] = [
@@ -192,7 +205,7 @@ class SymtabFiller(Analyzer):
         )
 
         if not self.cur_symtab.addSymbol(node.name, symbol):
-            old_symbol = self.cur_symtab.lookup(node.name)
+            old_symbol: Symbol = self.cur_symtab.lookup(node.name)
             raise Diagnostics(
                 [
                     Error(f"重定义: {node.name}", node.location),
@@ -202,18 +215,26 @@ class SymtabFiller(Analyzer):
         symbol.define_location = node.location
         symbol.declare_locations.append(node.location)
 
+    @block_scope
     def visit_FunctionDef(self, node: FunctionDef):
         if isinstance(node.func_type.return_type, ArrayType):
             raise Error("函数返回类型不能是数组", node.location)
+
+        for specifier in node.specifiers:
+            specifier.accept(self)
+        for declarator in node.declarators:
+            declarator.accept(self)
+
+        # 此时已经进入了函数作用域, 但函数符号是添加在上一层的
+        symtab: Symtab = self.cur_symtab.parent
         symbol = Function(
             node.func_name,
             node.func_type,
             [i for i in node.specifiers if isinstance(i, FunctionSpecifier)],
             node.attribute_specifiers,
         )
-
-        if not self.cur_symtab.addSymbol(node.func_name, symbol):
-            old_symbol = self.cur_symtab.lookup(node.func_name)
+        if not symtab.addSymbol(node.func_name, symbol):
+            old_symbol: Symbol = symtab.lookup(node.func_name)
             diagnostics = Diagnostics(
                 [
                     Error(f"重定义: {node.func_name}", node.location),
@@ -226,17 +247,19 @@ class SymtabFiller(Analyzer):
                 raise diagnostics
             symbol = old_symbol
         symbol.define_location = node.location
-        super().visit_FunctionDef(node)
+
+        self._visit_CompoundStmt(node.body)
 
     def visit_Enumerator(self, node: Enumerator):
         if node.value != None:
             node.value.accept(self)
+
         symbol: EnumConst = EnumConst(
             node.name, node.enum_type, node.value, node.attribute_specifiers
         )
 
         if not self.cur_symtab.addSymbol(node.name, symbol):
-            old_symbol = self.cur_symtab.lookup(node.name)
+            old_symbol: Symbol = self.cur_symtab.lookup(node.name)
             raise Diagnostics(
                 [
                     Error(f"重定义: {node.name}", node.location),
@@ -253,7 +276,9 @@ class SymtabFiller(Analyzer):
     def visit_EnumDecl(self, node: EnumDecl):
         if not node.enumerators:
             return
-        symbol: Symbol = self.cur_symtab.lookup(node.name, TAG_NAMES)
+
+        # 由于可能没有名称, 所以不能通过查找的方法
+        symbol: Symbol = node.type
         if symbol.define_location != None:
             raise Diagnostics(
                 [
@@ -268,7 +293,7 @@ class SymtabFiller(Analyzer):
         if not node.members_declaration:
             return
 
-        symbol: Symbol = self.cur_symtab.lookup(node.name, TAG_NAMES)
+        symbol: Symbol = node.type
         if symbol.define_location != None:
             raise Diagnostics(
                 [
@@ -285,3 +310,8 @@ class SymtabFiller(Analyzer):
             i.accept(self)
 
         self.cur_symtab.member_names = _member_names
+
+    def visit_Reference(self, node: Reference):
+        node.symbol = self.cur_symtab.lookup(node.name)
+        if node.symbol == None:
+            raise Error(f"未定义: {node.name}", node.location)

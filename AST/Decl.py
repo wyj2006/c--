@@ -84,9 +84,6 @@ class TypeOrVarDecl(Declarator):
             ]
         return []
 
-    function_specifiers: list["FunctionSpecifier"]
-    align_specifier: "AlignSpecifier"
-
     @property
     def align_specifier(self) -> "AlignSpecifier":
         if hasattr(self, "declaration"):

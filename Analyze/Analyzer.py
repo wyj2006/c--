@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from enum import Enum
+from enum import IntEnum
 from typing import Union
 from AST import (
     Visitor,
@@ -13,13 +13,13 @@ from AST import (
     FunctionDeclarator,
     TranslationUnit,
 )
-from Basic import Symtab
+from Basic import Symtab, FlagManager
 
 
-class AnalyzerState(Enum):
-    NORMAL = "normal"  # 正常状态
-    FUNCDEF = "function def"  # 进入FunctionDef后切换
-    FUNCPARAM = "function parameter"  # 进入函数声明或定义中的参数列表后切换
+class AnalyzerFlag(IntEnum):
+    NORMAL = 0b1  # 正常状态
+    FUNCDEF = 0b10  # 进入FunctionDef后设置
+    FUNCPARAM = 0b100  # 进入函数声明或定义中的参数列表后设置
 
 
 def block_scope(func):
@@ -38,8 +38,8 @@ def block_scope(func):
         **kwargs
     ):
         if isinstance(node, FunctionDef):
-            _state = self.state
-            self.state = AnalyzerState.FUNCDEF
+            _flag = self.flag.save()
+            self.flag.add(AnalyzerFlag.FUNCDEF)
 
         _cur_symtab = self.cur_symtab
         if hasattr(node, "_symtab"):
@@ -52,14 +52,14 @@ def block_scope(func):
         self.cur_symtab = _cur_symtab
 
         if isinstance(node, FunctionDef):
-            self.state = _state
+            self.flag.restore(_flag)
 
     return inner
 
 
 def func_prototype_scope(func):
     def inner(self: "Analyzer", node: FunctionDeclarator, *args, **kwargs):
-        if self.state != AnalyzerState.FUNCDEF:
+        if not self.flag.has(AnalyzerFlag.FUNCDEF):
             _cur_symtab = self.cur_symtab
             if hasattr(node, "_symtab"):
                 self.cur_symtab = node._symtab
@@ -68,10 +68,10 @@ def func_prototype_scope(func):
                     node.location
                 )
 
-        with self.setState(AnalyzerState.FUNCPARAM):
+        with self.setFlag(AnalyzerFlag.FUNCPARAM):
             func(self, node, *args, **kwargs)
 
-        if self.state != AnalyzerState.FUNCDEF:
+        if not self.flag.has(AnalyzerFlag.FUNCDEF):
             self.cur_symtab = _cur_symtab
 
     return inner
@@ -85,19 +85,22 @@ def file_scope(func):
             assert node._symtab is self.cur_symtab
         func(self, node, *args, **kwargs)
 
+    return inner
+
 
 class Analyzer(Visitor):
     def __init__(self, symtab: Symtab):
         super().__init__()
         self.cur_symtab = symtab
-        self.state: AnalyzerState = AnalyzerState.NORMAL
+        self.flag = FlagManager(AnalyzerFlag.NORMAL)
 
     @contextmanager
-    def setState(self, state: AnalyzerState):
-        _state = self.state
-        self.state = state
+    def setFlag(self, flag: AnalyzerFlag):
+        """临时设置一个flag"""
+        _flag = self.flag.save()
+        self.flag.add(flag)
         yield
-        self.state = _state
+        self.flag.restore(_flag)
 
     def _visit_FunctionDef(self, node: FunctionDef, *args, **kwargs):
         for specifier in node.specifiers:

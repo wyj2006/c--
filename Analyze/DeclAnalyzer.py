@@ -48,8 +48,9 @@ from Basic import (
     BasicTypeKind,
     AutoType,
     Diagnostics,
+    Symbol,
 )
-from Analyze.Analyzer import Analyzer, block_scope, func_prototype_scope, AnalyzerState
+from Analyze.Analyzer import Analyzer, block_scope, func_prototype_scope, AnalyzerFlag
 
 
 class DeclInfoDict(TypedDict):
@@ -246,7 +247,7 @@ class DeclAnalyzer(Analyzer):
             node.is_static,
             node.attribute_specifiers,
         )
-        if self.state == AnalyzerState.FUNCPARAM:
+        if self.flag.has(AnalyzerFlag.FUNCPARAM):
             decl_info["type"] = ArrayPtrType(
                 decl_info["type"]
             )  # 将数组类型的形参调整到对应的指针类型
@@ -338,7 +339,7 @@ class DeclAnalyzer(Analyzer):
         )
 
         if not self.cur_symtab.addSymbol(name, node.type, TAG_NAMES):
-            old_symbol = self.cur_symtab.lookup(name, TAG_NAMES)
+            old_symbol: Symbol = self.cur_symtab.lookup(name, TAG_NAMES)
             if node.type != old_symbol:
                 raise Diagnostics(
                     [
@@ -375,7 +376,7 @@ class DeclAnalyzer(Analyzer):
         )
 
         if not self.cur_symtab.addSymbol(name, node.type, TAG_NAMES):
-            old_symbol = self.cur_symtab.lookup(name, TAG_NAMES)
+            old_symbol: Symbol = self.cur_symtab.lookup(name, TAG_NAMES)
             if node.type != old_symbol:
                 raise Diagnostics(
                     [

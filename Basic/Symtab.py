@@ -94,7 +94,7 @@ class Symtab:
 
     def print(self, indent=0):
         print(" " * 4 * indent, self)
-        for namespace_name in (LABEL_NAMES, TAG_NAMES, ORDINARY_NAMES, ORDINARY_NAMES):
+        for namespace_name in (LABEL_NAMES, TAG_NAMES, ORDINARY_NAMES):
             namespace: dict = getattr(self, namespace_name)
             print(
                 " " * 4 * (indent + 1),
