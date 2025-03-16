@@ -1,4 +1,3 @@
-from typing import Optional
 from copy import deepcopy
 from Basic import TokenKind, Token, Error, Location
 from Lex.Lexer import Lexer
@@ -9,11 +8,18 @@ class Macro:
     """宏"""
 
     def __init__(
-        self, name: str, params: Optional[list[Token]], replacement: list[Token]
+        self,
+        name: str,
+        params: list[Token],
+        replacement: list[Token],
+        is_object_like: bool = True,
+        hasvarparam: bool = False,
     ):
         self.name = name
         self.params = params  # 参数
         self.replacement = replacement  # 替换列表
+        self.is_object_like = is_object_like
+        self.hasvarparam = hasvarparam
 
     def __eq__(self, other: "Macro"):
         return (self.name, self.params, self.replacement) == (
@@ -25,24 +31,10 @@ class Macro:
     def __repr__(self):
         return f"Macro('{self.name}',{self.params},{self.replacement})"
 
-    def isObjectLike(self):
-        """是否是object-like宏"""
-        return self.params == None
-
-    def hasVarParam(self):
-        """是否含有变长参数"""
-        return (
-            self.params != None
-            and len(self.params) >= 1
-            and self.params[-1].kind == TokenKind.ELLIPSIS
-        )
-
     def paramIndex(self, name) -> int:
         """返回name在参数中的索引"""
-        if self.params == None:
-            return -1
         for i, p in enumerate(self.params):
-            if p.text == name:
+            if p == name:
                 return i
         return -1
 
@@ -58,9 +50,9 @@ class Macro:
                 return None
             name = token.text
             if name == "__VA_ARGS__":
-                if not self.hasVarParam():
+                if not self.hasvarparam:
                     raise Error(f'宏"{self.name}"没有变长参数', token.location)
-                if len(args) > len(self.params) - 1:  # 存在__VA_ARGS__
+                if len(args) > len(self.params):  # 存在__VA_ARGS__
                     return args[-1]
                 else:
                     return None
@@ -96,7 +88,7 @@ class Macro:
                 i += 1
                 continue
             elif isvaopt(token):
-                if not self.hasVarParam():
+                if not self.hasvarparam:
                     raise Error(f'宏"{self.name}"没有变长参数', token.location)
                 a = i  # __VA_OPT__出现的位置
                 i += 1
@@ -123,7 +115,9 @@ class Macro:
                         replacement[i if i < len(replacement) else -1],
                     )
                 i += 1  # __VA_OPT__结束的位置 ')'后
-                if not (len(args) > len(self.params) - 1 and args[-1].tokens):
+                if not (
+                    len(args) > len(self.params) and args[-1].tokens
+                ):  # 没有传入变长参数或变长参数为空
                     opt = []
                 replacement[a:i] = opt
                 if stringizing_num:
@@ -131,7 +125,7 @@ class Macro:
                     replacement.insert(a + len(opt), StringizingEnd())
                 i = a
                 continue
-            elif token.kind == TokenKind.HASH and not self.isObjectLike():
+            elif token.kind == TokenKind.HASH and not self.is_object_like:
                 token = replacement[i + 1]
                 arg = get_arg(token)
                 if arg == None and isvaargs(token):
@@ -193,33 +187,32 @@ class Macro:
             new[start:end] = lexer.tokens[:-1]
 
         i = 0
+        start_index = 0  # 字符串化开始位置
+        text = []
+        location = None
         while i < len(new):
             if isinstance(new[i], StringizingStart):
-                j = i + 1
-                while j < len(new) and not isinstance(new[j], StringizingEnd):
-                    if isinstance(new[j], ConcatMarker):
-                        handle_concatmarker(j)
-                        j -= 1
-                    j += 1
+                start_index = i
                 location = Location(new[i].location)
                 text = []
-                for k in range(i + 1, j):
-                    if isinstance(new[k], PlaceMarker):
-                        continue
-                    text.append(new[k].text)
-                    location.extend(new[k].location)
+            elif isinstance(new[i], StringizingEnd):
                 text = " ".join(text)
-                new[i : j + 1] = [
+                new[start_index : i + 1] = [
                     Token(
                         TokenKind.STRINGLITERAL,
                         location,
                         '"' + text.replace('"', '\\"') + '"',
                     )
                 ]
+                location = None
             elif isinstance(new[i], ConcatMarker):
                 handle_concatmarker(i)
                 i -= 1
+            elif not isinstance(new[i], PlaceMarker) and location != None:
+                text.append(new[i].text)
+                location.extend(new[i].location)
             i += 1
+
         i = 0
         while i < len(new):
             if isinstance(new[i], PlaceMarker):

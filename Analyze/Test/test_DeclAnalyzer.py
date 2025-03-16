@@ -1,7 +1,7 @@
 from Test.Common import *
 
 
-def test_Basic():
+def test_basic():
     parser = get_parser("basic.txt")
     ast: TranslationUnit = parser.start()
 
@@ -199,7 +199,7 @@ def test_Basic():
     )
 
 
-def test_SymtabRelated():
+def test_symtab_related():
     parser = get_parser("symtab_related.txt")
     ast: TranslationUnit = parser.start()
 
@@ -286,7 +286,7 @@ def test_SymtabRelated():
     )
 
 
-def test_Funcdef():
+def test_funcdef():
     parser = get_parser("funcdef.txt")
     ast: TranslationUnit = parser.start()
 

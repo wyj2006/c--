@@ -36,8 +36,15 @@ class Diagnostic(Exception):
                 continue
             prefix = indent * 2 + f"{loc['lineno']}|"
             print(indent + f"{self.location}:")
-            print(prefix, lines[row].rstrip())
-            print(" " * len(prefix), " " * col + "^" * loc["span_col"])
+            if isinstance(lines[row], bytes):
+                print(prefix, " ".join(map(lambda a: hex(a)[2:].upper(), lines[row])))
+                print(" " * len(prefix), " " * (col - 1) * 3, end="")
+                for _ in range(loc["span_col"]):
+                    print("^^ ", end="")
+                print()
+            else:
+                print(prefix, lines[row].rstrip())
+                print(" " * len(prefix), " " * col + "^" * loc["span_col"])
 
 
 class Error(Diagnostic):
@@ -50,7 +57,7 @@ class Note(Diagnostic):
         super().__init__(msg, location, DiagnosticKind.NOTE)
 
 
-class Warning(Diagnostic):
+class Warn(Diagnostic):
     def __init__(self, msg: str, location: Location):
         super().__init__(msg, location, DiagnosticKind.WARNING)
 

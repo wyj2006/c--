@@ -45,8 +45,10 @@ class Visitor:
                 for i in child:
                     if i == None:
                         continue
+                    assert isinstance(i, Node), (node, node._fields, field, child, i)
                     callback(i, self)
             else:
+                assert isinstance(child, Node), (node, node._fields, field, child)
                 callback(child, self)
 
     def visit_Node(self, node: Node):

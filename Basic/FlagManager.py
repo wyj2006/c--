@@ -1,17 +1,14 @@
-from enum import IntEnum
-
-
 class FlagManager:
-    def __init__(self, flag: IntEnum):
+    def __init__(self, flag: int):
         self.flag: int = flag
 
-    def add(self, flag: IntEnum):
+    def add(self, flag: int):
         self.flag |= flag
 
-    def remove(self, flag: IntEnum):
+    def remove(self, flag: int):
         self.flag &= ~flag
 
-    def has(self, flag: IntEnum):
+    def has(self, flag: int):
         return self.flag & flag == flag
 
     def save(self):

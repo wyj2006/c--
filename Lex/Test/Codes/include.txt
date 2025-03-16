@@ -1,0 +1,10 @@
+#include "stringchar.txt"
+"c--"
+
+#embed "stringchar.txt" prefix(0,) limit(5) suffix(,6)
+
+#if __has_embed("stringchar.txt" ext::unkown())==__STDC_EMBED_NOT_FOUND
+1
+#else
+0
+#endif

@@ -50,14 +50,16 @@ class Symtab:
         )
 
         return {
-            "deprecated": DeprecatedAttr,
-            "fallthrough": FallthroughAttr,
-            "maybe_unused": MaybeUnusedAttr,
-            "nodiscard": NodiscardAttr,
-            "noreturn": NoReturnAttr,
-            "_Noreturn": NoReturnAttr,
-            "unsequenced": UnsequencedAttr,
-            "reproducible": ReproducibleAttr,
+            "": {
+                "deprecated": DeprecatedAttr,
+                "fallthrough": FallthroughAttr,
+                "maybe_unused": MaybeUnusedAttr,
+                "nodiscard": NodiscardAttr,
+                "noreturn": NoReturnAttr,
+                "_Noreturn": NoReturnAttr,
+                "unsequenced": UnsequencedAttr,
+                "reproducible": ReproducibleAttr,
+            }
         }
 
     def enterScope(self, begin_location: Location):

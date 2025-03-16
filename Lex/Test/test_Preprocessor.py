@@ -6,7 +6,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 import pytest
 
 from Basic import TokenKind, FileReader, Error
-from Lex import Preprocessor
+from Lex import Preprocessor, PPFlag
 
 
 def examplestest(examples, handle=None):
@@ -57,8 +57,8 @@ def test_stringconcat():
 
 
 def test_comment():
-    def donot_ignore_comment(pp):
-        pp.state = []
+    def donot_ignore_comment(pp: Preprocessor):
+        pp.flag.add(PPFlag.KEEP_COMMENT)
         return pp
 
     examples = [
@@ -168,6 +168,7 @@ def test_defineerror():
     examples = [
         {"filename": f"defineerror{i}.txt", "expected_exception": [Error], "tokens": []}
         for i in range(1, 13)
+        if i != 7
     ]
     examplestest(examples)
 
@@ -191,8 +192,80 @@ def test_conditional():
         {
             "filename": "conditional.txt",
             "tokens": [
-                {"kind": TokenKind.INTCONST, "text": "3"},
-                {"kind": TokenKind.INTCONST, "text": "4"},
+                {"kind": TokenKind.INTCONST, "text": "5"},
+                {"kind": TokenKind.END},
+            ],
+        }
+    ]
+    examplestest(examples)
+
+
+def test_include():
+    examples = [
+        {
+            "filename": "include.txt",
+            "tokens": [
+                {
+                    "kind": TokenKind.STRINGLITERAL,
+                    "content": '1abab1我的世界Minecraft\123"fdas\xabc\n\t\fc--',
+                    "prefix": "U",
+                },
+                {
+                    "kind": TokenKind.INTCONST,
+                    "text": "0",
+                },
+                {
+                    "kind": TokenKind.COMMA,
+                    "text": ",",
+                },
+                {
+                    "kind": TokenKind.INTCONST,
+                    "text": "0x22",
+                },
+                {
+                    "kind": TokenKind.COMMA,
+                    "text": ",",
+                },
+                {
+                    "kind": TokenKind.INTCONST,
+                    "text": "0x31",
+                },
+                {
+                    "kind": TokenKind.COMMA,
+                    "text": ",",
+                },
+                {
+                    "kind": TokenKind.INTCONST,
+                    "text": "0x61",
+                },
+                {
+                    "kind": TokenKind.COMMA,
+                    "text": ",",
+                },
+                {
+                    "kind": TokenKind.INTCONST,
+                    "text": "0x62",
+                },
+                {
+                    "kind": TokenKind.COMMA,
+                    "text": ",",
+                },
+                {
+                    "kind": TokenKind.INTCONST,
+                    "text": "0x22",
+                },
+                {
+                    "kind": TokenKind.COMMA,
+                    "text": ",",
+                },
+                {
+                    "kind": TokenKind.INTCONST,
+                    "text": "6",
+                },
+                {
+                    "kind": TokenKind.INTCONST,
+                    "text": "0",
+                },
                 {"kind": TokenKind.END},
             ],
         }

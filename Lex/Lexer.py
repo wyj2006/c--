@@ -1,5 +1,6 @@
 from copy import deepcopy
 import re
+from typing import Union
 import unicodedata
 
 from Basic import Token, TokenGen, TokenKind, Error, FileReader, Location
@@ -8,10 +9,10 @@ from Basic import Token, TokenGen, TokenKind, Error, FileReader, Location
 class Lexer(TokenGen):
     def __init__(self, reader: FileReader):
         self.reader = reader
-        self.tokens: list[Token] = []  # 当前已经读到的token
-        self.nexttk_index = 0  # 当前token索引
+        self.tokens: list[Union[Token, TokenGen]] = []  # 当前已经读到的token
+        self.nexttk_index = 0  # 下一个token索引
         self.hasread: list[tuple[str, Location]] = []  # 已经读到的字符
-        self.nextindex = 0
+        self.nextindex = 0  # 下一个字符索引
 
     def getch(self) -> tuple[str, Location]:
         if self.nextindex >= len(self.hasread):
@@ -39,11 +40,20 @@ class Lexer(TokenGen):
         return self.tokens[self.nexttk_index - 1]
 
     def next(self):
+        # 除了负责提供token, 还要对它们进行保存
         if self.nexttk_index >= len(self.tokens):
             token = self.getNewToken()
             while token == None:
                 token = self.getNewToken()
             self.tokens.append(token)
+        elif isinstance(self.tokens[self.nexttk_index], TokenGen):
+            tokengen: TokenGen = self.tokens[self.nexttk_index]
+            token = tokengen.next()
+            if token.kind == TokenKind.END:
+                self.tokens.pop(self.nexttk_index)
+                return self.next()  # 防止下一个还是TokenGen
+            else:
+                self.tokens.insert(self.nexttk_index, token)
         token = self.tokens[self.nexttk_index]
         self.nexttk_index += 1
         return token

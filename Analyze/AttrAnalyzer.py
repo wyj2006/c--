@@ -1,6 +1,6 @@
 from Analyze.Analyzer import Analyzer
 from AST import AttributeSpecifier, Attribute, DeprecatedAttr, NodiscardAttr
-from Basic import Warning, ATTRIBUTE_NAMES, Error, TokenKind
+from Basic import Warn, ATTRIBUTE_NAMES, Error, TokenKind
 
 
 class AttrAnalyzer(Analyzer):
@@ -11,18 +11,13 @@ class AttrAnalyzer(Analyzer):
     """
 
     def visit_Attribute(self, node: Attribute):
-        if node.prefix_name:
-            namespace: dict = self.cur_symtab.lookup(node.prefix_name, ATTRIBUTE_NAMES)
-            if namespace == None:
-                attrbute_cls = None
-            else:
-                attrbute_cls = namespace.get(node.name, None)
+        namespace: dict = self.cur_symtab.lookup(node.prefix_name, ATTRIBUTE_NAMES)
+        if namespace == None:
+            attrbute_cls = None
         else:
-            attrbute_cls = self.cur_symtab.lookup(node.name, ATTRIBUTE_NAMES)
+            attrbute_cls = namespace.get(node.name, None)
         if attrbute_cls == None:
-            Warning(
-                f"未知的属性: {node.prefix_name}::{node.name}", node.location
-            ).dump()
+            Warn(f"未知的属性: {node.prefix_name}::{node.name}", node.location).dump()
         else:
             attribute: Attribute = attrbute_cls(**node.__dict__)
             return attribute.accept(self)

@@ -1,3 +1,4 @@
+from typing import Literal
 from Basic.Location import Location
 from Basic.Diagnostic import Error
 
@@ -5,10 +6,18 @@ from Basic.Diagnostic import Error
 class FileReader:
     """文件读取器"""
 
-    def __init__(self, filename: str):
+    def __init__(self, filename: str, mode: Literal["r", "rb"] = "r"):
         self.filename = filename
         try:
-            self.lines = open(filename, encoding="utf-8").readlines()
+            assert mode == "r" or mode == "rb"
+            if mode == "r":
+                self.lines = open(filename, encoding="utf-8").readlines()
+            elif mode == "rb":
+                content = open(filename, mode="rb").read()
+                self.lines = []
+                # 16个字节为一行
+                for i in range(0, len(content), 16):
+                    self.lines.append(content[i : i + 16])
         except FileNotFoundError:
             raise Error(f"无法打开文件: {filename}", Location())
         self.row = 0  # 从0开始

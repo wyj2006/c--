@@ -183,6 +183,10 @@ class TokenKind(Enum):
     WARNING = "warning"
     PRAGMA = "pragma"
     EMBED = "embed"
+    DEFINED = "defined"
+    HAS_INCLUDE = "__has_include"
+    HAS_EMBED = "__has_embed"
+    HAS_C_ATTRIBUTE = "__has_c_attribute"
 
 
 class Token:
@@ -264,6 +268,10 @@ class Token:
         "warning": TokenKind.WARNING,
         "pragma": TokenKind.PRAGMA,
         "embed": TokenKind.EMBED,
+        "defined": TokenKind.DEFINED,
+        "__has_include": TokenKind.HAS_INCLUDE,
+        "__has_embed": TokenKind.HAS_EMBED,
+        "__has_c_attribute": TokenKind.HAS_C_ATTRIBUTE,
     }
     punctuator = {
         "[": TokenKind.L_SQUARE,
@@ -329,6 +337,7 @@ class Token:
             self.content = self.text[i:]
             self.content = eval(self.content)
         self.ispphash = False  # 是否是预处理指令开头的'#'
+        self.islparen = False  # define预处理指令中跟在宏名后面的括号
 
     def __repr__(self):
         return f"Token({self.kind.name},{self.location},{repr(self.text)})"

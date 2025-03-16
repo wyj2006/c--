@@ -9,7 +9,7 @@ from Basic.Diagnostic import (
     DiagnosticKind,
     Diagnostics,
     Note,
-    Warning,
+    Warn,
 )
 from Basic.Symtab import (
     Symtab,

@@ -2,7 +2,7 @@ import colorama
 from argparse import ArgumentParser
 from AST import DumpVisitor
 from Analyze import DeclAnalyzer, SymtabFiller, AttrAnalyzer
-from Basic import Error, FileReader, Diagnostics, Symtab
+from Basic import Error, FileReader, Diagnostics, Symtab, TokenKind
 from Lex import Preprocessor
 from Parse import Parser, generate_diagnostic
 
@@ -26,20 +26,37 @@ def main():
     argparser.add_argument(
         "-dump-symtab", help="输出符号表", action="store_true", default=False
     )
+    argparser.add_argument(
+        "-E", help="只进行预处理", action="store_true", default=False
+    )
     args = argparser.parse_args()
+    file = args.file
+    dump_tokens: bool = args.dump_tokens
+    dump_calltree: bool = args.dump_calltree
+    dump_ast: bool = args.dump_ast
+    dump_symtab: bool = args.dump_symtab
+    pp_only: bool = args.E
     try:
-        reader = FileReader(args.file)
+        reader = FileReader(file)
         lexer = Preprocessor(reader)
+
+        if pp_only:
+            token = lexer.next()
+            while token.kind != TokenKind.END:
+                print(token)
+                token = lexer.next()
+            print(token)
+            return
 
         parser = Parser(lexer)
         ast = parser.start()
 
-        if args.dump_tokens:
+        if dump_tokens:
             for token in lexer.tokens:
                 print(token)
         if ast == None:
             diagnostics = generate_diagnostic(parser.call_tree)
-            if args.dump_calltree:
+            if dump_calltree:
                 parser.call_tree.print()
             raise diagnostics
 
@@ -48,10 +65,10 @@ def main():
         ast.accept(DeclAnalyzer(symtab))
         ast.accept(SymtabFiller(symtab))
 
-        if args.dump_ast:
+        if dump_ast:
             ast.accept(DumpVisitor())
 
-        if args.dump_symtab:
+        if dump_symtab:
             symtab.print()
     except Error as e:
         e.dump()

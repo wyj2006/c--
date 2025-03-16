@@ -3,8 +3,10 @@
 1 2
 #elifndef B
 
-#ifdef A
+#if defined(A)&&1-1
 3 4
+#elif defined(A)
+5 A
 #endif
 
 #endif

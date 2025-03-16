@@ -2,19 +2,37 @@ from enum import Enum
 from typing import Any, Union
 from AST.Node import Node
 from AST.Decl import TypeName, StorageClass
-from Basic import Symbol
+from Basic import Symbol, Type
 
 
 class Expr(Node):
     """与表达式有关的节点"""
 
     value: Any  # 表达式的值(如果可以在编译期计算的话)
-    type: Any  # 表达式的类型 TODO:
+    type: Type  # 表达式的类型
     _attributes = Node._attributes + ("type", "value")
 
 
 class IntegerLiteral(Expr):
     """整数字面量"""
+
+    def determine(self):
+        """确定类型和值"""
+        value: str = self.value.lower()
+        suffix = ""
+        while not (value[-1].isdigit() or value[-1] == '"'):
+            suffix = value[-1] + suffix
+            value = value[:-1]
+
+        if value.startswith("0b"):
+            value = int(value, base=2)
+        elif value.startswith("0x"):
+            value = int(value, base=16)
+        elif value.startswith("0"):
+            value = int(value, base=8)
+        else:
+            value = int(value)
+        self.value = value
 
 
 class FloatLiteral(Expr):

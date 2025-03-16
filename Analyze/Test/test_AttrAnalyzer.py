@@ -1,7 +1,7 @@
 from Test.Common import *
 
 
-def test_Attribute():
+def test_attribute():
     parser = get_parser("attribute.txt")
     ast: TranslationUnit = parser.start()
 

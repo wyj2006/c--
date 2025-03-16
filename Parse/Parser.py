@@ -97,9 +97,10 @@ class Parser:
 
     def lookahead(self, *args):
         z = self.save()
-        for i in args:
-            if self.curtoken().kind == i:
-                self.nexttoken()
+        for i, v in enumerate(args):
+            if self.curtoken().kind == v:
+                if i < len(args) - 1:
+                    self.nexttoken()  # 防止多读
             else:
                 self.restore(z)
                 return False
@@ -107,7 +108,7 @@ class Parser:
         return True
 
     @update_call_tree
-    def expect(self, expected: TokenKind):
+    def expect(self, expected: TokenKind, **kwargs):
         """
         判断当前tokenkind是否与期待相等
         如果相等返回当前token, 同时读取下一个token
@@ -119,6 +120,9 @@ class Parser:
                 f"期待得到{expected}, 但实际得到{curtk.kind}", curtk.location
             )
             return None
+        for key, val in kwargs.items():
+            if not hasattr(curtk, key) or getattr(curtk, key) != val:
+                return None
         self.nexttoken()
         return curtk
 

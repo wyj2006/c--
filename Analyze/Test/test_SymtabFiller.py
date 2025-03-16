@@ -2,7 +2,7 @@ import pytest
 from Test.Common import *
 
 
-def test_Scope():
+def test_scope():
     parser = get_parser("scope.txt")
     ast: TranslationUnit = parser.start()
 
@@ -37,7 +37,7 @@ def test_Scope():
     )
 
 
-def test_DeclPointRecord():
+def test_decl_point_record():
     parser = get_parser("decl_point_record.txt")
     ast: TranslationUnit = parser.start()
 
@@ -49,7 +49,7 @@ def test_DeclPointRecord():
         pytest.fail("期望没有错误, 但产生了一个错误")
 
 
-def test_DeclPointEnumConst():
+def test_decl_point_enumconst():
     parser = get_parser("decl_point_enumconst.txt")
     ast: TranslationUnit = parser.start()
 
@@ -69,7 +69,7 @@ def test_DeclPointEnumConst():
     assert x2 is y.value.left.symbol
 
 
-def test_DeclPointOther():
+def test_decl_point_other():
     parser = get_parser("decl_point_other.txt")
     ast: TranslationUnit = parser.start()
 
