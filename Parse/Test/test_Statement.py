@@ -30,7 +30,7 @@ def test_iteration_statement():
             body=ExpressionStmt(expr=Reference(name="a")),
         ),
         ForStmt(
-            init_expr=BinaryOperator(
+            init=BinaryOperator(
                 op=BinOpKind.ASSIGN,
                 left=Reference(name="i"),
                 right=IntegerLiteral(value="0"),
@@ -52,7 +52,7 @@ def test_iteration_statement():
             body=ExpressionStmt(expr=Reference(name="a")),
         ),
         ForStmt(
-            init_expr=BinaryOperator(
+            init=BinaryOperator(
                 op=BinOpKind.ASSIGN,
                 left=Reference(name="i"),
                 right=IntegerLiteral(value="0"),
@@ -68,7 +68,7 @@ def test_iteration_statement():
             body=ExpressionStmt(),  # 顺便测试expression_stmt
         ),
         ForStmt(
-            init_decl=DeclStmt(
+            init=DeclStmt(
                 specifiers=[BasicTypeSpecifier(specifier_name="int")],
                 declarators=[
                     TypeOrVarDecl(

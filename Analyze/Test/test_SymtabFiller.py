@@ -4,6 +4,7 @@ from Test.Common import *
 
 def test_scope():
     parser = get_parser("scope.txt")
+    parser.nexttoken()
     ast: TranslationUnit = parser.start()
 
     symtab = Symtab(ast.location)
@@ -39,6 +40,7 @@ def test_scope():
 
 def test_decl_point_record():
     parser = get_parser("decl_point_record.txt")
+    parser.nexttoken()
     ast: TranslationUnit = parser.start()
 
     symtab = Symtab(ast.location)
@@ -51,6 +53,7 @@ def test_decl_point_record():
 
 def test_decl_point_enumconst():
     parser = get_parser("decl_point_enumconst.txt")
+    parser.nexttoken()
     ast: TranslationUnit = parser.start()
 
     symtab = Symtab(ast.location)
@@ -71,6 +74,7 @@ def test_decl_point_enumconst():
 
 def test_decl_point_other():
     parser = get_parser("decl_point_other.txt")
+    parser.nexttoken()
     ast: TranslationUnit = parser.start()
 
     symtab = Symtab(ast.location)

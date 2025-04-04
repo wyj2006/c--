@@ -137,10 +137,8 @@ class Analyzer(Visitor):
 
     @block_scope
     def visit_ForStmt(self, node: ForStmt, *args, **kwargs):
-        if hasattr(node, "init_decl"):
-            node.init_decl.accept(self)
-        if hasattr(node, "init_expr"):
-            node.init_expr.accept(self)
+        if node.init != None:
+            node.init.accept(self)
         if node.condition_expr != None:
             node.condition_expr.accept(self)
         if node.increase_expr != None:

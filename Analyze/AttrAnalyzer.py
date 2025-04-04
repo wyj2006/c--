@@ -28,7 +28,7 @@ class AttrAnalyzer(Analyzer):
             node.attributes[i] = v.accept(self)
 
     def visit_DeprecatedAttr(self, node: DeprecatedAttr):
-        if not hasattr(node, "args"):
+        if not hasattr(node, "args") or node.args == None:
             return node
         if len(node.args) != 1:
             raise Error("deprecated 只能有一个参数或没有参数", node.location)
@@ -37,7 +37,7 @@ class AttrAnalyzer(Analyzer):
         return node
 
     def visit_NodiscardAttr(self, node: NodiscardAttr):
-        if hasattr(node, "args") and len(node.args) != 1:
+        if hasattr(node, "args") and node.args != None and len(node.args) != 1:
             raise Error("nodiscard 只能有一个参数或没有参数", node.location)
         if node.args[0].kind != TokenKind.STRINGLITERAL:
             raise Error("nodiscard 的参数必须是字符串字面量", node.args[0].location)

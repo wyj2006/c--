@@ -115,3 +115,15 @@ from AST.PPDirective import (
     HasInclude,
     ElifDirecvtive,
 )
+
+from AST.Grammar import (
+    Grammar,
+    Rhs,
+    Rule,
+    Alt,
+    Item,
+    NamedItem,
+    NameLeaf,
+    StringLeaf,
+    Option,
+)

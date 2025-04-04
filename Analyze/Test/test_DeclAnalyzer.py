@@ -3,6 +3,7 @@ from Test.Common import *
 
 def test_basic():
     parser = get_parser("basic.txt")
+    parser.nexttoken()
     ast: TranslationUnit = parser.start()
 
     symtab = Symtab(ast.location)
@@ -201,6 +202,7 @@ def test_basic():
 
 def test_symtab_related():
     parser = get_parser("symtab_related.txt")
+    parser.nexttoken()
     ast: TranslationUnit = parser.start()
 
     symtab = Symtab(ast.location)
@@ -288,6 +290,7 @@ def test_symtab_related():
 
 def test_funcdef():
     parser = get_parser("funcdef.txt")
+    parser.nexttoken()
     ast: TranslationUnit = parser.start()
 
     symtab = Symtab(ast.location)

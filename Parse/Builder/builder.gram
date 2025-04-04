@@ -1,0 +1,48 @@
+"""
+from AST import *
+from Basic import *
+"""
+
+start:
+    a=grammar end {a}
+
+grammar:
+    [header] rules {Grammar(header=header.text if header!=None else None,rules=rules,location=BEGIN_LOCATION)}
+
+rules:
+    rules rule {rules+[rule]}
+    | rule {[rule]}
+
+rule:
+    a=identifier ":" b=[rhs] {Rule(name=a.text, rhs=b, location=BEGIN_LOCATION)}
+
+rhs:
+    alts {Rhs(alts=alts, location=BEGIN_LOCATION)}
+
+alts:
+    alts "|" alt {alts+[alt]}
+    | alt {[alt]}
+
+alt:
+    items [action] {Alt(items=items, location=BEGIN_LOCATION,action=action.text if action!=None else None)}
+
+items:
+    items item {items+[item]}
+    | item {[item]}
+
+item:
+    named_item
+
+named_item:
+    a=identifier "=" b=opt_item {NamedItem(name=a.text, item=b, location=a.location)}
+    | opt_item
+
+opt_item:
+    a="[" b=leaf_item "]" {Option(item=b, location=a.location)}
+    | leaf_item
+
+leaf_item:
+    a=identifier {NameLeaf(name=a.text, location=a.location)}
+    | a=string_literal {StringLeaf(value=a.content, location=a.location)}
+
+#include "builder_error.gram"

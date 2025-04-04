@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 from AST.Node import Node, AttributeSpecifier
 
 if TYPE_CHECKING:
@@ -71,15 +71,13 @@ class SwitchStmt(Stmt):
 
 
 class ForStmt(Stmt):
-    init_expr: "Expr"
-    init_decl: "DeclStmt"
+    init: Union["Expr", "DeclStmt"]
     condition_expr: "Expr"
     increase_expr: "Expr"
     body: Stmt
 
     _fields = Stmt._fields + (
-        "init_expr",
-        "init_decl",
+        "init",
         "condition_expr",
         "increase_expr",
         "body",

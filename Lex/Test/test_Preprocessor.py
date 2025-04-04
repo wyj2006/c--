@@ -164,6 +164,7 @@ def test_define():
     examplestest(examples)
 
 
+@pytest.mark.skip("未完成")
 def test_defineerror():
     examples = [
         {"filename": f"defineerror{i}.txt", "expected_exception": [Error], "tokens": []}

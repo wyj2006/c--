@@ -25,7 +25,6 @@ from AST import (
 from Lex.EmbedLexer import EmbedLexer
 from Lex.Lexer import Lexer
 from Lex.Macro import Macro, MacroArg
-from Lex.PPDirectiveParser import PPDirectiveParser
 from Lex.PPFlag import PPFlag
 
 
@@ -185,6 +184,8 @@ class Preprocessor(Lexer):
         return token
 
     def handleDirective(self):
+        from Lex.PPDirectiveParser import PPDirectiveParser
+
         start = self.nexttk_index - 1
         with self.setFlag(
             PPFlag.KEEP_NEWLINE | PPFlag.IGNORE_PPDIRECTIVE | PPFlag.TRANS_PPKEYWORD,
@@ -195,7 +196,7 @@ class Preprocessor(Lexer):
         end = self.nexttk_index - 1
         self.tokens[start:end] = []
         self.nexttk_index = start
-        pp_directive.accept(DumpVisitor())
+        # pp_directive.accept(DumpVisitor())
         if isinstance(pp_directive, DefineDirective):
             name = pp_directive.name
             macro = Macro(
@@ -254,7 +255,7 @@ class Preprocessor(Lexer):
                 )
             else:
                 reader = FileReader(filepath)
-                pp = Preprocessor(reader)
+                pp = self.__class__(reader)  # 防止这是子类
                 pp.macros = self.macros
             self.tokens.insert(self.nexttk_index, pp)
         elif isinstance(pp_directive, Pragma):

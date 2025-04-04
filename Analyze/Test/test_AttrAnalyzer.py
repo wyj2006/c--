@@ -3,6 +3,7 @@ from Test.Common import *
 
 def test_attribute():
     parser = get_parser("attribute.txt")
+    parser.nexttoken()
     ast: TranslationUnit = parser.start()
 
     symtab = Symtab(ast.location)

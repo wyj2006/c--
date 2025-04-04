@@ -1,0 +1,12 @@
+start:
+    grammar {ERROR("解析已结束, 但文件未结束",self.curtoken().location)}
+
+rule:
+    a=identifier {ERROR("后面应该有个';'",a.location)}
+    | a="|" {ERROR("'|'后缺少可选体",a.location)}
+
+named_item:
+    identifier c="=" {ERROR("缺少要命名的项",c.location)}
+
+opt_item:
+    "[" leaf_item c="]" {ERROR("'['未闭合", location=c.location)}

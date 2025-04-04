@@ -4,7 +4,6 @@
 
 from typing import TYPE_CHECKING, Callable, TypeVar
 from AST import Declaration, StorageClass, StorageClassSpecifier, NameDeclarator
-from Parse.CallTree import CallTree
 
 if TYPE_CHECKING:
     from Parse.Parser import Parser
@@ -46,38 +45,6 @@ def may_enter_scope(parser_method: Callable[["Parser"], _T]):
         type_symbol = tuple(self.type_symbol)
         ret = parser_method(self, *args, **kwargs)
         self.type_symbol = list(type_symbol)
-        return ret
-
-    return wrapper
-
-
-def update_call_tree(parser_method: Callable[["Parser"], _T]):
-    """被装饰的方法调用时将会更新Parser的调用树"""
-    method_name = parser_method.__code__.co_name
-    count = 1
-
-    def wrapper(self: "Parser", *args, **kwargs) -> _T:
-        nonlocal count
-
-        name = f"{method_name}#{count}"
-        count += 1
-        parent = self.cur_call_tree
-        node = CallTree(name, parent, self.curtoken())
-        if parent == None:
-            self.call_tree = node
-            self.cur_call_tree = self.call_tree
-        else:
-            node.depth = parent.depth + 1
-            node.position = len(self.cur_call_tree.children)
-            self.cur_call_tree.children.append(node)
-        self.cur_call_tree = node
-
-        node.args = args
-        node.kwargs = kwargs
-        ret = parser_method(self, *args, **kwargs)
-        node.return_val = ret
-
-        self.cur_call_tree = parent
         return ret
 
     return wrapper

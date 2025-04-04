@@ -49,6 +49,7 @@ from Basic import (
     AutoType,
     Diagnostics,
     Symbol,
+    Note,
 )
 from Analyze.Analyzer import Analyzer, block_scope, func_prototype_scope, AnalyzerFlag
 
@@ -180,6 +181,7 @@ class DeclAnalyzer(Analyzer):
         return decl_info  # 给派生类用的
 
     def visit_TypeName(self, node: TypeName, decl_info: DeclInfoDict = None):
+        decl_info = default_declinfo_dict()
         decl_info = self.visit_SingleDeclration(node, decl_info)
         node.type = decl_info["type"]
 
@@ -344,7 +346,7 @@ class DeclAnalyzer(Analyzer):
                 raise Diagnostics(
                     [
                         Error(f"重定义: {name}", node.location),
-                        Node("上一个定义", old_symbol.define_location),
+                        Note("上一个定义", old_symbol.declare_locations[0]),
                     ]
                 )
             node.type = decl_info["type"] = old_symbol
@@ -381,7 +383,7 @@ class DeclAnalyzer(Analyzer):
                 raise Diagnostics(
                     [
                         Error(f"重定义: {name}", node.location),
-                        Node("上一个定义", old_symbol.define_location),
+                        Note("上一个定义", old_symbol.declare_locations[0]),
                     ]
                 )
             node.type = decl_info["type"] = old_symbol

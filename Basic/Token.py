@@ -188,6 +188,9 @@ class TokenKind(Enum):
     HAS_EMBED = "__has_embed"
     HAS_C_ATTRIBUTE = "__has_c_attribute"
 
+    ACTION = "语义动作"
+    HEADER = "头部代码"
+
 
 class Token:
     keywords = {

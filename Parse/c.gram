@@ -1,0 +1,490 @@
+"""
+from AST import *
+from Basic import *
+
+def assign(a,attr,b):
+    setattr(a,attr,b)
+    return a
+
+def option(a,default):
+    return a if a!=None else default
+
+def concat_pointer(a,b):
+    if a == None:
+        return b
+    # 将direct_declarator接到pointer后面
+    c = a
+    while c.declarator != None:
+        c = c.declarator
+    c.declarator = b
+    return a
+"""
+start:
+    a=translation_unit end{TranslationUnit(body=a, location=BEGIN_LOCATION)}
+
+translation_unit:
+    a=translation_unit b=external_declaration {a+[b]}
+    | b=external_declaration {[b]}
+
+external_declaration:
+    function_definition
+    | declaration
+
+function_definition:
+    a=[attribute_specifier_sequence] b=declaration_specifiers c=declarator d=function_body {FunctionDef(attribute_specifiers=option(a,[]),specifiers=b[0],specifier_attributes=b[1],declarator=c,body=d,location=BEGIN_LOCATION)}
+
+function_body:
+    compound_statement
+
+statement:
+    labeled_statement
+    | unlabeled_statement
+
+unlabeled_statement:
+    expression_statement
+    | b=[attribute_specifier_sequence] a=primary_block {assign(a,"attribute_specifiers",option(b,[]))}
+    | b=[attribute_specifier_sequence] a=jump_statement {assign(a,"attribute_specifiers",option(b,[]))}
+
+primary_block:
+    compound_statement
+    | selection_statement
+    | iteration_statement
+
+secondary_block:
+    statement
+
+label:
+    b=[attribute_specifier_sequence] a=identifier ":" {LabelStmt(name=a.text,attribute_specifiers=option(b,[]),location=a.location,)}
+    | b=[attribute_specifier_sequence] a="case" c=constant_expression ":" {CaseStmt(expr=c,attribute_specifiers=option(b,[]),location=a.location,)}
+    | b=[attribute_specifier_sequence] a="default" ":" {DefaultStmt(attribute_specifiers=option(b,[]),location=a.location,)}
+
+labeled_statement:
+    a=label b=statement {assign(a,"stmt",b)}
+
+compound_statement:
+    b="{" a=[block_item_list] "}" {CompoundStmt(items=option(a,[]), location=b.location)}
+
+block_item_list:
+    a=block_item_list b=block_item {a+[b]}
+    | b=block_item {[b]}
+
+block_item:
+    declaration
+    | unlabeled_statement
+    | label
+
+expression_statement:
+    a=attribute_specifier_sequence b=expression ";" {ExpressionStmt(attribute_specifiers=a, expr=b, location=a.location)}
+    | a=[expression] ";" {ExpressionStmt(expr=a, location=BEGIN_LOCATION)}
+
+selection_statement:
+    a="if" "(" b=expression ")" c=secondary_block "else" d=secondary_block {IfStmt(condition_expr=b,body=c,else_body=d,location=a.location)}
+    | a="if" "(" b=expression ")" c=secondary_block {IfStmt(condition_expr=b,body=c,else_body=None,location=a.location)}
+    | a="switch" "(" b=expression ")" c=secondary_block {SwitchStmt(condition_expr=b,body=c,location=a.location)}
+
+iteration_statement:
+    a="while" "(" b=expression ")" c=secondary_block {WhileStmt(condition_expr=b,body=c,location=a.location,)}
+    | a="do" b=secondary_block "while" "(" c=expression ")" ";" {DoWhileStmt(condition_expr=c,body=b,location=a.location)}
+    | a="for" "(" b=[expression] ";" c=[expression] ";" d=[expression] ")" e=secondary_block {ForStmt(init=b,condition_expr=c,increase_expr=d,body=e,location=a.location)}
+    | a="for" "(" b=declaration c=[expression] ";" d=[expression] ")" e=secondary_block {ForStmt(init=b,condition_expr=c,increase_expr=d,body=e,location=a.location)}
+
+jump_statement:
+    a="goto" b=identifier ";" {GotoStmt(name=b.text, location=a.location)}
+    | a="continue" ";" {ContinueStmt(location=a.location)}
+    | a="break" ";" {BreakStmt(location=a.location)}
+    | a="return" b=[expression] ";" {ReturnStmt(expr=b, location=a.location)}
+
+constant_expression:
+    conditional_expression
+
+expression:
+    a=expression c="," b=assignment_expression {BinaryOperator(op=BinOpKind.COMMA,left=a,right=b,location=c.location,)}
+    | assignment_expression
+
+assignment_expression:
+    a=unary_expression c=assignment_operator b=assignment_expression {BinaryOperator(op=c[1],left=a,right=b,location=c[0].location,)}
+    | conditional_expression
+
+assignment_operator:
+    a="=" {a,BinOpKind.ASSIGN}
+    | a="*=" {a,BinOpKind.AMUL}
+    | a="/=" {a,BinOpKind.ADIV}
+    | a="%=" {a,BinOpKind.AMOD}
+    | a="+=" {a,BinOpKind.AADD}
+    | a="-=" {a,BinOpKind.ASUB}
+    | a="<<=" {a,BinOpKind.ALSHIFT}
+    | a=">>=" {a,BinOpKind.ARSHIFT}
+    | a="&=" {a,BinOpKind.ABITAND}
+    | a="^=" {a,BinOpKind.ABITXOR}
+    | a="|=" {a,BinOpKind.ABITOR}
+
+conditional_expression:
+    a=logical_OR_expression d="?" b=expression ":" c=conditional_expression {ConditionalOperator(condition_expr=a,true_expr=b,false_expr=c,location=d.location,)}
+    | logical_OR_expression
+
+logical_OR_expression:
+    a=logical_OR_expression c="||" b=logical_AND_expression {BinaryOperator(op=BinOpKind.OR,left=a,right=b,location=c.location,)}
+    | logical_AND_expression
+
+logical_AND_expression:
+    a=logical_AND_expression c="&&" b=inclusive_OR_expression {BinaryOperator(op=BinOpKind.AND,left=a,right=b,location=c.location,)}
+    | inclusive_OR_expression
+
+inclusive_OR_expression:
+    a=inclusive_OR_expression c="|" b=exclusive_OR_expression {BinaryOperator(op=BinOpKind.BITOR,left=a,right=b,location=c.location,)}
+    | exclusive_OR_expression
+
+exclusive_OR_expression:
+    a=exclusive_OR_expression c="^" b=AND_expression {BinaryOperator(op=BinOpKind.BITXOR,left=a,right=b,location=c.location)}
+    | AND_expression
+
+AND_expression:
+    a=AND_expression c="&" b=equality_expression {BinaryOperator(op=BinOpKind.BITAND,left=a,right=b,location=c.location)}
+    | equality_expression
+
+equality_expression:
+    a=equality_expression c="==" b=relational_expression {BinaryOperator(op=BinOpKind.EQ,left=a,right=b,location=c.location)}
+    | a=equality_expression c="!=" b=relational_expression {BinaryOperator(op=BinOpKind.NEQ,left=a,right=b,location=c.location)}
+    | relational_expression
+
+relational_expression:
+    a=relational_expression c="<" b=shift_expression {BinaryOperator(op=BinOpKind.LT,left=a,right=b,location=c.location)}
+    | a=relational_expression c=">" b=shift_expression {BinaryOperator(op=BinOpKind.GT,left=a,right=b,location=c.location)}
+    | a=relational_expression c="<=" b=shift_expression {BinaryOperator(op=BinOpKind.LTE,left=a,right=b,location=c.location)}
+    | a=relational_expression c=">=" b=shift_expression {BinaryOperator(op=BinOpKind.GTE,left=a,right=b,location=c.location)}
+    | shift_expression
+
+shift_expression:
+    a=shift_expression c="<<" b=additive_expression {BinaryOperator(op=BinOpKind.LSHIFT,left=a,right=b,location=c.location)}
+    | a=shift_expression c=">>" b=additive_expression {BinaryOperator(op=BinOpKind.RSHIFT,left=a,right=b,location=c.location)}
+    | additive_expression
+
+additive_expression:
+    a=additive_expression c="+" b=multiplicative_expression {BinaryOperator(op=BinOpKind.ADD,left=a,right=b,location=c.location)}
+    | a=additive_expression c="-" b=multiplicative_expression {BinaryOperator(op=BinOpKind.SUB,left=a,right=b,location=c.location)}
+    | multiplicative_expression
+
+multiplicative_expression:
+    a=multiplicative_expression c="*" b=cast_expression {BinaryOperator(op=BinOpKind.MUL,left=a,right=b,location=c.location)}
+    | a=multiplicative_expression c="/" b=cast_expression {BinaryOperator(op=BinOpKind.DIV,left=a,right=b,location=c.location)}
+    | a=multiplicative_expression c="%" b=cast_expression {BinaryOperator(op=BinOpKind.MOD,left=a,right=b,location=c.location)}
+    | cast_expression
+
+cast_expression:
+    a="(" b=type_name ")" c=cast_expression {ExplicitCast(type_name=b, expr=c, location=a.location)}
+    | unary_expression
+
+unary_expression:
+    a="++" b=unary_expression {UnaryOperator(op=UnaryOpKind.PREFIX_INC,operand=b,location=a.location)}
+    | a="--" b=unary_expression {UnaryOperator(op=UnaryOpKind.PREFIX_DEC,operand=b,location=a.location)}
+    | a=unary_operator b=cast_expression {UnaryOperator(op=a[1],operand=b,location=a[0].location)}
+    | a="sizeof" b=unary_expression {UnaryOperator(op=UnaryOpKind.SIZEOF,operand=b,location=a.location)}
+    | a="sizeof" "(" b=type_name ")" {UnaryOperator(op=UnaryOpKind.SIZEOF,operand=b,location=a.location)}
+    | a="alignof" "(" b=type_name ")" {UnaryOperator(op=UnaryOpKind.ALIGNOF,operand=b,location=a.location)}
+    | postfix_expression
+
+unary_operator:
+    a="&" {a,UnaryOpKind.ADDRESS}
+    | a="*" {a,UnaryOpKind.INDIRECTION}
+    | a="+" {a,UnaryOpKind.POSITIVE}
+    | a="-" {a,UnaryOpKind.NEGATIVE}
+    | a="~" {a,UnaryOpKind.INVERT}
+    | a="!" {a,UnaryOpKind.NOT}
+
+postfix_expression:
+    a=postfix_expression c="[" b=expression "]" {ArraySubscript(array=a,index=b,location=c.location)}
+    | a=postfix_expression c="(" b=[argument_expression_list] ")" {FunctionCall(func=a,args=option(b,[]),location=c.location)}
+    | a=postfix_expression c="." b=identifier {MemberRef(target=a,member_name=b.text,is_arrow=False,location=c.location)}
+    | a=postfix_expression c="->" b=identifier {MemberRef(target=a,member_name=b.text,is_arrow=True,location=c.location)}
+    | a=postfix_expression b="++" {UnaryOperator(op=UnaryOpKind.POSTFIX_INC,operand=a,location=b.location)}
+    | a=postfix_expression b="--" {UnaryOperator(op=UnaryOpKind.POSTFIX_DEC,operand=a,location=b.location)}
+    | compound_literal
+    | primary_expression
+
+argument_expression_list:
+    a=argument_expression_list "," b=assignment_expression {a+[b]}
+    | b=assignment_expression {[b]}
+
+compound_literal:
+    a="(" b=[storage_class_specifiers] c=type_name ")" d=braced_initializer {CompoundLiteral(storage_class=option(b,[]),type_name=c,initializer=d,location=a.location)}
+
+storage_class_specifiers:
+    a=storage_class_specifiers b=storage_class_specifier {a+[b]}
+    | b=storage_class_specifier {[b]}
+
+generic_selection:
+    a="_Generic" "(" b=assignment_expression "," c=generic_assoc_list ")" {GenericSelection(controling_expr=b,assoc_list=c,location=a.location)}
+
+generic_assoc_list:
+    a=generic_assoc_list "," b=generic_association {a+[b]}
+    | b=generic_association {[b]}
+
+generic_association:
+    a=type_name ":" b=assignment_expression {GenericAssociation(type_name=a,expr=b,is_default=False,location=a.location)}
+    | a="default" ":" b=assignment_expression {GenericAssociation(expr=b,is_default=True,location=a.location)}
+
+primary_expression:
+    a=identifier {Reference(name=a.text, location=a.location)}
+    | constant
+    | a=string_literal {StringLiteral(value=a.content,prefix=a.prefix,location=a.location)}
+    | "(" a=expression ")" {a}
+    | generic_selection
+
+constant:
+    a=integer_constant {IntegerLiteral(value=a.text, location=a.location)}
+    | a=floating_constant {FloatLiteral(value=a.text, location=a.location)}
+    | a=character_constant {CharLiteral(value=a.content,prefix=a.prefix,location=a.location)}
+
+declaration:
+    a=attribute_specifier_sequence b=declaration_specifiers c=init_declarator_list d=";" {DeclStmt(attribute_specifiers=a,specifiers=b[0],specifier_attributes=b[1],declarators=c,location=d.location)}
+    | a=declaration_specifiers b=[init_declarator_list] c=";" {DeclStmt(attribute_specifiers=[],specifiers=a[0],specifier_attributes=a[1],declarators=option(b,[]),location=c.location)}
+    | static_assert_declaration
+    | attribute_declaration
+
+declaration_specifiers:
+    a=declaration_specifier b=declaration_specifiers {[a]+b[0],b[1]}
+    | a=declaration_specifier b=[attribute_specifier_sequence] {[a],option(b,[])}
+
+declaration_specifier:
+    storage_class_specifier
+    | type_specifier_qualifier
+    | function_specifier
+
+init_declarator_list:
+    a=init_declarator_list "," b=init_declarator {a+[b]}
+    | b=init_declarator {[b]}
+
+init_declarator:
+    a=declarator c="=" b=initializer {TypeOrVarDecl(declarator=a,initializer=b,location=c.location)}
+    | a=declarator {TypeOrVarDecl(declarator=a,initializer=None,location=a.location)}
+
+attribute_declaration:
+    a=attribute_specifier_sequence b=";" {AttributeDeclStmt(attribute_specifiers=a,location=b.location)}
+
+storage_class_specifier:
+    a="auto" {StorageClass(specifier=StorageClassSpecifier.AUTO,location=a.location)}
+    | a="constexpr" {StorageClass(specifier=StorageClassSpecifier.CONSTEXPR,location=a.location)}
+    | a="extern" {StorageClass(specifier=StorageClassSpecifier.EXTERN,location=a.location)}
+    | a="register" {StorageClass(specifier=StorageClassSpecifier.REGISTER,location=a.location)}
+    | a="static" {StorageClass(specifier=StorageClassSpecifier.STATIC,location=a.location)}
+    | a="thread_local" {StorageClass(specifier=StorageClassSpecifier.THREAD_LOCAL,location=a.location)}
+    | a="typedef" {StorageClass(specifier=StorageClassSpecifier.TYPEDEF,location=a.location)}
+
+type_specifier:
+    atomic_type_specifier
+    | struct_or_union_specifier
+    | enum_specifier
+    | a=typedef_name {TypedefSpecifier(specifier_name=a.text,location=a.location)}
+    | typeof_specifier
+    | a="_BitInt" "(" b=constant_expression ")" {BitIntSpecifier(size=b,location=a.location)}
+    | a="void" {BasicTypeSpecifier(specifier_name=a.text,location=a.location)}
+    | a="char" {BasicTypeSpecifier(specifier_name=a.text,location=a.location)}
+    | a="short" {BasicTypeSpecifier(specifier_name=a.text,location=a.location)}
+    | a="int" {BasicTypeSpecifier(specifier_name=a.text,location=a.location)}
+    | a="long" {BasicTypeSpecifier(specifier_name=a.text,location=a.location)}
+    | a="float" {BasicTypeSpecifier(specifier_name=a.text,location=a.location)}
+    | a="double" {BasicTypeSpecifier(specifier_name=a.text,location=a.location)}
+    | a="signed" {BasicTypeSpecifier(specifier_name=a.text,location=a.location)}
+    | a="unsigned" {BasicTypeSpecifier(specifier_name=a.text,location=a.location)}
+    | a="bool" {BasicTypeSpecifier(specifier_name=a.text,location=a.location)}
+    | a="_Complex" {BasicTypeSpecifier(specifier_name=a.text,location=a.location)}
+    | a="_Decimal32" {BasicTypeSpecifier(specifier_name=a.text,location=a.location)}
+    | a="_Decimal64" {BasicTypeSpecifier(specifier_name=a.text,location=a.location)}
+    | a="_Decimal128" {BasicTypeSpecifier(specifier_name=a.text,location=a.location)}
+
+struct_or_union_specifier:
+    a=struct_or_union b=[attribute_specifier_sequence] c=[identifier] "{" d=member_declaration_list "}" {RecordDecl(struct_or_union=a.text,attribute_specifiers=option(b,[]),name=c.text if c != None else "",members_declaration=d,location=a.location)}
+    | a=struct_or_union b=[attribute_specifier_sequence] c=identifier {RecordDecl(struct_or_union=a.text,attribute_specifiers=option(b,[]),name=c.text,members_declaration=[],location=a.location)}
+
+struct_or_union:
+    a="struct"
+    | a="union"
+
+member_declaration_list:
+    a=member_declaration_list b=member_declaration {a+[b]}
+    | b=member_declaration {[b]}
+
+member_declaration:
+    a=[attribute_specifier_sequence] b=specifier_qualifier_list c=[member_declarator_list] d=";" {FieldDecl(attribute_specifiers=option(a,[]),specifiers=b[0],specifier_attributes=b[1],declarators=option(c,[]),location=d.location)}
+    | static_assert_declaration
+
+specifier_qualifier_list:
+    a=type_specifier_qualifier b=specifier_qualifier_list {[a]+b[0],b[1]}
+    | a=type_specifier_qualifier b=[attribute_specifier_sequence] {[a],option(b,[])}
+
+type_specifier_qualifier:
+    type_specifier
+    | type_qualifier
+    | alignment_specifier
+
+member_declarator_list:
+    a=member_declarator_list "," b=member_declarator {a+[b]}
+    | b=member_declarator {[b]}
+
+member_declarator:
+    a=[declarator] c=":" b=constant_expression {MemberDecl(declarator=a, bit_field=b, location=c.location)}
+    | a=declarator {MemberDecl(declarator=a, bit_field=None, location=a.location)}
+
+enum_specifier:
+    a="enum" b=[attribute_specifier_sequence] c=[identifier] d=[enum_type_specifier] "{" e=enumerator_list [","] "}" {EnumDecl(attribute_specifiers=b,name=c.text if c != None else "",specifiers=d,enumerators=e,location=a.location)}
+    | a="enum" c=identifier d=[enum_type_specifier] {EnumDecl(attribute_specifiers=[],name=c.text,specifiers=d,enumerators=[],location=a.location)}
+
+enumerator_list:
+    a=enumerator_list "," b=enumerator {a+[b]}
+    | b=enumerator {[b]}
+
+enumeration_constant:
+    identifier
+
+enumerator:
+    a=enumeration_constant b=[attribute_specifier_sequence] "=" c=constant_expression {Enumerator(name=a.text,attribute_specifiers=option(b,[]),value=c,location=a.location)}
+    | a=enumeration_constant b=[attribute_specifier_sequence] {Enumerator(name=a.text,attribute_specifiers=option(b,[]),value=None,location=a.location)}
+
+enum_type_specifier:
+    ":" a=specifier_qualifier_list {a}
+
+atomic_type_specifier:
+    a="_Atomic" "(" b=type_name ")" {AtomicSpecifier(type_name=b, location=a.location)}
+
+typeof_specifier:
+    a="typeof" "(" b=typeof_specifier_argument ")" {TypeOfSpecifier(arg=b, is_unqual=False, location=a.location)}
+    | a="typeof_unqual" "(" b=typeof_specifier_argument ")" {TypeOfSpecifier(arg=b, is_unqual=True, location=a.location)}
+
+typeof_specifier_argument:
+    expression
+    | type_name
+
+type_qualifier:
+    a="const" {TypeQualifier(qualifier=TypeQualifierKind.CONST,location=a.location)}
+    | a="restrict" {TypeQualifier(qualifier=TypeQualifierKind.RESTRICT,location=a.location)}
+    | a="volatile" {TypeQualifier(qualifier=TypeQualifierKind.VOLATILE,location=a.location)}
+    | a="_Atomic" {TypeQualifier(qualifier=TypeQualifierKind._ATOMIC,location=a.location)}
+
+function_specifier:
+    a="inline" {FunctionSpecifier(specifier_name=a.text, location=a.location)}
+    | a="_Noreturn" {FunctionSpecifier(specifier_name=a.text, location=a.location)}
+
+alignment_specifier:
+    a="alignas" "(" b=type_name ")" {AlignSpecifier(type_or_expr=b, location=a.location)}
+    | a="alignas" "(" b=constant_expression ")" {AlignSpecifier(type_or_expr=b, location=a.location)}
+
+declarator:
+    a=[pointer] b=direct_declarator {concat_pointer(a,b)}
+
+direct_declarator:
+    a=array_declarator b=[attribute_specifier_sequence] {assign(a,"attribute_specifiers",option(b,[]))}
+    | a=function_declarator b=[attribute_specifier_sequence] {assign(a,"attribute_specifiers",option(b,[]))}
+    | a=identifier b=[attribute_specifier_sequence] {NameDeclarator(name=a.text,declarator=None,attribute_specifiers=option(b,[]),location=a.location)}
+    | "(" a=declarator ")" {a}
+
+array_declarator:
+    a=direct_declarator d="[" b=type_qualifier_list "static" c=assignment_expression "]" {ArrayDeclarator(declarator=a,qualifiers=b,size=c,is_star_modified=False,is_static=True,location=d.location)}
+    | a=direct_declarator d="[" "static" b=[type_qualifier_list] c=assignment_expression "]" {ArrayDeclarator(declarator=a,qualifiers=option(b,[]),size=c,is_star_modified=False,is_static=True,location=d.location)}
+    | a=direct_declarator d="[" b=[type_qualifier_list] "*" "]" {ArrayDeclarator(declarator=a,qualifiers=option(b,[]),size=None,is_star_modified=True,is_static=False,location=d.location)}
+    | a=direct_declarator d="[" b=[type_qualifier_list] c=[assignment_expression] "]" {ArrayDeclarator(declarator=a,qualifiers=option(b,[]),size=c,is_star_modified=False,is_static=False,location=d.location)}
+
+function_declarator:
+    a=direct_declarator c="(" b=[parameter_type_list] ")" {FunctionDeclarator(declarator=a,parameters=option(b,[[], False])[0],has_varparam=option(b,[[], False])[1],location=c.location)}
+
+pointer:
+    a="*" c=[attribute_specifier_sequence] d=[type_qualifier_list] e=[pointer] {PointerDeclarator(declarator=e,attribute_specifiers=option(c,[]),qualifiers=option(d,[]),location=a.location)}
+
+type_qualifier_list:
+    a=type_qualifier_list b=type_qualifier {a+[b]}
+    | b=type_qualifier {[b]}
+
+parameter_type_list:
+    a=parameter_list "," "..." {a,True}
+    | a=parameter_list {a,False}
+    | "..." {[],True}
+
+parameter_list:
+    a=parameter_list "," b=parameter_declaration {a+[b]}
+    | b=parameter_declaration {[b]}
+
+parameter_declaration:
+    a=[attribute_specifier_sequence] b=declaration_specifiers c=declarator {ParamDecl(attribute_specifiers=option(a,[]),specifiers=b[0],specifier_attributes=b[1],declarator=c,location=BEGIN_LOCATION)}
+    | a=[attribute_specifier_sequence] b=declaration_specifiers c=[abstract_declarator] {ParamDecl(attribute_specifiers=option(a,[]),specifiers=b[0],specifier_attributes=b[1],declarator=c,location=BEGIN_LOCATION)}
+
+type_name:
+    a=specifier_qualifier_list b=[abstract_declarator] {TypeName(specifiers=a[0],specifier_attributes=a[1],declarator=b,location=BEGIN_LOCATION)}
+
+abstract_declarator:
+    a=[pointer] b=direct_abstract_declarator {concat_pointer(a,b)}
+    | pointer
+
+direct_abstract_declarator:
+    a=array_abstract_declarator b=[attribute_specifier_sequence] {assign(a,"attribute_specifiers",option(b,[]))}
+    | a=function_abstract_declarator b=[attribute_specifier_sequence] {assign(a,"attribute_specifiers",option(b,[]))}
+    | "(" a=abstract_declarator ")" {a}
+
+array_abstract_declarator:
+    a=[direct_abstract_declarator] d="[" "static" b=[type_qualifier_list] c=assignment_expression "]" {ArrayDeclarator(declarator=a,qualifiers=option(b,[]),size=c,is_star_modified=False,is_static=True,location=d.location)}
+    | a=[direct_abstract_declarator] d="[" "*" "]" {ArrayDeclarator(declarator=a,qualifiers=[],size=None,is_star_modified=True,is_static=False,location=d.location)}
+    | a=[direct_abstract_declarator] d="[" b=type_qualifier_list "static" c=assignment_expression "]" {ArrayDeclarator(declarator=a,qualifiers=b,size=c,is_star_modified=False,is_static=True,location=d.location)}
+    | a=[direct_abstract_declarator] d="[" b=[type_qualifier_list] c=[assignment_expression] "]" {ArrayDeclarator(declarator=a,qualifiers=option(b,[]),size=c,is_star_modified=False,is_static=False,location=d.location)}
+
+function_abstract_declarator:
+    a=[direct_abstract_declarator] d="(" b=[parameter_type_list] ")" {FunctionDeclarator(declarator=a,parameters=option(b,[[], False])[0],has_varparam=option(b,[[], False])[1],location=d.location,)}
+
+braced_initializer:
+    a="{" b=initializer_list [","] "}" {InitList(initializers=b, location=a.location)}
+    | a="{" "}" {InitList(initializers=[], location=a.location)}
+
+initializer:
+    assignment_expression
+    | braced_initializer
+
+initializer_list:
+    a=initializer_list "," b=[designation] c=initializer {a+[assign(b,"initializer",c) if b!=None else c]}
+    | b=[designation] c=initializer {[assign(b,"initializer",c) if b!=None else c]}
+
+designation:
+    a=designator_list b="=" {Designation(designators=a, location=b.location)}
+
+designator_list:
+    a=designator_list b=designator {a+[b]}
+    | b=designator {[b]}
+
+designator:
+    a="[" b=constant_expression "]" {Designator(index=b, location=a.location)}
+    | a="." b=identifier {Designator(member=b.text, location=a.location)}
+
+static_assert_declaration:
+    a="static_assert" "(" b=constant_expression "," c=string_literal ")" ";" {StaticAssert(condition_expr=b,message=c.text,location=a.location)}
+    | a="static_assert" "(" b=constant_expression ")" ";" {StaticAssert(condition_expr=b,message="",location=a.location)}
+
+attribute_specifier_sequence:
+    a=[attribute_specifier_sequence] b=attribute_specifier {option(a,[])+[b]}
+
+attribute_specifier:
+    b="[" "[" a=attribute_list "]" "]" {AttributeSpecifier(attributes=a, location=b.location)}
+
+attribute_list:
+    a=attribute_list "," b=[attribute] {a+([b] if b!=None else [])}
+    | b=[attribute] {[b] if b!=None else []}
+
+attribute:
+    a=attribute_token b=[attribute_argument_clause] {assign(a,"args",b)}
+
+attribute_token:
+    a=attribute_prefixed_token {Attribute(prefix_name=a[0].text,name=a[1].text,location=BEGIN_LOCATION)}
+    | a=standard_attribute {Attribute(prefix_name="",name=a.text,location=a.location)}
+
+attribute_prefixed_token:
+    a=attribute_prefix "::" b=identifier {a,b}
+
+attribute_prefix:
+    identifier
+
+standard_attribute:
+    identifier
+
+attribute_argument_clause:
+    "(" a=[balanced_token_sequence] ")" {option(a,[])}
+
+balanced_token_sequence:
+    a=balanced_token_sequence b=balanced_token {a+[b]}
+    | b=balanced_token {[b]}
+
+#include "c_error.gram"

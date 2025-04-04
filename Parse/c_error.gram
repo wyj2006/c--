@@ -1,0 +1,189 @@
+start:
+    translation_unit {ERROR("解析已结束, 但文件未结束",self.curtoken().location)}
+
+label:
+    [attribute_specifier_sequence] a="case" constant_expression {ERROR("'case'后的常量表达式后应有':'",a.location)}
+    | [attribute_specifier_sequence] a="case" {ERROR("'case'后应跟常量表达式",a.location)}
+    | [attribute_specifier_sequence] a="default" {ERROR("'default'后缺':'",a.location)}
+
+compound_statement:
+    a="{" [block_item_list] {ERROR("大括号未闭合",a.location)}
+
+#define A(k) k "(" expression a=")" {ERROR("后面缺少语句体",a.location)} \
+            | B(k)
+
+#define B(k) k "(" expression {ERROR("'('未闭合",self.curtoken().location)} \
+            | k a="(" {ERROR("后面期待一个表达式",a.location)} \
+            | a=k {ERROR("后面应该为'('",a.location)}
+
+selection_statement:
+    "if" "(" expression a=")" secondary_block "else"{ERROR("缺少else的语句体",a.location)}
+    | A("if")
+    | A("switch")
+
+iteration_statement:
+    A("while")
+    | "do" secondary_block "while" "(" expression a=")" {ERROR("do-while语句后应有';'",a.location)}
+    | B("do" secondary_block "while")
+    | a="do" {ERROR("'do'后面缺少语句体",a.location)}
+    | "for" "(" [expression] ";" [expression] ";" [expression] a=")" {ERROR("缺少for的语句体",a.location)}
+    | "for" "(" [expression] ";" [expression] ";" [expression] {ERROR("前面应有')'",self.curtoken().location)}
+    | "for" "(" [expression] ";" [expression] {ERROR("前面应有';'",self.curtoken().location)}
+    | "for" "(" [expression] {ERROR("前面应有';'",self.curtoken().location)}
+    | "for" "(" declaration [expression] ";" [expression] a=")" {ERROR("缺少for的语句体",a.location)}
+    | "for" "(" declaration [expression] ";" [expression] {ERROR("前面应有')'",self.curtoken().location)}
+    | "for" "(" declaration [expression] {ERROR("前面应有';'",self.curtoken().location)}
+    | "for" a="(" {ERROR("后面期待表达式或声明",a.location)}
+    | a="for" {ERROR("后面应该为'('",a.location)}
+
+jump_statement:
+    "goto" identifier {ERROR("前面期待一个';'",self.curtoken().location)}
+    | a="goto" {ERROR("goto后面应有一个标识符",a.location)}
+    | a="continue" {ERROR("后面缺少一个';'",a.location)}
+    | a="break" {ERROR("后面缺少一个';'",a.location)}
+    | "return" [expression] {ERROR("前面缺少一个';'",self.curtoken().location)}
+
+cast_expression:
+    "(" type_name {ERROR("前面应有')'",self.curtoken().location)}
+
+unary_expression:
+    "sizeof" "(" type_name {ERROR("前面应有')'",self.curtoken().location)}
+    | "alignof" "(" type_name {ERROR("前面应有')'",self.curtoken().location)}
+
+compound_literal:
+    "(" storage_class_specifiers type_name {ERROR("前面应有')'",self.curtoken().location)}
+
+generic_selection:
+    "_Generic" "(" assignment_expression "," generic_assoc_list {ERROR("前面应有')'",self.curtoken().location)}
+    | "_Generic" "(" assignment_expression a="," {ERROR("后面缺少关联列表",a.location)}
+    | "_Generic" "(" assignment_expression {ERROR("前面应有','",self.curtoken().location)}
+    | "_Generic" a="(" {ERROR("后面缺少一个控制表达式",a.location)}
+    | a="_Generic" {ERROR("后面缺少'('",a.location)}
+
+generic_association:
+    type_name a=":" {ERROR("后面缺少一个表达式",a.location)}
+    | type_name {ERROR("前面缺少一个':'",self.curtoken().location)}
+    | "default" a=":" {ERROR("后面缺少一个表达式",a.location)}
+    | "default" {ERROR("前面缺少一个':'",self.curtoken().location)}
+
+primary_expression:
+    "(" expression {ERROR("前面应有')'",self.curtoken().location)}
+
+declaration:
+    attribute_specifier_sequence declaration_specifiers init_declarator_list {ERROR("前面缺少一个';'",self.curtoken().location)}
+    | attribute_specifier_sequence declaration_specifiers {ERROR("如果有属性列表就应该有初始化列表",self.curtoken().location)}
+    | declaration_specifiers [init_declarator_list] {ERROR("前面缺少一个';'",self.curtoken().location)}
+
+init_declarator:
+    declarator a="=" {ERROR("后面缺少初始化器",a.location)}
+
+attribute_declaration:
+    attribute_specifier_sequence {ERROR("前面缺少一个';'",self.curtoken().location)}
+
+type_specifier:
+    "_BitInt" "(" constant_expression {ERROR("前面应有')'",self.curtoken().location)}
+    | "_BitInt" a="(" {ERROR("后面期待一个常量表达式",a.location)}
+    | a="_BitInt" {ERROR("后面缺少'('",a.location)}
+
+struct_or_union_specifier:
+    struct_or_union [attribute_specifier_sequence] [identifier] "{" member_declaration_list {ERROR("前面缺少一个右大括号",self.curtoken().location)}
+    | struct_or_union [attribute_specifier_sequence] [identifier] "{" a="}"{ERROR("记录声明不能没有成员",a.location)}
+    | struct_or_union [attribute_specifier_sequence] [identifier] a="{" {ERROR("后面缺少成员声明列表",a.location)}
+    | struct_or_union [attribute_specifier_sequence] {ERROR("匿名的记录声明必须有成员声明列表",self.curtoken().location)}
+
+member_declaration:
+    [attribute_specifier_sequence] specifier_qualifier_list [member_declarator_list] {ERROR("前面缺少一个';'",self.curtoken().location)}
+    | attribute_specifier_sequence {ERROR("前面缺少类型说明符或限定符",self.curtoken().location)}
+
+member_declarator:
+    [declarator] a=":" {ERROR("后面缺少位域的表达式",a.location)}
+
+enum_specifier:
+    "enum" [attribute_specifier_sequence] [identifier] [enum_type_specifier] "{" enumerator_list [","] {ERROR("前面缺少一个右大括号",self.curtoken().location)}
+    | "enum" [attribute_specifier_sequence] [identifier] [enum_type_specifier] "{" {ERROR("后面缺少成员声明列表",a.location)}
+    | "enum" [attribute_specifier_sequence] [identifier] [enum_type_specifier] "{" a="}" {ERROR("枚举不能没有枚举项",a.location)}
+    | "enum" [attribute_specifier_sequence] [enum_type_specifier] {ERROR("匿名的枚举声明必须有枚举项",self.curtoken().location)}
+
+enumerator:
+    enumeration_constant [attribute_specifier_sequence] a="=" {ERROR("后面缺少一个表达式",a.location)}
+
+enum_type_specifier:
+    a=":" {ERROR("后面缺少类型说明符或限定符",a.location)}
+
+#define C(x,y) x "(" y {ERROR("前面缺少')'",self.curtoken().location)} \
+              | x a="(" {ERROR("后面期待一个类型",a.location)} \
+              | a=x {ERROR("后面期待一个'('",a.location)}
+
+atomic_type_specifier:
+    "_Atomic" "(" a=type_name {ERROR("后面缺少')'",a.location)}
+
+typeof_specifier:
+    C("typeof",typeof_specifier_argument)
+    | C("typeof_unqual",typeof_specifier_argument)
+
+alignment_specifier:
+    C("alignas",type_name)
+    | C("alignas",constant_expression)
+
+declarator:
+    a=pointer {ERROR("后面缺少声明符",a.location)}
+
+direct_declarator:
+    "(" a=declarator {ERROR("后面缺少')'",a.location)}
+    | a="(" {ERROR("后面缺少声明符",a.location)}
+
+array_declarator:
+    direct_declarator "[" type_qualifier_list "static" c=assignment_expression {ERROR("后面缺少']'",c.location)}
+    | direct_declarator "[" "static" [type_qualifier_list] c=assignment_expression {ERROR("后面缺少']'",c.location)}
+    | direct_declarator "[" [type_qualifier_list] c="*" {ERROR("后面缺少']'",c.location)}
+    | direct_declarator "[" [type_qualifier_list] [assignment_expression] {ERROR("前面缺少']'",self.curtoken().location)}
+    | direct_declarator "[" type_qualifier_list a="static" {ERROR("后面缺少一个表达式",a.location)}
+    | direct_declarator "[" "static" [type_qualifier_list] {ERROR("前面期待一个表达式",self.curtoken().location)}
+
+function_declarator:
+    direct_declarator "(" [parameter_type_list] {ERROR("前面缺少')'",self.curtoken().location)}
+
+parameter_type_list:
+    parameter_list a="," {ERROR("后面期待一个'...'",a.location)}
+
+direct_abstract_declarator:
+    "(" a=abstract_declarator {ERROR("后面缺少')'",a.location)}
+
+array_abstract_declarator:
+    [direct_abstract_declarator] "[" "static" [type_qualifier_list] c=assignment_expression {ERROR("后面缺少']'",c.location)}
+    | [direct_abstract_declarator] "[" c="*"  {ERROR("后面缺少']'",c.location)}
+    | [direct_abstract_declarator] "[" type_qualifier_list "static" c=assignment_expression {ERROR("后面缺少']'",c.location)}
+    | [direct_abstract_declarator] "[" [type_qualifier_list] [assignment_expression] {ERROR("前面缺少']'",self.curtoken().location)}
+    | [direct_abstract_declarator] "[" type_qualifier_list a="static" {ERROR("后面缺少一个表达式",a.location)}
+    | [direct_abstract_declarator] "[" "static" [type_qualifier_list] {ERROR("前面期待一个表达式",self.curtoken().location)}
+
+function_abstract_declarator:
+    [direct_abstract_declarator] "(" b=[parameter_type_list] {ERROR("前面缺少')'",self.curtoken().location)}
+
+braced_initializer:
+    "{" initializer_list [","] {ERROR("前面缺少一个右大括号",self.curtoken().location)}
+    | a="{" {ERROR("后面期待一个右大括号或一个初始化列表",a.location)}
+
+designation:
+    designator_list {ERROR("前面缺少'='",self.curtoken().location)}
+
+designator:
+    "[" b=constant_expression {ERROR("后面缺少']'",b.location)}
+    | a="." {ERROR("后面缺少标识符",a.location)}
+
+static_assert_declaration:
+    "static_assert" "(" constant_expression "," string_literal d=")" {ERROR("后面缺少';'",d.location)}
+    | "static_assert" "(" constant_expression d=")" {ERROR("后面缺少';'",d.location)}
+    | "static_assert" "(" constant_expression "," c=string_literal {ERROR("后面缺少')'",c.location)}
+    | "static_assert" "(" constant_expression c="," {ERROR("后面缺少字符串",c.location)}
+    | C("static_assert",constant_expression)
+
+attribute_specifier:
+    "[" "[" attribute_list a="]"{ERROR("后面还少一个']'",a.location)}
+    | "[" "[" attribute_list {ERROR("前面缺少']'",self.curtoken().location)}
+
+attribute_prefixed_token:
+    attribute_prefix a="::" {ERROR("后面缺少一个标识符",a.location)}
+
+attribute_argument_clause:
+    "(" [balanced_token_sequence] {ERROR("前面缺少')'",self.curtoken().location)}
