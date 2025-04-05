@@ -75,6 +75,7 @@ class DefineDirective(PPDirective):
         "parameters",
         "hasvarparam",
         "is_object_like",
+        "replacement",
     )
 
 
@@ -136,7 +137,7 @@ class Group(PPDirective, TokenGen):
         if isinstance(token, IfSection):
             self.sub_tokengen.append(token)
             return self.next()
-        elif not isinstance(token, Token):  # 有可能是其它预处理指令
+        elif not isinstance(token, Token):  # TODO: 处理其它预处理指令
             return self.next()
         return token
 
@@ -208,6 +209,9 @@ class IfDirecvtive(IfSection):
 
     def check(self):
         from Lex import Evaluater
+
+        if self.expr == None:
+            return False
 
         self.expr.accept(Evaluater(self.macros))
 

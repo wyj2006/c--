@@ -484,7 +484,7 @@ attribute_argument_clause:
     "(" a=[balanced_token_sequence] ")" {option(a,[])}
 
 balanced_token_sequence:
-    a=balanced_token_sequence b=balanced_token {a+[b]}
-    | b=balanced_token {[b]}
+    a=balanced_token_sequence b=balanced_token {a+b}
+    | b=balanced_token
 
 #include "c_error.gram"

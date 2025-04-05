@@ -12,6 +12,8 @@ from AST import (
 )
 from Basic import Token
 
+# TODO: 空列表被判定为匹配失败
+
 
 class Generator(Visitor):
     def visit_Grammar(self, node: Grammar):
@@ -187,6 +189,9 @@ class Generator(Visitor):
             token_kind = Token.punctuator[node.value].name
         elif node.value in Token.keywords:
             token_kind = Token.keywords[node.value].name
+        elif node.value in Token.ppkeywords:
+            token_kind = Token.ppkeywords[node.value].name
+        # TODO: 处理关键字和预处理关键字
         if token_kind != None:
             return ast.Call(
                 func=ast.Attribute(

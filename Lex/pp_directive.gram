@@ -1,0 +1,153 @@
+"""
+from Basic import *
+from AST import *
+
+def reconstruct(if_group,else_groups):
+    p = if_group
+    for else_group in else_groups:
+        p.else_group = else_group
+        p = p.else_group
+    return if_group
+"""
+
+primary_expression:
+    defined_macro_expression
+    | has_include_expression
+    | has_embed_expression
+    | has_c_attribute_express
+
+defined_macro_expression:
+    a="defined" b=identifier {Defined(location=a.location,name=b.text)}
+    | a="defined" "(" b=identifier ")" {Defined(location=a.location,name=b.text)}
+
+has_include_expression:
+    a="__has_include" "(" b=header_name ")" {HasInclude(location=a.location,filename=b.text,search_current_path=False)}
+    | a="__has_include" "(" b=string_literal ")" {HasInclude(location=a.location,filename=b.text[1:-1],search_current_path=True)}
+
+has_embed_expression:
+    a="__has_embed" "(" b=header_name c=[embed_parameter_sequence] ")" {HasEmbed(location=a.location,filename=b.text,search_current_path=False,parameters=c)}
+    | a="__has_embed" "(" b=string_literal c=[embed_parameter_sequence] ")" {HasEmbed(location=a.location,filename=b.text[1:-1],search_current_path=True,parameters=c)}
+
+has_c_attribute_express:
+    a="__has_c_attribute" "(" b=attribute ")" {HasCAttribute(location=a.location,attribute=b)}
+
+start:
+    group_part
+
+#include "../Parse/c.gram"
+
+control_line:
+    "#" a="include" b=header_name [pp_tokens] new_line 
+        {Include(location=a.location,filename=b.text,search_current_path=False)}
+    | "#" a="include" b=string_literal [pp_tokens] new_line 
+        {Include(location=a.location,filename=b.text[1:-1],search_current_path=True)}
+    | "#" a="embed" b=header_name c=[embed_parameter_sequence] [pp_tokens] new_line 
+        {Embed(location=a.location,filename=b.text,search_current_path=False,parameters=c)}
+    | "#" a="embed" b=string_literal c=[embed_parameter_sequence] [pp_tokens] new_line 
+        {Embed(location=a.location,filename=b.text[1:-1],search_current_path=True,parameters=c)}
+    | "#" a="define" b=identifier lparen c=identifier_list "," "..." ")" d=[replacement_list] new_line 
+        {DefineDirective(location=a.location,name=b.text,parameters=c,hasvarparam=True,is_object_like=False,replacement=d)}
+    | "#" a="define" b=identifier lparen c=[identifier_list] ")" d=[replacement_list] new_line
+        {DefineDirective(location=a.location,name=b.text,parameters=c if c!=None else [],hasvarparam=False,is_object_like=False,replacement=d)}
+    | "#" a="define" b=identifier lparen "..." ")" d=[replacement_list] new_line
+        {DefineDirective(location=a.location,name=b.text,parameters=[],hasvarparam=True,is_object_like=False,replacement=d)}
+    | "#" a="define" b=identifier d=[replacement_list] new_line
+        {DefineDirective(location=a.location,name=b.text,parameters=[],hasvarparam=False,is_object_like=True,replacement=d)}
+    | "#" a="undef" b=identifier new_line
+        {UndefDirective(location=a.location, name=b.text)}
+    | "#" a="line" b=integer_constant c=[string_literal] new_line
+        {LineDirecvtive(location=a.location,lineno=int(b.text),filename=c if c!=None else "")}
+    | "#" a="error" b=[pp_tokens] new_line
+        {ErrorDirecvtive(location=a.location,messages=b if b!=None else [])}
+    | "#" a="warning" b=[pp_tokens] new_line
+        {WarningDirecvtive(location=a.location,messages=b if b!=None else [])}
+    | "#" a="pragma" b=[pp_tokens] new_line
+        {Pragma(location=a.location,args=b if b!=None else [])}
+    | a="#" new_line
+        {EmptyDirective(location=a.location)}
+
+identifier_list:
+    a=identifier_list "," b=identifier {a+[b.text]}
+    | a=identifier {[a.text]}
+
+replacement_list:
+    a=[pp_tokens] {a if a!=None else []}
+
+if_section:
+    a=if_group b=[elif_groups] c=[else_group] endif_line {reconstruct(a,(b if b!=None else [] )+ ([c] if c!=None else []))}
+
+if_group:
+    "#" a="if" b=constant_expression new_line c=[group]
+        {IfDirecvtive(location=a.location, macros=self.tokengen.macros,expr=b,group=c if c!=None else [])}
+    | "#" a="ifdef" b=identifier new_line c=[group]
+        {IfdefDirecvtive(location=a.location, macros=self.tokengen.macros,name=b.text,group=c if c!=None else [])}
+    | "#" a="ifndef" b=identifier new_line c=[group]
+        {IfndefDirecvtive(location=a.location, macros=self.tokengen.macros,name=b.text,group=c if c!=None else [])}
+
+elif_groups:
+    a=elif_groups b=elif_group {a+[b]}
+    | b=elif_group {[b]}
+
+elif_group:
+    "#" a="elif" b=constant_expression new_line c=[group]
+        {ElifDirecvtive(location=a.location, macros=self.tokengen.macros,expr=b,group=c if c!=None else [])}
+    | "#" a="elifdef" b=identifier new_line c=[group]
+        {IfdefDirecvtive(location=a.location, macros=self.tokengen.macros,name=b.text,group=c if c!=None else [])}
+    | "#" a="elifndef" b=identifier new_line c=[group]
+        {IfndefDirecvtive(location=a.location, macros=self.tokengen.macros,name=b.text,group=c if c!=None else [])}
+
+else_group:
+    "#" a="else" new_line b=[group]
+        {ElseDirecvtive(location=a.location,group=b if b!=None else [])}
+
+endif_line:
+    "#" a="endif" new_line
+        {EndifDirecvtive(location=a.location)}
+
+group_part:
+    if_section
+    | control_line
+    | [text_line]
+
+text_line:
+    a=[pp_tokens] new_line {a if a!=None else []}
+
+pp_parameter_name:
+    pp_prefixed_parameter
+    | pp_standard_parameter
+
+pp_standard_parameter:
+    a=identifier {"",a.text}
+
+pp_prefixed_parameter:
+    a=identifier "::" b=identifier {a.text,b.text}
+
+limit_name:
+    a="limit" {a}
+    | a="__limit__" {a}
+
+other_standard_name:
+    a="suffix" {a,SuffixParam}
+    | a="__suffix__" {a,SuffixParam}
+    | a="prefix" {a,PrefixParam}
+    | a="__prefix__" {a,PrefixParam}
+    | a="if_empty" {a,IfEmptyParam}
+    | a="__if_empty__" {a,IfEmptyParam}
+
+pp_parameter:
+    a=limit_name "(" b=constant_expression ")" {LimitParam(location=a.location,expr=b)}
+    | a=other_standard_name b=[pp_parameter_clause] {a[1](location=a[0].location,args=b if b!=None else [])}
+    | a=pp_parameter_name b=[pp_parameter_clause] {PPParameter(location=BEGIN_LOCATION,prefix_name=a[0],name=a[1],args=b if b!=None else [])}
+
+pp_parameter_clause:
+    "(" a=[pp_balanced_token_sequence] ")" {a if a!=None else []}
+
+pp_balanced_token_sequence:
+    a=pp_balanced_token_sequence b=pp_balanced_token {a+b}
+    | b=pp_balanced_token
+
+embed_parameter_sequence:
+    a=embed_parameter_sequence b=pp_parameter {a+[b]}
+    | b=pp_parameter {[b]}
+
+#include "pp_directive_error.gram"

@@ -2,58 +2,12 @@ from enum import Enum
 
 from Basic.Location import Location
 
-digit = "[0-9]"
-nonzero_digit = "[1-9]"
-decimal_constant = f"{nonzero_digit}('?{digit})*"
-octal_digit = "[0-7]"
-octal_constant = f"0('?{octal_digit})*"
-hexadecimal_prefix = "(0x|0X)"
-hexadecimal_digit = "[0-9a-fA-F]"
-hexadecimal_digit_sequence = f"{hexadecimal_digit}('?{hexadecimal_digit})*"
-hexadecimal_constant = f"({hexadecimal_prefix}{hexadecimal_digit_sequence})"
-binary_prefix = "(0b|0B)"
-binary_digit = "[01]"
-binary_constant = f"{binary_prefix}{binary_digit}('?{binary_digit})*"
-bit_precise_int_suffix = "(wb|WB)"
-unsigned_suffix = "[uU]"
-long_suffix = "[lL]"
-long_long_suffix = "(ll|LL)"
-integer_suffix = f"({unsigned_suffix}({long_long_suffix}|{bit_precise_int_suffix})|{unsigned_suffix}{long_suffix}?|({long_long_suffix}|{bit_precise_int_suffix}|{long_suffix}){unsigned_suffix}?)"
-integer_constant = f"({hexadecimal_constant}|{binary_constant}|{octal_constant}|{decimal_constant}){integer_suffix}?"
-
-floating_suffix = "(df|dd|dl|DF|DD|DL|[flFL])"
-sign = "[+-]"
-digit_sequence = f"({digit}('?{digit})*)"
-binary_exponent_part = f"([pP]{sign}?{digit_sequence})"
-hexadecimal_fractional_constant = rf"({hexadecimal_digit_sequence}?\.{hexadecimal_digit_sequence}|{hexadecimal_digit_sequence}\.)"
-exponent_part = f"([eE]{sign}?{digit_sequence})"
-fractional_constant = rf"({digit_sequence}?\.{digit_sequence}|{digit_sequence}\.)"
-decimal_floating_constant = f"{fractional_constant}{exponent_part}?{floating_suffix}?|{digit_sequence}{exponent_part}{floating_suffix}?"
-hexadecimal_floating_constant = f"({hexadecimal_prefix}{hexadecimal_fractional_constant}{binary_exponent_part}|{hexadecimal_prefix}{hexadecimal_digit_sequence}{binary_exponent_part}){floating_suffix}?"
-floating_constant = f"{decimal_floating_constant}|{hexadecimal_floating_constant}"
-
-hex_quad = f"{hexadecimal_digit}{{4}}"
-universal_character_name = rf"(\\[uU]({hex_quad}){{1,2}})"
-
-encoding_prefix = "(u8|u|U|L)"
-hexadecimal_escape_sequence = rf"\\x{hexadecimal_digit}+"
-octal_escape_sequence = rf"\\{octal_digit}{{1,3}}"
-simple_escape_sequence = r"(\\'|\\\?|\\\\|\\a|\\b|\\f|\\n|\\r|\\t|\\v|" + r'\\")'
-escape_sequence = f"{simple_escape_sequence}|{octal_escape_sequence}|{hexadecimal_escape_sequence}|{universal_character_name}"
-c_char = rf"({escape_sequence}|[^'\n\\])"
-c_char_sequence = f"{c_char}+"
-character_constant = f"{encoding_prefix}?'{c_char_sequence}'"
-
-s_char = rf'({escape_sequence}|[^"\n\\])'
-s_char_sequence = f"({s_char}+)"
-string_literal = f'{encoding_prefix}?"{s_char_sequence}?"'
-
 
 class TokenKind(Enum):
-    ALIGNAS = "alignas|_Alignas"
-    ALIGNOF = "alignof|_Alignof"
+    ALIGNAS = "alignas"
+    ALIGNOF = "alignof"
     AUTO = "auto"
-    BOOL = "bool|_Bool"
+    BOOL = "bool"
     BREAK = "break"
     CASE = "case"
     CHAR = "char"
@@ -82,10 +36,10 @@ class TokenKind(Enum):
     SIGNED = "signed"
     SIZEOF = "sizeof"
     STATIC = "static"
-    STATIC_ASSERT = "static_assert|_Static_assert"
+    STATIC_ASSERT = "static_assert"
     STRUCT = "struct"
     SWITCH = "switch"
-    THREAD_LOCAL = "thread_local|_Thread_local"
+    THREAD_LOCAL = "thread_local"
     TRUE = "true"
     TYPEDEF = "typedef"
     TYPEOF = "typeof"
@@ -105,28 +59,28 @@ class TokenKind(Enum):
     _IMAGINARY = "_Imaginary"
     _NORETURN = "_Noreturn"
 
-    IDENTIFIER = "_|[a-zA-Z](_|[a-zA-Z]|[0-9])*"
-    INTCONST = integer_constant
-    FLOATCONST = floating_constant
-    CHARCONST = character_constant
-    STRINGLITERAL = string_literal
+    IDENTIFIER = "标识符"
+    INTCONST = "整数常量"
+    FLOATCONST = "浮点数常量"
+    CHARCONST = "字符常量"
+    STRINGLITERAL = "字符串字面量"
 
-    L_SQUARE = r"\["
-    R_SQUARE = r"\]"
-    L_PAREN = r"\("
-    R_PAREN = r"\)"
-    L_BRACE = r"\{"
-    R_BRACE = r"\}"
-    PERIOD = r"\."
-    ELLIPSIS = r"\.\.\."
+    L_SQUARE = "["
+    R_SQUARE = "]"
+    L_PAREN = "("
+    R_PAREN = ")"
+    L_BRACE = "{"
+    R_BRACE = "}"
+    PERIOD = "."
+    ELLIPSIS = "..."
     AMP = "&"
     AMPAMP = "&&"
     AMPEQUAL = "&="
-    STAR = r"\*"
-    STAREQUAL = r"\*="
-    PLUS = r"\+"
-    PLUSPLUS = r"\+\+"
-    PLUSEQUAL = r"\+="
+    STAR = "*"
+    STAREQUAL = "*="
+    PLUS = "+"
+    PLUSPLUS = "++"
+    PLUSEQUAL = "+="
     MINUS = "-"
     ARROW = "->"
     MINUSMINUS = "--"
@@ -146,12 +100,12 @@ class TokenKind(Enum):
     GREATERGREATER = ">>"
     GREATEREQUAL = ">="
     GREATERGREATEREQUAL = ">>="
-    CARET = r"\^"
-    CARETEQUAL = r"\^="
-    PIPE = r"\|"
-    PIPEPIPE = r"\|\|"
-    PIPEEQUAL = r"\|="
-    QUESTION = r"\?"
+    CARET = "^"
+    CARETEQUAL = "^="
+    PIPE = "|"
+    PIPEPIPE = "||"
+    PIPEEQUAL = "|="
+    QUESTION = "?"
     COLON = ":"
     COLONCOLON = "::"
     SEMI = ";"
@@ -164,11 +118,11 @@ class TokenKind(Enum):
     END = 0  # 文件结尾
     UNKOWN = 1  # 未知
 
-    COMMENT = r"//.*?|/\*[\s\S]*?\*/"
-    NEWLINE = r"\n"
+    COMMENT = "注释"
+    NEWLINE = "换行"
     DEFINE = "define"
-    __VA_ARGS__ = "__VA_ARGS__"
-    __VA_OPT__ = "__VA_OPT__"
+    VA_ARGS = "__VA_ARGS__"
+    VA_OPT = "__VA_OPT__"
     UNDEF = "undef"
     IFDEF = "ifdef"
     IFNDEF = "ifndef"
@@ -177,7 +131,7 @@ class TokenKind(Enum):
     ELIFNDEF = "elifndef"
     ENDIF = "endif"
     INCLUDE = "include"
-    HEADERNAME = "<.*?>"
+    HEADERNAME = "头文件名"
     LINE = "line"
     ERROR = "error"
     WARNING = "warning"
@@ -256,8 +210,8 @@ class Token:
     }
     ppkeywords = {
         "define": TokenKind.DEFINE,
-        "__VA_ARGS__": TokenKind.__VA_ARGS__,
-        "__VA_OPT__": TokenKind.__VA_OPT__,
+        "__VA_ARGS__": TokenKind.VA_ARGS,
+        "__VA_OPT__": TokenKind.VA_OPT,
         "undef": TokenKind.UNDEF,
         "ifdef": TokenKind.IFDEF,
         "ifndef": TokenKind.IFNDEF,

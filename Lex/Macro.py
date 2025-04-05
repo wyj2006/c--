@@ -63,8 +63,8 @@ class Macro:
                 return args[index]
             return MacroArg([], "")
 
-        isvaargs = lambda tk: tk.kind == TokenKind.__VA_ARGS__
-        isvaopt = lambda tk: tk.kind == TokenKind.__VA_OPT__
+        isvaargs = lambda tk: tk.kind == TokenKind.VA_ARGS
+        isvaopt = lambda tk: tk.kind == TokenKind.VA_OPT
 
         replacement = deepcopy(self.replacement)
         new: list[Token] = []

@@ -1,0 +1,21 @@
+start:
+    preprocessing_token
+
+#include "tokens.gram"
+
+preprocessing_token:
+    a=string_literal {Token(TokenKind.STRINGLITERAL,a[0],a[1])}
+    | header_name
+    | comment
+    | a="\n" {Token(TokenKind.NEWLINE,a.location,a.text)}
+
+header_name:
+    a="<" b=h_char_sequence c=">" {Token(TokenKind.HEADERNAME,combine(a,b,c)[0],b[1])}
+
+h_char_sequence:
+    a=h_char_sequence b=h_char {combine(a,b)}
+    | a=h_char {a.location,a.text}
+
+comment:
+    a="/" b="/" c=single_line_comment d="\n" {Token(TokenKind.COMMENT,combine(a,b,c,d)[0],c[1])}
+    | a="/" b="*" c=multi_line_comment d="*" e="/" {Token(TokenKind.COMMENT,combine(a,b,c,d,e)[0],c[1])}

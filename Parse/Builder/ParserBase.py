@@ -60,7 +60,7 @@ class ParserBase:
         return self.expect(TokenKind.STRINGLITERAL)
 
     @memorize
-    def newline(self):
+    def new_line(self):
         return self.expect(TokenKind.NEWLINE)
 
     @memorize

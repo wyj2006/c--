@@ -12,13 +12,14 @@ from Basic import Diagnostic, FileReader
 from AST import DumpVisitor
 from .Generator import Generator
 from .ParserBase import ParserBase
-from .GrammarLexer import GrammarLexer
 from .Memory import memorize, memorize_left_rec
 from .LeftRecDetector import LeftRecDetector
 from .GrammarParser import GrammarParser
 
 
 def main(args):
+    from .GrammarLexer import GrammarLexer
+    from Lex import MergeReader
 
     argparser = ArgumentParser(description=f"语法分析器生成工具")
     argparser.add_argument("file", help="语法文件")
@@ -38,8 +39,8 @@ def main(args):
         class_name = filename.title() + "Parser"
 
     try:
-        reader = FileReader(file)
-        lexer = GrammarLexer(reader)  # TODO 记得替换
+        reader = MergeReader(file)
+        lexer = GrammarLexer(reader)
 
         parser = GrammarParser(lexer)
         parser.nexttoken()

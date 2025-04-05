@@ -6,12 +6,12 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 import pytest
 
 from Basic import TokenKind, Token, FileReader, Error
-from Lex import Lexer
+from Lex import Lexer, MergeReader
 
 
 def examplestest(examples):
     for example in examples:
-        reader = FileReader(
+        reader = MergeReader(
             os.path.join(os.path.dirname(__file__), "Codes", example["filename"])
         )
         lexer = Lexer(reader)

@@ -6,13 +6,13 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 import pytest
 
 from Basic import TokenKind, FileReader, Error
-from Lex import Preprocessor, PPFlag
+from Lex import Preprocessor, PPFlag, MergeReader
 
 
 def examplestest(examples, handle=None):
     for example in examples:
         print(example["filename"], "=" * 64)
-        reader = FileReader(
+        reader = MergeReader(
             os.path.join(os.path.dirname(__file__), "Codes", example["filename"])
         )
         lexer = Preprocessor(reader)
@@ -164,7 +164,6 @@ def test_define():
     examplestest(examples)
 
 
-@pytest.mark.skip("未完成")
 def test_defineerror():
     examples = [
         {"filename": f"defineerror{i}.txt", "expected_exception": [Error], "tokens": []}

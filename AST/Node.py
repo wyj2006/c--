@@ -25,7 +25,6 @@ class Node:
             return method(self, *args, **kwargs)
 
 
-# TODO: 考虑是否继承于Symbol
 class Attribute(Node):
     prefix_name: str
     name: str

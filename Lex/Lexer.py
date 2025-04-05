@@ -1,40 +1,213 @@
-from copy import deepcopy
-import re
 from typing import Union
 import unicodedata
 
-from Basic import Token, TokenGen, TokenKind, Error, FileReader, Location
+from Basic import Token, TokenGen, TokenKind, FileReader
+from Lex.CharLexer import CharLexer
+from Parse.Builder import memorize
+
+from Lex.gen_LexerParser import Gen_LexerParser
+
+
+class LexerParser(Gen_LexerParser, TokenGen):
+    def next(self):
+        token = self.start()
+        while token == None:
+            self.nexttoken()
+            token = self.start()
+        return token
+
+    @memorize
+    def digit(self):
+        """
+        digit: one of
+            0 1 2 3 4 5 6 7 8 9
+        """
+        token = self.curtoken()
+        ch = token.text
+        if ch and ch.isdigit():
+            self.nexttoken()
+            return token
+        return None
+
+    @memorize
+    def identifier_start(self):
+        """
+        identifier-start:
+            nondigit
+            XID_Start character
+            universal character name of class XID_Start
+
+        nondigit: one of
+            _ a b c d e f g h i j k l m
+            n o p q r s t u v w x y z
+            A B C D E F G H I J K L M
+            N O P Q R S T U V W X Y Z
+        """
+        token = self.curtoken()
+        ch = token.text
+        try:
+            if ch == "_" or ch.isalpha() or "XID_Start" in unicodedata.name(ch):
+                self.nexttoken()
+                return token
+        except:
+            pass
+        return None
+
+    @memorize
+    def identifier_continue(self):
+        """
+        identifier-continue:
+            digit
+            nondigit
+            XID_Continue character
+            universal character name of class XID_Continue
+        """
+        token = self.curtoken()
+        ch = token.text
+        try:
+            if (
+                ch == "_"
+                or ch.isdigit()
+                or ch.isalpha()
+                or "XID_Continue" in unicodedata.name(ch)
+            ):
+                self.nexttoken()
+                return token
+        except:
+            pass
+        return None
+
+    @memorize
+    def nonzero_digit(self):
+        """
+        nonzero-digit: one of
+            1 2 3 4 5 6 7 8 9
+        """
+        token = self.curtoken()
+        ch = token.text
+        if ch and ch in "123456789":
+            self.nexttoken()
+            return token
+        return None
+
+    @memorize
+    def octal_digit(self):
+        """
+        octal-digit: one of
+            0 1 2 3 4 5 6 7
+        """
+        token = self.curtoken()
+        ch = token.text
+        if ch and ch in "01234567":
+            self.nexttoken()
+            return token
+        return None
+
+    @memorize
+    def hexadecimal_digit(self):
+        """
+        hexadecimal-digit: one of
+            0 1 2 3 4 5 6 7 8 9
+            a b c d e f
+            A B C D E F
+        """
+        token = self.curtoken()
+        ch = token.text
+        if ch and ch in "0123456789abcdefABCDEF":
+            self.nexttoken()
+            return token
+        return None
+
+    @memorize
+    def binary_digit(self):
+        """
+        binary-digit: one of
+            0 1
+        """
+        token = self.curtoken()
+        ch = token.text
+        if ch and ch in "01":
+            self.nexttoken()
+            return token
+        return None
+
+    @memorize
+    def unsigned_suffix(self):
+        """
+        unsigned-suffix: one of
+            u U
+        """
+        token = self.curtoken()
+        ch = token.text
+        if ch and ch in "uU":
+            self.nexttoken()
+            return token
+        return None
+
+    @memorize
+    def long_suffix(self):
+        """
+        long-suffix: one of
+            l L
+        """
+        token = self.curtoken()
+        ch = token.text
+        if ch and ch in "lL":
+            self.nexttoken()
+            return token
+        return None
+
+    @memorize
+    def c_char(self):
+        """
+        c-char:
+            any member of the source character set except
+                the single-quote ', backslash \, or new-line character
+            escape-sequence
+        """
+        _z = self.save()
+        if a := self.escape_sequence():
+            return a
+        self.restore(_z)
+
+        token = self.curtoken()
+        ch = token.text
+        if ch not in "'\\\n":
+            self.nexttoken()
+            return token
+        return None
+
+    @memorize
+    def s_char(self):
+        """
+        s-char:
+            any member of the source character set except
+                the single-quote ", backslash \, or new-line character
+            escape-sequence
+        """
+        _z = self.save()
+        if a := self.escape_sequence():
+            return a
+        self.restore(_z)
+
+        token = self.curtoken()
+        ch = token.text
+        if ch not in '"\\\n':
+            self.nexttoken()
+            return token
+        return None
 
 
 class Lexer(TokenGen):
     def __init__(self, reader: FileReader):
+        super().__init__()
         self.reader = reader
+        self.charlexer = CharLexer(reader)
+        self.lexerparser = LexerParser(self.charlexer)
+        self.is_lexerparser_init = False
+
         self.tokens: list[Union[Token, TokenGen]] = []  # 当前已经读到的token
         self.nexttk_index = 0  # 下一个token索引
-        self.hasread: list[tuple[str, Location]] = []  # 已经读到的字符
-        self.nextindex = 0  # 下一个字符索引
-
-    def getch(self) -> tuple[str, Location]:
-        if self.nextindex >= len(self.hasread):
-            char, location = self.reader.next()
-            while char == "\\":
-                # 凡在反斜杠出现于行尾（紧跟换行符）时，删除反斜杠和换行符，把两个物理源码行组合成一个逻辑源码行
-                ch, _ = self.reader.next()
-                if ch == "\n":
-                    char, location = self.reader.next()
-                else:
-                    self.reader.back()
-                    break
-            self.hasread.append((char, location))
-        ch, location = self.hasread[self.nextindex]
-        self.nextindex += 1
-        return ch, deepcopy(location)
-
-    def ungetch(self):
-        self.nextindex -= 1
-
-    def curch(self):
-        return self.hasread[self.nextindex - 1]
 
     def curtoken(self) -> Token:
         return self.tokens[self.nexttk_index - 1]
@@ -42,9 +215,10 @@ class Lexer(TokenGen):
     def next(self):
         # 除了负责提供token, 还要对它们进行保存
         if self.nexttk_index >= len(self.tokens):
-            token = self.getNewToken()
-            while token == None:
-                token = self.getNewToken()
+            if not self.is_lexerparser_init:
+                self.is_lexerparser_init = True
+                self.lexerparser.nexttoken()
+            token = self.lexerparser.next()
             self.tokens.append(token)
         elif isinstance(self.tokens[self.nexttk_index], TokenGen):
             tokengen: TokenGen = self.tokens[self.nexttk_index]
@@ -67,142 +241,3 @@ class Lexer(TokenGen):
 
     def restore(self, index):
         self.nexttk_index = index
-
-    def getNewToken(self) -> Token:
-        """获取下一个新的token"""
-        ch, location = self.getch()
-        if ch.isspace():  # 去除空白字符
-            return None
-        if ch == "":
-            return Token(TokenKind.END, location, ch)
-        elif self.isIdentifierStart(ch):
-            text = ch
-            ch, loc = self.getch()
-            while ch and self.isIdentifierContinue(ch):
-                text += ch
-                location.extend(loc)
-                ch, loc = self.getch()
-
-            if text in ("u8", "u", "U", "L") and ch in (
-                '"',
-                "'",
-            ):  # 字符常量或字符串字面量
-                loc = location + loc
-                if ch == '"':
-                    return self.matchStringOrChar(
-                        loc, TokenKind.STRINGLITERAL, text + ch
-                    )
-                elif ch == "'":
-                    return self.matchStringOrChar(loc, TokenKind.CHARCONST, text + ch)
-            self.ungetch()
-            return Token(
-                Token.keywords.get(text, TokenKind.IDENTIFIER),
-                location,
-                text,
-            )
-        elif ch == '"':
-            return self.matchStringOrChar(location, TokenKind.STRINGLITERAL, ch)
-        elif ch == "'":
-            return self.matchStringOrChar(location, TokenKind.CHARCONST, ch)
-        elif ch.isdigit():
-            return self.matchDigit(location, ch)
-        elif ch == ".":
-            ch, loc = self.getch()
-            if ch.isdigit():
-                location.extend(loc)
-                return self.matchDigit(location, "." + ch)
-            elif ch == ".":
-                ch, loc2 = self.getch()
-                if ch == ".":
-                    location.extend(loc + loc2)
-                    return Token(TokenKind.ELLIPSIS, location, "...")
-                else:
-                    self.ungetch()
-            self.ungetch()
-            ch = self.curch()[0]  # 之前更改过ch的值
-        return self.matchPunctuator(location, ch)
-
-    def matchDigit(self, location: Location, text=""):
-        """匹配数字"""
-        # 获取这行的代码
-        follow_loc = list(location)
-        code = text
-        ch, loc = self.getch()
-        while ch and ch != "\n":
-            code += ch
-            follow_loc.extend(loc)
-            ch, loc = self.getch()
-        # 尝试匹配数字
-        g = re.match(TokenKind.FLOATCONST.value, code)
-        kind = None
-        if g and g.span()[0] == 0:
-            kind = TokenKind.FLOATCONST
-        else:
-            g = re.match(TokenKind.INTCONST.value, code)
-            if g and g.span()[0] == 0:
-                kind = TokenKind.INTCONST
-        assert kind != None
-        # 获取匹配到的文本
-        text = code[g.span()[0] : g.span()[1]]
-        location.extend(follow_loc[g.span()[0] : g.span()[1]])
-        token = Token(kind, location, text)
-        for _ in range(g.span()[1], len(code) + 1):
-            self.ungetch()
-        return token
-
-    def matchStringOrChar(self, location: Location, kind: TokenKind, text=""):
-        """匹配字符(串)"""
-        quote = '"' if kind == TokenKind.STRINGLITERAL else "'"
-
-        ch, loc = self.getch()
-        while ch and ch != "\n":
-            text += ch
-            location.extend(loc)
-            if ch == quote and text[-2] != "\\":
-                break
-            ch, loc = self.getch()
-        else:
-            raise Error("字符(串)未结束", location)
-        if re.fullmatch(kind.value, text):
-            return Token(kind, location, text)
-        raise Error("非法的字符(串)", location)
-
-    def matchPunctuator(self, location: Location, text="") -> Token:
-        """根据token的正则表达式匹配punctuator"""
-        token = Token(TokenKind.UNKOWN, deepcopy(location), text)
-        while True:
-            for kind in TokenKind:
-                if kind not in Token.punctuator.values():
-                    continue
-                if re.fullmatch(kind.value, text):
-                    break
-            else:
-                if len(text) > 1:
-                    self.ungetch()
-                break
-            token = Token(kind, deepcopy(location), text)
-            ch, loc = self.getch()
-            if not ch:
-                break
-            text += ch
-            location.extend(loc)
-        return token
-
-    def isIdentifierStart(self, ch: str):
-        """判断字符是否可以作为标识符开头"""
-        try:
-            return ch == "_" or ch.isalpha() or "XID_Start" in unicodedata.name(ch)
-        except:
-            return False
-
-    def isIdentifierContinue(self, ch):
-        """判断字符是否可以作为标识符后继"""
-        try:
-            return (
-                ch == "_"
-                or ch.isdigit()
-                or ch.isalpha()
-                or "XID_Continue" in unicodedata.name(ch)
-            )
-        except:
-            return False

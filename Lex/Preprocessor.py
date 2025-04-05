@@ -4,11 +4,13 @@ import datetime
 from typing import Optional
 from Basic import (
     Error,
+    Location,
     Token,
     TokenKind,
     FileReader,
     FlagManager,
     Warn,
+    TokenGen,
 )
 from AST import (
     DumpVisitor,
@@ -23,9 +25,64 @@ from AST import (
     IfSection,
 )
 from Lex.EmbedLexer import EmbedLexer
-from Lex.Lexer import Lexer
+from Lex.Lexer import Lexer, LexerParser
 from Lex.Macro import Macro, MacroArg
 from Lex.PPFlag import PPFlag
+from Lex.gen_PPLexerParser import Gen_PPLexerParser
+from Lex.ConcatReader import ConcatReader
+from Parse.Builder import memorize
+
+
+class PPLexerParser(Gen_PPLexerParser, LexerParser):
+    @memorize
+    def h_char(self):
+        """
+        h-char:
+            any member of the source character set except
+                the new-line character and >
+        """
+        token = self.curtoken()
+        if token.text not in "\n><":
+            self.nexttoken()
+            return token
+        return None
+
+    @memorize
+    def single_line_comment(self):
+        a = [Location([]), ""]
+        while self.curtoken().kind != TokenKind.END:
+            token = self.curtoken()
+            ch = token.text
+            token = self.curtoken()
+            if ch == "\n":
+                break
+            a[0] += token.location
+            a[1] += token.text
+            self.nexttoken()
+        return tuple(a)
+
+    @memorize
+    def multi_line_comment(self):
+        a = [Location([]), ""]
+        while self.curtoken().kind != TokenKind.END:
+            _z = self.save()
+
+            token = self.curtoken()
+            ch = token.text
+            if ch == "*":
+                self.nexttoken()
+                token = self.curtoken()
+                ch = token.text
+                if ch == "/":
+                    self.restore(_z)
+                    break
+            self.restore(_z)
+
+            token = self.curtoken()
+            a[0] += token.location
+            a[1] += token.text
+            self.nexttoken()
+        return tuple(a)
 
 
 class Preprocessor(Lexer):
@@ -46,6 +103,7 @@ class Preprocessor(Lexer):
 
     def __init__(self, reader):
         super().__init__(reader)
+        self.lexerparser = PPLexerParser(self.charlexer)
         self.flag = FlagManager(PPFlag.ALLOW_REPLACE | PPFlag.ALLOW_CONTACT)
         self.macros: dict[str, Macro] = {}
         self.filename = self.reader.filename  # 用于 __FILE__ 替换
@@ -58,79 +116,6 @@ class Preprocessor(Lexer):
         self.flag.remove(remove_flags)
         yield
         self.flag.restore(_flag)
-
-    def check_pphash(self):
-        """判断当前读到的'#'是否算是预处理器指令"""
-        i = self.nextindex - 2
-        atbegineofline = True  # 位于行首
-        while i >= 0:
-            if self.hasread[i][0] == "\n":
-                break
-            if not self.hasread[i][0].isspace():
-                atbegineofline = False
-                break
-            i -= 1
-        return atbegineofline
-
-    def getNewToken(self) -> Token:
-        ch, location = self.getch()
-        if ch == "/":
-            ch, loc = self.getch()
-            location.extend(loc)
-            if ch == "/":
-                text = ""
-                ch, loc = self.getch()
-                while ch and ch != "\n":
-                    text += ch
-                    location.extend(loc)
-                    ch, loc = self.getch()
-                if self.flag.has(PPFlag.KEEP_COMMENT):
-                    return Token(TokenKind.COMMENT, location, text)
-                else:
-                    return None
-            elif ch == "*":
-                text = ""
-                ch, loc = self.getch()
-                while ch and text[-2:] != "*/":
-                    text += ch
-                    location.extend(loc)
-                    ch, loc = self.getch()
-                self.ungetch()
-                if self.flag.has(PPFlag.KEEP_COMMENT):
-                    return Token(TokenKind.COMMENT, location, text[:-2])
-                else:
-                    return None
-            else:
-                # 多读了两个
-                self.ungetch()
-                self.ungetch()
-        elif ch == "<" and self.flag.has(PPFlag.ALLOW_HEADERNAME):
-            text = ""
-            ch, loc = self.getch()
-            while ch and ch != ">":
-                text += ch
-                location.extend(loc)
-                ch, loc = self.getch()
-            return Token(TokenKind.HEADERNAME, location, text)
-        elif ch == "\n" and self.flag.has(PPFlag.KEEP_NEWLINE):
-            return Token(TokenKind.NEWLINE, location, "\n")
-        else:
-            self.ungetch()
-        token = super().getNewToken()
-        if token != None:
-            if token.kind == TokenKind.IDENTIFIER and self.flag.has(
-                PPFlag.TRANS_PPKEYWORD
-            ):
-                token.kind = Token.ppkeywords.get(token.text, TokenKind.IDENTIFIER)
-            elif token.kind == TokenKind.HASH:
-                token.ispphash = self.check_pphash()
-            elif token.kind == TokenKind.L_PAREN:
-                i = self.nextindex - 2
-                token.islparen = i >= 0 and (
-                    self.isIdentifierContinue(self.hasread[i][0])
-                    or self.isIdentifierStart(self.hasread[i][0])
-                )
-        return token
 
     def next(self):
         token = super().next()
@@ -148,13 +133,34 @@ class Preprocessor(Lexer):
             if self.replaceMacro():  # 进行了替换
                 return self.next()
 
+        if not self.flag.has(PPFlag.KEEP_NEWLINE) and token.kind == TokenKind.NEWLINE:
+            self.nexttk_index -= 1
+            self.tokens.pop(self.nexttk_index)
+            return self.next()
+        elif not self.flag.has(PPFlag.KEEP_COMMENT) and token.kind == TokenKind.COMMENT:
+            self.nexttk_index -= 1
+            self.tokens.pop(self.nexttk_index)
+            return self.next()
+        elif self.flag.has(PPFlag.TRANS_PPKEYWORD) and token.text in Token.ppkeywords:
+            token.kind = Token.ppkeywords[token.text]
+        elif (
+            not self.flag.has(PPFlag.ALLOW_HEADERNAME)
+            and token.kind == TokenKind.HEADERNAME
+        ):
+            self.nexttk_index -= 1
+            self.tokens.pop(self.nexttk_index)
+            reader = ConcatReader([token])
+            lexer = Lexer(reader)
+            self.tokens.insert(self.nexttk_index, lexer)
+            return self.next()
+
         # 连接相邻的字符串字面量
         while (
             self.flag.has(PPFlag.ALLOW_CONTACT)
             and token.kind == TokenKind.STRINGLITERAL
         ):
             t = self.save()
-            token2 = super().next()
+            token2 = self.next()
             if token2.kind == TokenKind.STRINGLITERAL:
                 token.text += " " + token2.text
                 token.content += token2.content
@@ -171,16 +177,6 @@ class Preprocessor(Lexer):
             else:
                 self.restore(t)
                 break
-
-        if not self.flag.has(PPFlag.KEEP_NEWLINE) and token.kind == TokenKind.NEWLINE:
-            self.nexttk_index -= 1
-            self.tokens.pop(self.nexttk_index)
-            return self.next()
-        elif (
-            not self.flag.has(PPFlag.TRANS_PPKEYWORD)
-            and token.kind in Token.ppkeywords.values()
-        ):
-            token.kind == TokenKind.IDENTIFIER
         return token
 
     def handleDirective(self):
@@ -193,6 +189,9 @@ class Preprocessor(Lexer):
         ):
             parser = PPDirectiveParser(self)
             pp_directive = parser.start()
+        if isinstance(pp_directive, list):
+            # pp_directive[0]是'#'
+            raise Error("未知的预处理指令", pp_directive[1].location)
         end = self.nexttk_index - 1
         self.tokens[start:end] = []
         self.nexttk_index = start
@@ -228,6 +227,8 @@ class Preprocessor(Lexer):
                 Warn(message, pp_directive.location).dump()
         elif isinstance(pp_directive, LineDirecvtive):
             lineno = pp_directive.lineno
+            if lineno < 0:
+                raise Error("期望一个非负整数", pp_directive.location)
             self.line_shift = lineno - pp_directive.location[0]["lineno"]
             if hasattr(pp_directive, "filename"):
                 self.filename = pp_directive.filename
@@ -254,7 +255,7 @@ class Preprocessor(Lexer):
                     args["if_empty"],
                 )
             else:
-                reader = FileReader(filepath)
+                reader = self.reader.__class__(filepath)  # 防止这是子类
                 pp = self.__class__(reader)  # 防止这是子类
                 pp.macros = self.macros
             self.tokens.insert(self.nexttk_index, pp)

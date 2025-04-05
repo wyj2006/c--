@@ -1,0 +1,249 @@
+"""
+from Basic import *
+
+def check_keyword(a):
+    if a.text in Token.keywords:
+        a.kind=Token.keywords[a.text]
+    return a
+
+def check_punctuator(a,**kwargs):
+    token=Token(Token.punctuator[a[1]],a[0],a[1])
+    for key,val in kwargs.items():
+        setattr(token,key,val)
+    return token
+
+def combine(*args):
+    res=[Location([]),""]
+    for i in args:
+        if i==None:
+            continue
+        if isinstance(i,Token):
+            i=i.location,i.text
+        res[0]+=i[0]
+        res[1]+=i[1]
+    return tuple(res)
+"""
+
+start:
+    token
+
+token:
+    a=string_literal {Token(TokenKind.STRINGLITERAL,a[0],a[1])}
+    | a=identifier {check_keyword(a)}
+    | constant
+    | punctuator
+    | end
+
+identifier:
+    a=identifier b=identifier_continue {Token(TokenKind.IDENTIFIER,a.location+b.location,a.text+b.text)}
+    | identifier_start
+
+universal_character_name:
+    a="\\" b="u" c=hex_quad {Token(TokenKind.IDENTIFIER,a.location+b.location+c[0],a.text+b.text+c[1])}
+    | a="\\" b="U" c=hex_quad d=hex_quad {Token(TokenKind.IDENTIFIER,a.location+b.location+c[0]+d[0],a.text+b.text+c[1]+d[1])}
+
+hex_quad:
+    a=hexadecimal_digit b=hexadecimal_digit c=hexadecimal_digit d=hexadecimal_digit {a.location+b.location+c.location.d.location,a.text+b.text+c.text+d.text}
+
+constant:
+    a=floating_constant {Token(TokenKind.FLOATCONST,a[0],a[1])}
+    | a=integer_constant {Token(TokenKind.INTCONST,a[0],a[1])}
+    | a=character_constant {Token(TokenKind.CHARCONST,a[0],a[1])}
+
+integer_constant:
+    a=hexadecimal_constant b=[integer_suffix] {combine(a,b)}
+    | a=binary_constant b=[integer_suffix] {combine(a,b)}
+    | a=octal_constant b=[integer_suffix] {combine(a,b)}
+    | a=decimal_constant b=[integer_suffix] {combine(a,b)}
+
+decimal_constant:
+    a=decimal_constant ["'"] b=digit {combine(a,b)+("'",)}
+    | a=nonzero_digit {a.location,a.text}
+
+octal_constant:
+    a=octal_constant ["'"] b=octal_digit {combine(a,b)+("'",)}
+    | a="0" {a.location,a.text}
+
+hexadecimal_constant:
+    a=hexadecimal_prefix b=hexadecimal_digit_sequence {combine(a,b)}
+
+binary_constant:
+    a=binary_constant ["'"] b=binary_digit {combine(a,b)+("'",)}
+    | a=binary_prefix b=binary_digit {a[0]+b.location,a[1]+b.text}
+
+hexadecimal_prefix:
+    a="0" b="x" {combine(a,b)}
+    | a="0" b="X" {combine(a,b)}
+
+binary_prefix:
+    a="0" b="b" {combine(a,b)}
+    | a="0" b="B" {combine(a,b)}
+
+hexadecimal_digit_sequence:
+    a=hexadecimal_digit_sequence ["'"] b=hexadecimal_digit {combine(a,b)+("'",)}
+    | a=hexadecimal_digit {a.location,a.text}
+
+integer_suffix:
+    a=unsigned_suffix b=long_long_suffix {combine(a,b)}
+    | a=unsigned_suffix b=[long_suffix] {combine(a,b)}
+    | a=unsigned_suffix b=bit_precise_int_suffix {combine(a,b)}
+    | a=long_long_suffix b=[unsigned_suffix] {combine(a,b)}
+    | a=long_suffix b=[unsigned_suffix] {combine(a,b)}
+    | a=bit_precise_int_suffix b=[unsigned_suffix] {combine(a,b)}
+
+bit_precise_int_suffix:
+    a="w" b="b" {combine(a,b)}
+    | a="W" b="B" {combine(a,b)}
+
+long_long_suffix:
+    a="l" b="l" {combine(a,b)}
+    | a="L" b="L" {combine(a,b)}
+
+floating_constant:
+    hexadecimal_floating_constant
+    | decimal_floating_constant
+
+decimal_floating_constant:
+    a=fractional_constant b=[exponent_part] c=[floating_suffix] {combine(a,b,c)}
+    | a=digit_sequence b=exponent_part c=[floating_suffix] {combine(a,b,c)}
+
+hexadecimal_floating_constant:
+    a=hexadecimal_prefix b=hexadecimal_fractional_constant c=binary_exponent_part d=[floating_suffix] {combine(a,b,c,d)}
+    | a=hexadecimal_prefix b=hexadecimal_digit_sequence c=binary_exponent_part d=[floating_suffix] {combine(a,b,c,d)}
+
+fractional_constant:
+    a=[digit_sequence] b="." c=digit_sequence {combine(a,b,c)}
+    | a=digit_sequence b="." {combine(a,b)}
+
+exponent_part:
+    a="e" b=[sign] c=digit_sequence {combine(a,b,c)}
+    | a="E" b=[sign] c=digit_sequence {combine(a,b,c)}
+
+sign:
+    a="+" {combine(a)}
+    | a="-" {combine(a)}
+
+digit_sequence:
+    a=digit_sequence ["'"] b=digit {combine(a,b)+("'",)}
+    | a=digit {a.location,a.text}
+
+hexadecimal_fractional_constant:
+    a=[hexadecimal_digit_sequence] b="." c=hexadecimal_digit_sequence {combine(a,b,c)}
+    | a=hexadecimal_digit_sequence b="." {combine(a,b)}
+
+binary_exponent_part:
+    a="p" b=[sign] c=digit_sequence {combine(a,b,c)}
+    | a="P" b=[sign] c=digit_sequence {combine(a,b,c)}
+
+floating_suffix:
+    a="d" b="f" {combine(a,b)}
+    | a="d" b="d" {combine(a,b)}
+    | a="d" b="l" {combine(a,b)}
+    | a="D" b="F" {combine(a,b)}
+    | a="D" b="D" {combine(a,b)}
+    | a="D" b="L" {combine(a,b)}
+    | a="f" {combine(a)}
+    | a="l" {combine(a)}
+    | a="F" {combine(a)}
+    | a="L" {combine(a)}
+
+character_constant:
+    a=[encoding_prefix] b="'" c=c_char_sequence d="'" {combine(a,b,c,d)}
+
+encoding_prefix:
+    a="u" b="8" {combine(a,b)}
+    | a="u" {combine(a)}
+    | a="U" {combine(a)}
+    | a="L" {combine(a)}
+
+c_char_sequence:
+    a=c_char_sequence b=c_char {combine(a,b)}
+    | a=c_char {combine(a)}
+
+escape_sequence:
+    octal_escape_sequence
+    | hexadecimal_escape_sequence
+    | universal_character_name
+    | simple_escape_sequence
+
+simple_escape_sequence:
+    a="\\" b="'" {combine(a,b)+("'")}
+    | a="\\" b="\"" {combine(a,b)}
+    | a="\\" b="?" {combine(a,b)}
+    | a="\\" b="\\" {combine(a,b)}
+    | a="\\" b="a" {combine(a,b)} 
+    | a="\\" b="b" {combine(a,b)}
+    | a="\\" b="f" {combine(a,b)}
+    | a="\\" b="n" {combine(a,b)}
+    | a="\\" b="r" {combine(a,b)}
+    | a="\\" b="t" {combine(a,b)}
+    | a="\\" b="v" {combine(a,b)}
+    | a="\\" {ERROR("未知的转义字符",self.curtoken().location)}
+
+octal_escape_sequence:
+    a="\\" b=octal_digit c=octal_digit d=octal_digit {combine(a,b,c,d)}
+    | a="\\" b=octal_digit c=octal_digit {combine(a,b,c)}
+    | a="\\" b=octal_digit {combine(a,b)}
+
+hexadecimal_escape_sequence:
+    a=hexadecimal_escape_sequence b=hexadecimal_digit {combine(a,b)}
+    | a="\\" b="x" c=hexadecimal_digit {combine(a,b,c)}
+
+string_literal:
+    a=[encoding_prefix] b="\"" c=[s_char_sequence] d="\"" {combine(a,b,c,d)}
+    | a=[encoding_prefix] b="\"" c=[s_char_sequence] {ERROR("字符串未终止",self.curtoken().location)}
+
+s_char_sequence:
+    a=s_char_sequence b=s_char {combine(a,b)}
+    | a=s_char {combine(a)}
+
+punctuator:
+    a="." b="." c="." {check_punctuator(combine(a,b,c))}
+    | a="<" b="<" c="=" {check_punctuator(combine(a,b,c))}
+    | a=">" b=">" c="=" {check_punctuator(combine(a,b,c))}
+    | a="-" b=">" {check_punctuator(combine(a,b))}
+    | a="+" b="+" {check_punctuator(combine(a,b))}
+    | a="-" b="-" {check_punctuator(combine(a,b))}
+    | a="<" b="<" {check_punctuator(combine(a,b))}
+    | a=">" b=">" {check_punctuator(combine(a,b))}
+    | a="<" b="=" {check_punctuator(combine(a,b))}
+    | a=">" b="=" {check_punctuator(combine(a,b))}
+    | a="=" b="=" {check_punctuator(combine(a,b))}
+    | a="!" b="=" {check_punctuator(combine(a,b))}
+    | a="&" b="&" {check_punctuator(combine(a,b))}
+    | a="|" b="|" {check_punctuator(combine(a,b))}
+    | a=":" b=":" {check_punctuator(combine(a,b))}
+    | a="*" b="=" {check_punctuator(combine(a,b))}
+    | a="/" b="=" {check_punctuator(combine(a,b))}
+    | a="%" b="=" {check_punctuator(combine(a,b))}
+    | a="+" b="=" {check_punctuator(combine(a,b))}
+    | a="-" b="=" {check_punctuator(combine(a,b))}
+    | a="&" b="=" {check_punctuator(combine(a,b))}
+    | a="^" b="=" {check_punctuator(combine(a,b))}
+    | a="|" b="=" {check_punctuator(combine(a,b))}
+    | a="#" b="#" {check_punctuator(combine(a,b))}
+    | a="[" {check_punctuator(combine(a))}
+    | a="]" {check_punctuator(combine(a))}
+    | a="(" {check_punctuator(combine(a),islparen=a.islparen)}
+    | a=")" {check_punctuator(combine(a))}
+    | a="{" {check_punctuator(combine(a))}
+    | a="}" {check_punctuator(combine(a))}
+    | a="." {check_punctuator(combine(a))}
+    | a="&" {check_punctuator(combine(a))}
+    | a="*" {check_punctuator(combine(a))}
+    | a="+" {check_punctuator(combine(a))}
+    | a="-" {check_punctuator(combine(a))}
+    | a="~" {check_punctuator(combine(a))}
+    | a="!" {check_punctuator(combine(a))}
+    | a="/" {check_punctuator(combine(a))}
+    | a="%" {check_punctuator(combine(a))}
+    | a="<" {check_punctuator(combine(a))}
+    | a=">" {check_punctuator(combine(a))}
+    | a="^" {check_punctuator(combine(a))}
+    | a="|" {check_punctuator(combine(a))}
+    | a="?" {check_punctuator(combine(a))}
+    | a=":" {check_punctuator(combine(a))}
+    | a=";" {check_punctuator(combine(a))}
+    | a="=" {check_punctuator(combine(a))}
+    | a="," {check_punctuator(combine(a))}
+    | a="#" {check_punctuator(combine(a),ispphash=a.ispphash)}

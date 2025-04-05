@@ -1,4 +1,4 @@
-from typing import Iterable, TypedDict
+from typing import Iterable, TypedDict, Union
 
 
 class LocationDict(TypedDict):
@@ -52,3 +52,6 @@ class Location(list[LocationDict]):
                 s.append(cur_filename + ":")
             s[-1] += f'({loc["lineno"]},{loc["col"]},{loc["span_col"]})'
         return f"<{';'.join(s)}>"
+
+    def __add__(self, other: Union[list, "Location"]):
+        return Location(super().__add__(other))

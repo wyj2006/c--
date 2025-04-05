@@ -1,0 +1,124 @@
+defined_macro_expression:
+    a="defined" "(" b=identifier {ERROR("期待')'",self.curtoken().location)}
+    | a="defined" "(" {ERROR("期待标识符",self.curtoken().location)}
+    | a="defined" {ERROR("期待标识符",self.curtoken().location)}
+
+has_include_expression:
+    a="__has_include" "(" b=header_name {ERROR("期待')'",self.curtoken().location)}
+    | a="__has_include" "(" b=string_literal {ERROR("期待')'",self.curtoken().location)}
+    | a="__has_include" "(" {ERROR('期待"文件名"或<文件名>',self.curtoken().location)}
+    | "__has_include" {ERROR("期待'('",self.curtoken().location)}
+
+has_embed_expression:
+    a="__has_embed" "(" b=header_name [embed_parameter_sequence] {ERROR("期待')'",self.curtoken().location)}
+    | a="__has_embed" "(" b=string_literal [embed_parameter_sequence] {ERROR("期待')'",self.curtoken().location)}
+    | a="__has_embed" "(" {ERROR('期待"文件名"或<文件名>',self.curtoken().location)}
+    | "__has_embed" {ERROR("期待'('",self.curtoken().location)}
+
+has_c_attribute_express:
+    a="__has_c_attribute" "(" b=attribute {ERROR("期待')'",self.curtoken().location)}
+    | a="__has_c_attribute" "(" {ERROR('期待属性',self.curtoken().location)}
+    | "__has_c_attribute" {ERROR("期待'('",self.curtoken().location)}
+
+control_line:
+    "#" "include" header_name [pp_tokens] 
+        {ERROR("缺少换行符",self.curtoken().location)}
+    | "#" "include" string_literal [pp_tokens]
+        {ERROR("缺少换行符",self.curtoken().location)}
+    | "#" "include" 
+        {ERROR('期待"文件名"或<文件名>',self.curtoken().location)}
+    | "#" "embed" header_name [embed_parameter_sequence] [pp_tokens]
+        {ERROR("缺少换行符",self.curtoken().location)}
+    | "#" "embed" string_literal [embed_parameter_sequence] [pp_tokens]
+        {ERROR("缺少换行符",self.curtoken().location)}
+    | "#" "embed" 
+        {ERROR('期待"文件名"或<文件名>',self.curtoken().location)}
+    | "#" a="define" b=identifier lparen c=identifier_list "," "..." ")" d=replacement_list
+        {ERROR("缺少换行符",self.curtoken().location)}
+    | "#" a="define" b=identifier lparen c=identifier_list "," "..." ")"
+        {ERROR("期待替换列表",self.curtoken().location)}
+    | "#" a="define" b=identifier lparen c=identifier_list "," "..."
+        {ERROR("期待')'",self.curtoken().location)}
+    | "#" a="define" b=identifier lparen c=identifier_list ","
+        {ERROR("期待'...'",self.curtoken().location)}
+    | "#" a="define" b=identifier lparen c=[identifier_list] ")" d=replacement_list
+        {ERROR("缺少换行符",self.curtoken().location)}
+    | "#" a="define" b=identifier lparen c=[identifier_list] ")"
+        {ERROR("期待替换列表",self.curtoken().location)}
+    | "#" a="define" b=identifier lparen c=[identifier_list]
+        {ERROR("期待')'",self.curtoken().location)}
+    | "#" a="define" b=identifier lparen "..." ")" d=replacement_list
+        {ERROR("缺少换行符",self.curtoken().location)}
+    | "#" a="define" b=identifier lparen "..." ")"
+        {ERROR("期待替换列表",self.curtoken().location)}
+    | "#" a="define" b=identifier lparen "..."
+        {ERROR("期待')'",self.curtoken().location)}
+    | "#" a="define" b=identifier d=replacement_list
+        {ERROR("缺少换行符",self.curtoken().location)}
+    | "#" a="define" b=identifier
+        {ERROR("期待替换列表",self.curtoken().location)}
+    | "#" a="define"
+        {ERROR("期待标识符",self.curtoken().location)}
+    | "#" a="undef" b=identifier
+        {ERROR("缺少换行符",self.curtoken().location)}
+    | "#" "undef"
+        {ERROR("期待标识符",self.curtoken().location)}
+    | "#" a="line" b=integer_constant c=[string_literal]
+        {ERROR("缺少换行符",self.curtoken().location)}
+    | "#" "line"
+        {ERROR("期待整数",self.curtoken().location)}
+    | "#" a="error" b=[pp_tokens]
+        {ERROR("缺少换行符",self.curtoken().location)}
+    | "#" a="warning" b=[pp_tokens]
+        {ERROR("缺少换行符",self.curtoken().location)}
+    | "#" a="pragma" b=[pp_tokens]
+        {ERROR("缺少换行符",self.curtoken().location)}
+
+if_section:
+    a=if_group b=[elif_groups] c=[else_group] {ERROR("缺少#endif",self.curtoken().location)}
+
+if_group:
+    "#" a="if" b=constant_expression
+        {ERROR("缺少换行符",self.curtoken().location)}
+    | "#" a="if"
+        {ERROR("期待表达式",self.curtoken().location)}
+    | "#" a="ifdef" b=identifier
+        {ERROR("缺少换行符",self.curtoken().location)}
+    | "#" a="ifdef"
+        {ERROR("期待标识符",self.curtoken().location)}
+    | "#" a="ifndef" b=identifier
+        {ERROR("缺少换行符",self.curtoken().location)}
+    | "#" a="ifndef"
+        {ERROR("期待标识符",self.curtoken().location)}
+
+if_group:
+    "#" a="elif" b=constant_expression
+        {ERROR("缺少换行符",self.curtoken().location)}
+    | "#" a="elif"
+        {ERROR("期待表达式",self.curtoken().location)}
+    | "#" a="elifdef" b=identifier
+        {ERROR("缺少换行符",self.curtoken().location)}
+    | "#" a="elifdef"
+        {ERROR("期待标识符",self.curtoken().location)}
+    | "#" a="elifndef" b=identifier
+        {ERROR("缺少换行符",self.curtoken().location)}
+    | "#" a="elifndef"
+        {ERROR("期待标识符",self.curtoken().location)}
+
+else_group:
+    "#" a="else"
+        {ERROR("缺少换行符",self.curtoken().location)}
+
+endif_line:
+    "#" a="endif"
+        {ERROR("缺少换行符",self.curtoken().location)}
+
+pp_prefixed_parameter:
+    a=identifier "::" {ERROR("期待另一个标识符",self.curtoken().location)}
+
+pp_parameter:
+    a=limit_name "(" b=constant_expression {ERROR("期待')'",self.curtoken().location)}
+    | a=limit_name "(" {ERROR("期待表达式",self.curtoken().location)}
+    | a=limit_name  {ERROR("期待'('",self.curtoken().location)}
+    | a=other_standard_name "(" a=[pp_balanced_token_sequence] {ERROR("期待')'",self.curtoken().location)}
+    | a=other_standard_name  {ERROR("期待'('",self.curtoken().location)}

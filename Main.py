@@ -3,8 +3,8 @@ import colorama
 from argparse import ArgumentParser
 from AST import DumpVisitor
 from Analyze import DeclAnalyzer, SymtabFiller, AttrAnalyzer
-from Basic import Diagnostic, FileReader, Diagnostics, Symtab, TokenKind
-from Lex import Preprocessor
+from Basic import Diagnostic, Diagnostics, Symtab, TokenKind
+from Lex import Preprocessor, MergeReader
 from Parse import Parser
 from Parse import Builder
 
@@ -37,10 +37,10 @@ def main(args):
     dump_symtab: bool = args.dump_symtab
     pp_only: bool = args.E
     try:
-        reader = FileReader(file)
+        reader = MergeReader(file)
         lexer = Preprocessor(reader)
 
-        if pp_only:
+        if pp_only and True:
             token = lexer.next()
             while token.kind != TokenKind.END:
                 print(token)

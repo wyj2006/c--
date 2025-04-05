@@ -6,3 +6,5 @@ from Lex.PPFlag import PPFlag
 from Lex.Macro import Macro
 from Lex.Evaluater import Evaluater
 from Lex.EmbedLexer import EmbedLexer
+from Lex.CharLexer import CharLexer
+from Lex.MergeReader import MergeReader

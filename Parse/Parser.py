@@ -43,30 +43,31 @@ class Parser(Gen_CParser):
         """
         z = self.save()
         if (
-            self.expect(TokenKind.L_PAREN)
+            (b := self.expect(TokenKind.L_PAREN))
             and ((a := self.balanced_token_sequence()),)
-            and self.expect(TokenKind.R_PAREN)
+            and (c := self.expect(TokenKind.R_PAREN))
         ):
-            return a
+            return [b] + a + [c]
         self.restore(z)
         if (
-            self.expect(TokenKind.L_SQUARE)
+            (b := self.expect(TokenKind.L_SQUARE))
             and ((a := self.balanced_token_sequence()),)
-            and self.expect(TokenKind.L_SQUARE)
+            and (c := self.expect(TokenKind.L_SQUARE))
         ):
-            return a
+            return [b] + a + [c]
         self.restore(z)
         if (
-            self.expect(TokenKind.L_BRACE)
+            (b := self.expect(TokenKind.L_BRACE))
             and ((a := self.balanced_token_sequence()),)
-            and self.expect(TokenKind.R_BRACE)
+            and (c := self.expect(TokenKind.R_BRACE))
         ):
-            return a
+            return [b] + a + [c]
+        self.restore(z)
         if self.curtoken().kind not in (
             TokenKind.R_PAREN,
             TokenKind.R_SQUARE,
             TokenKind.R_BRACE,
         ):
-            return self.expect(self.curtoken().kind)
+            return [self.expect(self.curtoken().kind)]
         self.restore(z)
         return None
