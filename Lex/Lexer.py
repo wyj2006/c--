@@ -206,7 +206,7 @@ class Lexer(TokenGen):
         self.lexerparser = LexerParser(self.charlexer)
         self.is_lexerparser_init = False
 
-        self.tokens: list[Union[Token, TokenGen]] = []  # 当前已经读到的token
+        self.tokens: list[Token] = []  # 当前已经读到的token
         self.nexttk_index = 0  # 下一个token索引
 
     def curtoken(self) -> Token:
@@ -220,8 +220,8 @@ class Lexer(TokenGen):
                 self.lexerparser.nexttoken()
             token = self.lexerparser.next()
             self.tokens.append(token)
-        elif isinstance(self.tokens[self.nexttk_index], TokenGen):
-            tokengen: TokenGen = self.tokens[self.nexttk_index]
+        elif self.tokens[self.nexttk_index].kind == TokenKind.SUB_TOKENGEN:
+            tokengen: TokenGen = self.tokens[self.nexttk_index].tokengen
             token = tokengen.next()
             if token.kind == TokenKind.END:
                 self.tokens.pop(self.nexttk_index)

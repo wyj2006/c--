@@ -125,13 +125,13 @@ class PPDirectiveParser(Gen_PPDirectiveParser, Parser):
                 return super().control_line()
         return super().control_line()
 
-    def has_include_expression(self, *args, **kwargs):
+    def has_include_expression(self):
         if self.lookahead(TokenKind.HAS_INCLUDE):
             with self.tokengen.setFlag(PPFlag.ALLOW_HEADERNAME):
                 return super().has_include_expression()
         return super().has_include_expression()
 
-    def has_embed_expression(self, *args, **kwargs):
+    def has_embed_expression(self):
         if self.lookahead(TokenKind.HAS_EMBED):
             with self.tokengen.setFlag(PPFlag.ALLOW_HEADERNAME):
                 return super().has_embed_expression()
@@ -149,7 +149,8 @@ class PPDirectiveParser(Gen_PPDirectiveParser, Parser):
             token = self.curtoken()
             self.expect(TokenKind.ELIF)
             pp_directive = ElifDirecvtive(
-                location=token.location, macros=self.tokengen.macros
+                location=token.location,
+                symtab=self.tokengen.symtab,
             )
             with self.tokengen.setFlag(PPFlag.ALLOW_REPLACE):
                 try:

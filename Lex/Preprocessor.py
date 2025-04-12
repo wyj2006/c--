@@ -10,13 +10,14 @@ from Basic import (
     FileReader,
     FlagManager,
     Warn,
-    TokenGen,
+    Symtab,
 )
 from AST import (
     DumpVisitor,
     LineDirecvtive,
     Embed,
     ErrorDirecvtive,
+    PPDirective,
     UndefDirective,
     DefineDirective,
     Pragma,
@@ -105,9 +106,9 @@ class Preprocessor(Lexer):
         super().__init__(reader)
         self.lexerparser = PPLexerParser(self.charlexer)
         self.flag = FlagManager(PPFlag.ALLOW_REPLACE | PPFlag.ALLOW_CONTACT)
-        self.macros: dict[str, Macro] = {}
         self.filename = self.reader.filename  # 用于 __FILE__ 替换
         self.line_shift = 0  # 用于 __LINE__ 替换时进行调整
+        self.symtab = Symtab()  # 用于存放宏
 
     @contextmanager
     def setFlag(self, add_flags: int = 0, remove_flags: int = 0):
@@ -122,10 +123,37 @@ class Preprocessor(Lexer):
 
         if (
             not self.flag.has(PPFlag.IGNORE_PPDIRECTIVE)
+            and token.kind == TokenKind.UNHANDLE_PPDIRECTIVE
+        ):
+            self.nexttk_index -= 1
+            self.tokens.pop(self.nexttk_index)
+            self.handleDirective(token.pp_directive)
+            return self.next()
+
+        if (
+            not self.flag.has(PPFlag.IGNORE_PPDIRECTIVE)
             and token.kind == TokenKind.HASH
             and token.ispphash
         ):
-            self.handleDirective()
+            from Lex.PPDirectiveParser import PPDirectiveParser
+
+            start = self.nexttk_index - 1
+            with self.setFlag(
+                PPFlag.KEEP_NEWLINE
+                | PPFlag.IGNORE_PPDIRECTIVE
+                | PPFlag.TRANS_PPKEYWORD,
+                PPFlag.ALLOW_CONTACT | PPFlag.ALLOW_REPLACE,
+            ):
+                parser = PPDirectiveParser(self)
+                pp_directive = parser.start()
+            if isinstance(pp_directive, list):
+                # pp_directive[0]是'#'
+                raise Error("未知的预处理指令", pp_directive[1].location)
+            end = self.nexttk_index - 1
+            self.tokens[start:end] = []
+            self.nexttk_index = start
+            # pp_directive.accept(DumpVisitor())
+            self.handleDirective(pp_directive)
             return self.next()
 
         # 尝试进行宏替换
@@ -143,6 +171,11 @@ class Preprocessor(Lexer):
             return self.next()
         elif self.flag.has(PPFlag.TRANS_PPKEYWORD) and token.text in Token.ppkeywords:
             token.kind = Token.ppkeywords[token.text]
+        elif (
+            not self.flag.has(PPFlag.TRANS_PPKEYWORD)
+            and token.kind in Token.ppkeywords.values()
+        ):
+            token.kind = TokenKind.IDENTIFIER
         elif (
             not self.flag.has(PPFlag.ALLOW_HEADERNAME)
             and token.kind == TokenKind.HEADERNAME
@@ -179,23 +212,7 @@ class Preprocessor(Lexer):
                 break
         return token
 
-    def handleDirective(self):
-        from Lex.PPDirectiveParser import PPDirectiveParser
-
-        start = self.nexttk_index - 1
-        with self.setFlag(
-            PPFlag.KEEP_NEWLINE | PPFlag.IGNORE_PPDIRECTIVE | PPFlag.TRANS_PPKEYWORD,
-            PPFlag.ALLOW_CONTACT | PPFlag.ALLOW_REPLACE,
-        ):
-            parser = PPDirectiveParser(self)
-            pp_directive = parser.start()
-        if isinstance(pp_directive, list):
-            # pp_directive[0]是'#'
-            raise Error("未知的预处理指令", pp_directive[1].location)
-        end = self.nexttk_index - 1
-        self.tokens[start:end] = []
-        self.nexttk_index = start
-        # pp_directive.accept(DumpVisitor())
+    def handleDirective(self, pp_directive: PPDirective):
         if isinstance(pp_directive, DefineDirective):
             name = pp_directive.name
             macro = Macro(
@@ -205,14 +222,15 @@ class Preprocessor(Lexer):
                 pp_directive.is_object_like,
                 pp_directive.hasvarparam,
             )
-            if name not in self.macros:
-                self.macros[name] = macro
-            elif self.macros[name] != macro:
-                raise Error(f"重定义宏: {name}", pp_directive.location)
+            if not self.symtab.addSymbol(name, macro):
+                old_symbol = self.symtab.lookup(name)
+                if old_symbol != macro:
+                    raise Error(f"重定义宏: {name}", pp_directive.location)
+                macro = old_symbol
+            macro.define_location = pp_directive.location
+            macro.declare_locations.append(pp_directive.location)
         elif isinstance(pp_directive, UndefDirective):
-            name = pp_directive.name
-            if name in self.macros:
-                self.macros.pop(name)
+            self.symtab.removeSymbol(pp_directive.name)
         elif isinstance(pp_directive, (ErrorDirecvtive, WarningDirecvtive)):
             messages = []
             for message in pp_directive.messages:
@@ -233,7 +251,13 @@ class Preprocessor(Lexer):
             if hasattr(pp_directive, "filename"):
                 self.filename = pp_directive.filename
         elif isinstance(pp_directive, IfSection):
-            self.tokens.insert(self.nexttk_index, pp_directive)
+            token = Token(
+                TokenKind.SUB_TOKENGEN,
+                pp_directive.location,
+                f"<{pp_directive.__class__.__name__}>",
+            )
+            token.tokengen = pp_directive
+            self.tokens.insert(self.nexttk_index, token)
         elif isinstance(pp_directive, Include):
             filepath = self.findIncludeFile(
                 pp_directive.filename,
@@ -257,8 +281,14 @@ class Preprocessor(Lexer):
             else:
                 reader = self.reader.__class__(filepath)  # 防止这是子类
                 pp = self.__class__(reader)  # 防止这是子类
-                pp.macros = self.macros
-            self.tokens.insert(self.nexttk_index, pp)
+                pp.symtab.ordinary_names = self.symtab.ordinary_names
+            token = Token(
+                TokenKind.SUB_TOKENGEN,
+                pp_directive.location,
+                f"<{pp_directive.__class__.__name__}>",
+            )
+            token.tokengen = pp
+            self.tokens.insert(self.nexttk_index, token)
         elif isinstance(pp_directive, Pragma):
             # TODO: 支持pragma
             Warn("暂不支持#pragma", pp_directive.location)
@@ -302,11 +332,11 @@ class Preprocessor(Lexer):
             self.tokens[self.nexttk_index - 1 : self.nexttk_index] = [token]
             self.nexttk_index -= 1
             return True
-        elif name not in self.macros:
+        elif self.symtab.lookup(name) == None:
             return False
 
         start = self.nexttk_index - 1  # 替换开始的位置
-        macro = self.macros[name]
+        macro: Macro = self.symtab.lookup(name)
         if macro.is_object_like:
             replaced_token = macro.replace([])
         else:

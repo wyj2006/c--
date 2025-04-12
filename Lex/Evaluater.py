@@ -47,11 +47,11 @@ class Evaluater(Visitor):
         UnaryOpKind.NOT: lambda a: not a,
     }
 
-    def __init__(self, macros: dict[str, Macro] = None):
+    def __init__(self, symtab: Symtab = None):
         super().__init__()
-        if macros == None:
-            macros = {}
-        self.macros = macros
+        if symtab == None:
+            symtab = Symtab()
+        self.symtab = symtab
 
     def visit_Expr(self, node: Expr):
         raise Error(f"{node.__class__.__name__}不应该出现在这个上下文中", node.location)
@@ -73,7 +73,7 @@ class Evaluater(Visitor):
         node.value = self.operator[node.op](node.operand.value)
 
     def visit_Defined(self, node: Defined):
-        if node.name in self.macros or node.name in (
+        if self.symtab.lookup(node.name) != None or node.name in (
             "__has_include",
             "__has_embed",
             "__has_c_attribute",
@@ -88,7 +88,7 @@ class Evaluater(Visitor):
 
     def visit_HasCAttribute(self, node: HasCAttribute):
         attribute = node.attribute
-        attribute_names = Symtab().attribute_names
+        attribute_names = self.symtab.attribute_names
         if (
             attribute.prefix_name not in attribute_names
             or attribute.name not in attribute_names[attribute.prefix_name]

@@ -94,6 +94,17 @@ class Symtab:
         namespace[name] = symbol
         return True
 
+    def removeSymbol(self, name: str, namespace_name=ORDINARY_NAMES):
+        """
+        移除符号
+        成功返回True, 失败返回False
+        """
+        namespace = getattr(self, namespace_name, {})
+        if name not in namespace:
+            return False
+        namespace.pop(name)
+        return True
+
     def print(self, indent=0):
         print(" " * 4 * indent, self)
         for namespace_name in (LABEL_NAMES, TAG_NAMES, ORDINARY_NAMES):

@@ -2059,13 +2059,13 @@ class Gen_PPDirectiveParser(ParserBase):
         begin_location = self.curtoken().location
         _z = self.save()
         if self.expect(TokenKind.HASH) and (a := self.expect(TokenKind.IF)) and (b := self.constant_expression()) and (new_line := self.new_line()) and ((c := self.group()),):
-            return IfDirecvtive(location=a.location, macros=self.tokengen.macros, expr=b, group=c if c != None else [])
+            return IfDirecvtive(location=a.location, symtab=self.tokengen.symtab, expr=b, group=c if c != None else [])
         self.restore(_z)
         if self.expect(TokenKind.HASH) and (a := self.expect(TokenKind.IFDEF)) and (b := self.identifier()) and (new_line := self.new_line()) and ((c := self.group()),):
-            return IfdefDirecvtive(location=a.location, macros=self.tokengen.macros, name=b.text, group=c if c != None else [])
+            return IfdefDirecvtive(location=a.location, symtab=self.tokengen.symtab, name=b.text, group=c if c != None else [])
         self.restore(_z)
         if self.expect(TokenKind.HASH) and (a := self.expect(TokenKind.IFNDEF)) and (b := self.identifier()) and (new_line := self.new_line()) and ((c := self.group()),):
-            return IfndefDirecvtive(location=a.location, macros=self.tokengen.macros, name=b.text, group=c if c != None else [])
+            return IfndefDirecvtive(location=a.location, symtab=self.tokengen.symtab, name=b.text, group=c if c != None else [])
         self.restore(_z)
         if self.expect(TokenKind.HASH) and (a := self.expect(TokenKind.IF)) and (b := self.constant_expression()):
             return self.error('缺少换行符', self.curtoken().location)
@@ -2122,13 +2122,13 @@ class Gen_PPDirectiveParser(ParserBase):
         begin_location = self.curtoken().location
         _z = self.save()
         if self.expect(TokenKind.HASH) and (a := self.expect(TokenKind.ELIF)) and (b := self.constant_expression()) and (new_line := self.new_line()) and ((c := self.group()),):
-            return ElifDirecvtive(location=a.location, macros=self.tokengen.macros, expr=b, group=c if c != None else [])
+            return ElifDirecvtive(location=a.location, symtab=self.tokengen.symtab, expr=b, group=c if c != None else [])
         self.restore(_z)
         if self.expect(TokenKind.HASH) and (a := self.expect(TokenKind.ELIFDEF)) and (b := self.identifier()) and (new_line := self.new_line()) and ((c := self.group()),):
-            return IfdefDirecvtive(location=a.location, macros=self.tokengen.macros, name=b.text, group=c if c != None else [])
+            return IfdefDirecvtive(location=a.location, symtab=self.tokengen.symtab, name=b.text, group=c if c != None else [])
         self.restore(_z)
         if self.expect(TokenKind.HASH) and (a := self.expect(TokenKind.ELIFNDEF)) and (b := self.identifier()) and (new_line := self.new_line()) and ((c := self.group()),):
-            return IfndefDirecvtive(location=a.location, macros=self.tokengen.macros, name=b.text, group=c if c != None else [])
+            return IfndefDirecvtive(location=a.location, symtab=self.tokengen.symtab, name=b.text, group=c if c != None else [])
         self.restore(_z)
         return None
 

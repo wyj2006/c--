@@ -1,10 +1,10 @@
 from copy import deepcopy
-from Basic import TokenKind, Token, Error, Location
+from Basic import TokenKind, Token, Error, Location, Symbol
 from Lex.Lexer import Lexer
 from Lex.ConcatReader import ConcatReader
 
 
-class Macro:
+class Macro(Symbol):
     """宏"""
 
     def __init__(
@@ -15,6 +15,7 @@ class Macro:
         is_object_like: bool = True,
         hasvarparam: bool = False,
     ):
+        super().__init__()
         self.name = name
         self.params = params  # 参数
         self.replacement = replacement  # 替换列表
@@ -22,10 +23,18 @@ class Macro:
         self.hasvarparam = hasvarparam
 
     def __eq__(self, other: "Macro"):
-        return (self.name, self.params, self.replacement) == (
+        return isinstance(other, Macro) and (
+            self.name,
+            self.params,
+            self.replacement,
+            self.is_object_like,
+            self.hasvarparam,
+        ) == (
             other.name,
             other.params,
             other.replacement,
+            other.is_object_like,
+            other.hasvarparam,
         )
 
     def __repr__(self):

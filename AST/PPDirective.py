@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Union
 from AST.Node import Node, Attribute
-from Basic import Diagnostic, Error, Token, TokenGen, TokenKind
+from Basic import Diagnostic, Error, Symtab, Token, TokenGen, TokenKind
 from AST.Expr import Expr
 
 if TYPE_CHECKING:
@@ -137,8 +137,14 @@ class Group(PPDirective, TokenGen):
         if isinstance(token, IfSection):
             self.sub_tokengen.append(token)
             return self.next()
-        elif not isinstance(token, Token):  # TODO: 处理其它预处理指令
-            return self.next()
+        elif isinstance(token, PPDirective):
+            pp_directive = token
+            token = Token(
+                TokenKind.UNHANDLE_PPDIRECTIVE,
+                token.location,
+                f"<{token.__class__.__name__}>",
+            )
+            token.pp_directive = pp_directive
         return token
 
     def back(self):
@@ -171,6 +177,7 @@ class IfSection(PPDirective, TokenGen):
     group: Group
     else_group: "IfSection"
     macros: dict[str, "Macro"]
+    symtab: Symtab  # 所处上下文对应的符号表
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -213,7 +220,7 @@ class IfDirecvtive(IfSection):
         if self.expr == None:
             return False
 
-        self.expr.accept(Evaluater(self.macros))
+        self.expr.accept(Evaluater(self.symtab))
 
         return self.expr.value
 
@@ -237,7 +244,7 @@ class IfdefDirecvtive(IfSection):
     name: str
 
     def check(self):
-        return self.name in self.macros
+        return self.symtab.lookup(self.name) != None
 
     _attributes = IfSection._attributes + ("name",)
 
@@ -248,7 +255,7 @@ class IfndefDirecvtive(IfSection):
     name: str
 
     def check(self):
-        return self.name not in self.macros
+        return self.symtab.lookup(self.name) == None
 
     _attributes = IfSection._attributes + ("name",)
 

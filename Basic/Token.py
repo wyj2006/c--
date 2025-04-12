@@ -115,9 +115,10 @@ class TokenKind(Enum):
     HASH = "#"
     HASHHASH = "##"
 
-    END = 0  # 文件结尾
-    UNKOWN = 1  # 未知
+    END = "文件结尾"  # 文件结尾
+    UNKOWN = "未知"  # 未知
 
+    # 预处理
     COMMENT = "注释"
     NEWLINE = "换行"
     DEFINE = "define"
@@ -142,8 +143,13 @@ class TokenKind(Enum):
     HAS_EMBED = "__has_embed"
     HAS_C_ATTRIBUTE = "__has_c_attribute"
 
+    # 语法分析器生成工具
     ACTION = "语义动作"
     HEADER = "头部代码"
+
+    # 不是严格意义上的token
+    SUB_TOKENGEN = "Token生成器"
+    UNHANDLE_PPDIRECTIVE = "未处理的预处理指令"
 
 
 class Token:
@@ -295,6 +301,8 @@ class Token:
             self.content = eval(self.content)
         self.ispphash = False  # 是否是预处理指令开头的'#'
         self.islparen = False  # define预处理指令中跟在宏名后面的括号
+        self.pp_directive = None  # 未处理的预处理指令
+        self.tokengen = None  # Token生成器
 
     def __repr__(self):
         return f"Token({self.kind.name},{self.location},{repr(self.text)})"

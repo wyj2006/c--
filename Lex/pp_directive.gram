@@ -78,11 +78,11 @@ if_section:
 
 if_group:
     "#" a="if" b=constant_expression new_line c=[group]
-        {IfDirecvtive(location=a.location, macros=self.tokengen.macros,expr=b,group=c if c!=None else [])}
+        {IfDirecvtive(location=a.location, symtab=self.tokengen.symtab,expr=b,group=c if c!=None else [])}
     | "#" a="ifdef" b=identifier new_line c=[group]
-        {IfdefDirecvtive(location=a.location, macros=self.tokengen.macros,name=b.text,group=c if c!=None else [])}
+        {IfdefDirecvtive(location=a.location, symtab=self.tokengen.symtab,name=b.text,group=c if c!=None else [])}
     | "#" a="ifndef" b=identifier new_line c=[group]
-        {IfndefDirecvtive(location=a.location, macros=self.tokengen.macros,name=b.text,group=c if c!=None else [])}
+        {IfndefDirecvtive(location=a.location, symtab=self.tokengen.symtab,name=b.text,group=c if c!=None else [])}
 
 elif_groups:
     a=elif_groups b=elif_group {a+[b]}
@@ -90,11 +90,11 @@ elif_groups:
 
 elif_group:
     "#" a="elif" b=constant_expression new_line c=[group]
-        {ElifDirecvtive(location=a.location, macros=self.tokengen.macros,expr=b,group=c if c!=None else [])}
+        {ElifDirecvtive(location=a.location, symtab=self.tokengen.symtab,expr=b,group=c if c!=None else [])}
     | "#" a="elifdef" b=identifier new_line c=[group]
-        {IfdefDirecvtive(location=a.location, macros=self.tokengen.macros,name=b.text,group=c if c!=None else [])}
+        {IfdefDirecvtive(location=a.location, symtab=self.tokengen.symtab,name=b.text,group=c if c!=None else [])}
     | "#" a="elifndef" b=identifier new_line c=[group]
-        {IfndefDirecvtive(location=a.location, macros=self.tokengen.macros,name=b.text,group=c if c!=None else [])}
+        {IfndefDirecvtive(location=a.location, symtab=self.tokengen.symtab,name=b.text,group=c if c!=None else [])}
 
 else_group:
     "#" a="else" new_line b=[group]
