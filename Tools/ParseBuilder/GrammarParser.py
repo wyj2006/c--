@@ -1,5 +1,5 @@
 from Basic import TokenKind
-from .Memory import memorize
+from Parse.Memory import memorize
 from .gen_BuilderParser import Gen_BuilderParser
 
 

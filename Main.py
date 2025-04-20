@@ -1,21 +1,14 @@
-import sys
-import colorama
 from argparse import ArgumentParser
 from AST import DumpVisitor
 from Analyze import DeclAnalyzer, SymtabFiller, AttrAnalyzer
-from Basic import Diagnostic, Diagnostics, Symtab, TokenKind
-from Lex import Preprocessor, MergeReader
+from Basic import Diagnostic, Diagnostics, Symtab, TokenKind, MergeReader
+from Lex import Preprocessor
 from Parse import Parser
-from Parse import Builder
 
 version = "1.0.0"
 
-colorama.init(autoreset=True)
 
-
-def main(args):
-    if len(args) >= 1 and args[0] == "parse_builder":
-        return Builder.main(args[1:])
+def main():
     argparser = ArgumentParser(description=f"c--编译器 {version}")
     argparser.add_argument("file", help="源代码文件")
     argparser.add_argument(
@@ -30,7 +23,7 @@ def main(args):
     argparser.add_argument(
         "-E", help="只进行预处理", action="store_true", default=False
     )
-    args = argparser.parse_args(args)
+    args = argparser.parse_args()
     file: str = args.file
     dump_tokens: bool = args.dump_tokens
     dump_ast: bool = args.dump_ast
@@ -74,4 +67,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    main()

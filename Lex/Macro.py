@@ -1,6 +1,6 @@
 from copy import deepcopy
 from Basic import TokenKind, Token, Error, Location, Symbol
-from Lex.Lexer import Lexer
+from Lex.gen_Lexer import Gen_Lexer as Lexer
 from Lex.ConcatReader import ConcatReader
 
 

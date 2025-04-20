@@ -55,3 +55,6 @@ class Location(list[LocationDict]):
 
     def __add__(self, other: Union[list, "Location"]):
         return Location(super().__add__(other))
+
+    def __iadd__(self, other: Union[list, "Location"]):
+        return Location(super().__iadd__(other))

@@ -52,7 +52,7 @@ class Visitor:
                 callback(child, self)
 
     def visit_Node(self, node: Node):
-        self.generic_visit(node)
+        return self.generic_visit(node)
 
 
 class DumpVisitor(Visitor):

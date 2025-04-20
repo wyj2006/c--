@@ -1,5 +1,8 @@
 from Basic import Location, Token, Symtab
 
+# TODO: 简化 _fields和_attributes的设置
+# TODO: 更加详尽的location信息和token信息
+
 
 class Node:
     """语法树节点"""

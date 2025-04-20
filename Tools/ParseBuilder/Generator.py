@@ -27,7 +27,7 @@ class Generator(Visitor):
         module = ast.Module(
             body=[
                 ast.ImportFrom(
-                    module="Parse.Builder",
+                    module="Parse",
                     names=[
                         ast.alias(name="ParserBase"),
                         ast.alias(name="memorize"),
@@ -39,7 +39,7 @@ class Generator(Visitor):
             type_ignores=[],
         )
 
-        if hasattr(node, "header") and node.header != None:
+        if node.header != None:
             module.body.extend(ast.parse(node.header).body)
         module.body.append(classdef)
 
@@ -74,50 +74,12 @@ class Generator(Visitor):
     def visit_Rhs(self, node: Rhs):
         restore_var_name = "_z"
         body = [
-            ast.Assign(
-                targets=[ast.Name(id="begin_location", ctx=ast.Store())],
-                value=ast.Attribute(
-                    value=ast.Call(
-                        func=ast.Attribute(
-                            value=ast.Name(id="self", ctx=ast.Load()),
-                            attr="curtoken",
-                            ctx=ast.Load(),
-                        ),
-                        args=[],
-                        keywords=[],
-                    ),
-                    attr="location",
-                    ctx=ast.Load(),
-                ),
-            ),
-            ast.Assign(
-                targets=[ast.Name(id=restore_var_name, ctx=ast.Store())],
-                value=ast.Call(
-                    func=ast.Attribute(
-                        value=ast.Name(id="self", ctx=ast.Load()),
-                        attr="save",
-                        ctx=ast.Load(),
-                    ),
-                    args=[],
-                    keywords=[],
-                ),
-            ),
+            ast.parse("begin_location=self.curtoken().location").body[0],
+            ast.parse(f"{restore_var_name}=self.save()").body[0],
         ]
         for alt in node.alts:
             body.extend(alt.accept(self))
-            body.append(
-                ast.Expr(
-                    value=ast.Call(
-                        func=ast.Attribute(
-                            value=ast.Name(id="self", ctx=ast.Load()),
-                            attr="restore",
-                            ctx=ast.Load(),
-                        ),
-                        args=[ast.Name(id=restore_var_name, ctx=ast.Load())],
-                        keywords=[],
-                    )
-                )
-            )
+            body.append(ast.parse(f"self.restore({restore_var_name})").body[0])
         body.append(ast.Return(value=ast.Constant(value=None)))
         return body
 
@@ -127,7 +89,7 @@ class Generator(Visitor):
             values=[],
         )
 
-        if not hasattr(node, "action") or node.action == None:
+        if node.action == None:
             names = []
             for i in node.items:
                 if hasattr(i, "name"):
@@ -170,18 +132,7 @@ class Generator(Visitor):
         return ast.Tuple(elts=[node.item.accept(self)])
 
     def visit_NameLeaf(self, node: NameLeaf):
-        return ast.NamedExpr(
-            target=ast.Name(id=node.name, ctx=ast.Store()),
-            value=ast.Call(
-                func=ast.Attribute(
-                    value=ast.Name(id="self", ctx=ast.Load()),
-                    attr=node.name,
-                    ctx=ast.Load(),
-                ),
-                args=[],
-                keywords=[],
-            ),
-        )
+        return ast.parse(f"{node.name}:=self.{node.name}()", mode="eval").body
 
     def visit_StringLeaf(self, node: StringLeaf):
         token_kind = None
@@ -192,31 +143,11 @@ class Generator(Visitor):
         elif node.value in Token.ppkeywords:
             token_kind = Token.ppkeywords[node.value].name
         if token_kind != None:
-            return ast.Call(
-                func=ast.Attribute(
-                    value=ast.Name(id="self", ctx=ast.Load()),
-                    attr="expect",
-                    ctx=ast.Load(),
-                ),
-                args=[
-                    ast.Attribute(
-                        value=ast.Name(id="TokenKind", ctx=ast.Load()),
-                        attr=token_kind,
-                        ctx=ast.Load(),
-                    )
-                ],
-                keywords=[],
-            )
-        return ast.Call(
-            func=ast.Attribute(
-                value=ast.Name(id="self", ctx=ast.Load()), attr="expect", ctx=ast.Load()
-            ),
-            args=[
-                ast.Attribute(
-                    value=ast.Name(id="TokenKind", ctx=ast.Load()),
-                    attr="IDENTIFIER",
-                    ctx=ast.Load(),
-                )
-            ],
-            keywords=[ast.keyword(arg="text", value=ast.Constant(value=node.value))],
-        )
+            return ast.parse(
+                f"self.expect(TokenKind.{token_kind})",
+                mode="eval",
+            ).body
+        return ast.parse(
+            f"self.expect(TokenKind.IDENTIFIER,text={repr(node.value)})",
+            mode="eval",
+        ).body

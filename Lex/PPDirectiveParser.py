@@ -6,7 +6,7 @@ from AST import (
     ElifDirecvtive,
 )
 from Basic import Diagnostic, Token, TokenKind, Error
-from Parse.Builder import memorize
+from Parse import memorize
 
 if TYPE_CHECKING:
     from Lex.Preprocessor import Preprocessor

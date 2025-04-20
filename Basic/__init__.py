@@ -2,7 +2,7 @@
 
 from Basic.Token import TokenKind, Token, TokenGen
 from Basic.Location import Location
-from Basic.FileReader import FileReader
+from Basic.FileReader import FileReader, MergeReader
 from Basic.Diagnostic import (
     Diagnostic,
     Error,

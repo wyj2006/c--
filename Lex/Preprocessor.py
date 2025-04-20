@@ -26,67 +26,14 @@ from AST import (
     IfSection,
 )
 from Lex.EmbedLexer import EmbedLexer
-from Lex.Lexer import Lexer, LexerParser
 from Lex.Macro import Macro, MacroArg
 from Lex.PPFlag import PPFlag
-from Lex.gen_PPLexerParser import Gen_PPLexerParser
-from Lex.ConcatReader import ConcatReader
-from Parse.Builder import memorize
+from Parse import memorize
+
+from .gen_Lexer import Gen_Lexer
 
 
-class PPLexerParser(Gen_PPLexerParser, LexerParser):
-    @memorize
-    def h_char(self):
-        """
-        h-char:
-            any member of the source character set except
-                the new-line character and >
-        """
-        token = self.curtoken()
-        if token.text not in "\n><":
-            self.nexttoken()
-            return token
-        return None
-
-    @memorize
-    def single_line_comment(self):
-        a = [Location([]), ""]
-        while self.curtoken().kind != TokenKind.END:
-            token = self.curtoken()
-            ch = token.text
-            token = self.curtoken()
-            if ch == "\n":
-                break
-            a[0] += token.location
-            a[1] += token.text
-            self.nexttoken()
-        return tuple(a)
-
-    @memorize
-    def multi_line_comment(self):
-        a = [Location([]), ""]
-        while self.curtoken().kind != TokenKind.END:
-            _z = self.save()
-
-            token = self.curtoken()
-            ch = token.text
-            if ch == "*":
-                self.nexttoken()
-                token = self.curtoken()
-                ch = token.text
-                if ch == "/":
-                    self.restore(_z)
-                    break
-            self.restore(_z)
-
-            token = self.curtoken()
-            a[0] += token.location
-            a[1] += token.text
-            self.nexttoken()
-        return tuple(a)
-
-
-class Preprocessor(Lexer):
+class Preprocessor(Gen_Lexer):
     include_path: list[str] = []
 
     @staticmethod
@@ -104,7 +51,6 @@ class Preprocessor(Lexer):
 
     def __init__(self, reader):
         super().__init__(reader)
-        self.lexerparser = PPLexerParser(self.charlexer)
         self.flag = FlagManager(PPFlag.ALLOW_REPLACE | PPFlag.ALLOW_CONTACT)
         self.filename = self.reader.filename  # 用于 __FILE__ 替换
         self.line_shift = 0  # 用于 __LINE__ 替换时进行调整
@@ -117,6 +63,73 @@ class Preprocessor(Lexer):
         self.flag.remove(remove_flags)
         yield
         self.flag.restore(_flag)
+
+    def check_pphash(self):
+        """判断当前读到的'#'是否算是预处理器指令"""
+        i = self.reader.nextindex - 2
+        atbegineofline = True  # 位于行首
+        while i >= 0:
+            if self.reader.hasread[i][0] == "\n":
+                break
+            if not self.reader.hasread[i][0].isspace():
+                atbegineofline = False
+                break
+            i -= 1
+        return atbegineofline
+
+    def getNewToken(self) -> Token:
+        ch, location = self.reader.next()
+        if ch == "/":
+            ch, loc = self.reader.next()
+            location.extend(loc)
+            if ch == "/":
+                text = ""
+                ch, loc = self.reader.next()
+                while ch and ch != "\n":
+                    text += ch
+                    location.extend(loc)
+                    ch, loc = self.reader.next()
+                return Token(TokenKind.COMMENT, location, text)
+            elif ch == "*":
+                text = ""
+                ch, loc = self.reader.next()
+                while ch and text[-2:] != "*/":
+                    text += ch
+                    location.extend(loc)
+                    ch, loc = self.reader.next()
+                self.reader.back()
+                return Token(TokenKind.COMMENT, location, text[:-2])
+            else:
+                # 多读了两个
+                self.reader.back()
+                self.reader.back()
+        elif ch == "<" and self.flag.has(PPFlag.ALLOW_HEADERNAME):
+            text = ""
+            ch, loc = self.reader.next()
+            while ch and ch != ">":
+                text += ch
+                location.extend(loc)
+                ch, loc = self.reader.next()
+            return Token(TokenKind.HEADERNAME, location, text)
+        elif ch == "\n" and self.flag.has(PPFlag.KEEP_NEWLINE):
+            return Token(TokenKind.NEWLINE, location, "\n")
+        else:
+            self.reader.back()
+        token = super().getNewToken()
+        if token != None:
+            if token.kind == TokenKind.IDENTIFIER and self.flag.has(
+                PPFlag.TRANS_PPKEYWORD
+            ):
+                token.kind = Token.ppkeywords.get(token.text, TokenKind.IDENTIFIER)
+            elif token.kind == TokenKind.HASH:
+                token.ispphash = self.check_pphash()
+            elif token.kind == TokenKind.L_PAREN:
+                i = self.reader.nextindex - 2
+                token.islparen = i >= 0 and (
+                    self.identifier_start(self.reader.hasread[i][0])
+                    or self.identifier_continue(self.reader.hasread[i][0])
+                )
+        return token
 
     def next(self):
         token = super().next()
@@ -176,16 +189,6 @@ class Preprocessor(Lexer):
             and token.kind in Token.ppkeywords.values()
         ):
             token.kind = TokenKind.IDENTIFIER
-        elif (
-            not self.flag.has(PPFlag.ALLOW_HEADERNAME)
-            and token.kind == TokenKind.HEADERNAME
-        ):
-            self.nexttk_index -= 1
-            self.tokens.pop(self.nexttk_index)
-            reader = ConcatReader([token])
-            lexer = Lexer(reader)
-            self.tokens.insert(self.nexttk_index, lexer)
-            return self.next()
 
         # 连接相邻的字符串字面量
         while (
@@ -193,7 +196,7 @@ class Preprocessor(Lexer):
             and token.kind == TokenKind.STRINGLITERAL
         ):
             t = self.save()
-            token2 = self.next()
+            token2: Token = self.next()
             if token2.kind == TokenKind.STRINGLITERAL:
                 token.text += " " + token2.text
                 token.content += token2.content

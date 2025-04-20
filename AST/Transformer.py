@@ -8,11 +8,14 @@ class Transformer(Visitor):
     def visit_Node(self, node: Node):
         for field in node._fields:
             child = getattr(node, field)
+            if child == None:
+                continue
             if isinstance(child, list):
                 setattr(
                     node,
                     field,
-                    filter(lambda a: a != None, [i.accept(self) for i in child]),
+                    list(filter(lambda a: a != None, [i.accept(self) for i in child])),
                 )
             else:
                 setattr(node, field, child.accept(self))
+        return node

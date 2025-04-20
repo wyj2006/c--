@@ -5,7 +5,7 @@ class Grammar(Node):
     """文法的语法"""
 
     class_name: str
-    header: str
+    header: str = None
     rules: list["Rule"]
 
     rules_map: dict[str, "Rule"]
@@ -45,14 +45,19 @@ class Rhs(Node):
 
 class Alt(Node):
     items: list["Item"]
-    action: str
+    action: str = None
+
+    first_item: set["LeafItem"]
+    last_item: set["LeafItem"]
 
     _attributes = Node._attributes + ("action",)
     _fields = Node._fields + ("items",)
 
 
 class Item(Node):
-    pass
+    nullable: bool
+    first_item: set["LeafItem"]
+    last_item: set["LeafItem"]
 
 
 class NamedItem(Item):
@@ -71,12 +76,17 @@ class Option(Item):
     _fields = Item._fields + ("item",)
 
 
-class NameLeaf(Item):
+class LeafItem(Item):
+    pass
+
+
+class NameLeaf(LeafItem):
     name: str
 
-    _attributes = Item._attributes + ("name",)
+    _attributes = LeafItem._attributes + ("name",)
 
 
-class StringLeaf(Item):
+class StringLeaf(LeafItem):
     value: str
-    _attributes = Item._attributes + ("value",)
+
+    _attributes = LeafItem._attributes + ("value",)

@@ -5,8 +5,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 import pytest
 
-from Basic import TokenKind, Token, FileReader, Error
-from Lex import Lexer, MergeReader
+from Basic import TokenKind, Token, Error, MergeReader
+from Lex import Lexer
 
 
 def examplestest(examples):

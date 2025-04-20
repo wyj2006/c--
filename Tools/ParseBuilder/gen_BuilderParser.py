@@ -1,4 +1,4 @@
-from Parse.Builder import ParserBase, memorize, memorize_left_rec
+from Parse import ParserBase, memorize, memorize_left_rec
 from AST import *
 from Basic import *
 

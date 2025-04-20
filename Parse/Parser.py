@@ -1,5 +1,5 @@
 from Basic import Token, TokenGen, TokenKind
-from Parse.Builder.Memory import memorize
+from Parse.Memory import memorize
 from Parse.Wrapper import may_update_type_symbol, may_enter_scope
 
 from .gen_CParser import Gen_CParser
