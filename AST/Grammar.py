@@ -31,7 +31,8 @@ class Grammar(Node):
 class Rule(Node):
     name: str
     rhs: "Rhs"
-    is_left_rec: bool  # 是否是左递归, 包括直接和间接以及参与左递归
+    is_left_rec: bool  # 是否是左递归
+    is_leader: bool  # 是否是领头的左递归
 
     _attributes = Node._attributes + ("name", "is_left_rec")
     _fields = Node._fields + ("rhs",)
@@ -48,7 +49,6 @@ class Alt(Node):
     action: str = None
 
     first_item: set["LeafItem"]
-    last_item: set["LeafItem"]
 
     _attributes = Node._attributes + ("action",)
     _fields = Node._fields + ("items",)
@@ -57,7 +57,6 @@ class Alt(Node):
 class Item(Node):
     nullable: bool
     first_item: set["LeafItem"]
-    last_item: set["LeafItem"]
 
 
 class NamedItem(Item):

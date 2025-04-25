@@ -31,7 +31,9 @@ class LeftRecDetector(Visitor):
                     # 产生左递归
                     for r in path[::-1]:
                         r.is_left_rec = True
+                        r.is_leader = False
                         if r.name == next_rule.name:
+                            r.is_leader = True
                             break
 
     def visit_Rule(self, node: Rule):
@@ -59,15 +61,9 @@ class LeftRecDetector(Visitor):
         self.generic_visit(node)
 
         node.first_item = set()
-        node.last_item = set()
 
         for item in node.items:
             node.first_item |= item.first_item
-            if not item.nullable:
-                break
-
-        for item in node.items[::-1]:
-            node.last_item |= item.last_item
             if not item.nullable:
                 break
 
@@ -77,15 +73,13 @@ class LeftRecDetector(Visitor):
 
         node.nullable = node.item.nullable
         node.first_item = node.item.first_item
-        node.last_item = node.item.last_item
 
     def visit_Option(self, node: Option):
         self.generic_visit(node)
 
         node.nullable = True
         node.first_item = node.item.first_item
-        node.last_item = node.item.last_item
 
     def visit_LeafItem(self, node: LeafItem):
         node.nullable = False
-        node.first_item = node.last_item = {node}
+        node.first_item = {node}

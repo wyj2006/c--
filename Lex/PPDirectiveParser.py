@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 from Lex.PPFlag import PPFlag
-from Parse import Parser
+from Parse import Parser, generic_syntax_error
 from AST import (
     Group,
     ElifDirecvtive,
@@ -155,6 +155,8 @@ class PPDirectiveParser(Gen_PPDirectiveParser, Parser):
             with self.tokengen.setFlag(PPFlag.ALLOW_REPLACE):
                 try:
                     pp_directive.expr = self.constant_expression()
+                    if pp_directive.expr == None:
+                        raise generic_syntax_error(self)
                 except Diagnostic as e:
                     # 只有该指令被跳过时才会报错
                     pp_directive.diagnostic = e

@@ -60,12 +60,16 @@ class Generator(Visitor):
                 defaults=[],
             ),
             body=[],
-            decorator_list=[
-                ast.Name(
-                    id="memorize" if not node.is_left_rec else "memorize_left_rec",
-                    ctx=ast.Load(),
-                )
-            ],
+            decorator_list=(
+                [
+                    ast.Name(
+                        id="memorize" if not node.is_left_rec else "memorize_left_rec",
+                        ctx=ast.Load(),
+                    )
+                ]
+                if not node.is_left_rec or node.is_left_rec and node.is_leader
+                else []
+            ),
         )
         if node.rhs != None:
             funcdef.body.extend(node.rhs.accept(self))

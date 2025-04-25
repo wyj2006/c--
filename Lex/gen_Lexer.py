@@ -11,314 +11,307 @@ class Gen_Lexer(LexerBase):
             ch, loc = self.reader.next()
             match states[-1][0]:
                 case 0:
-                    if ch == '<':
-                        states.append((2, self.reader.save()))
+                    if ch == '0':
+                        states.append((1, self.reader.save()))
                         continue
-                    if ch == '*':
+                    if ch == '|':
                         states.append((3, self.reader.save()))
                         continue
-                    if ch == '#':
-                        states.append((5, self.reader.save()))
-                        continue
-                    if ch == '-':
-                        states.append((6, self.reader.save()))
-                        continue
-                    if ch == '0':
-                        states.append((7, self.reader.save()))
-                        continue
-                    if ch == '+':
-                        states.append((8, self.reader.save()))
-                        continue
-                    if ch == '>':
-                        states.append((9, self.reader.save()))
-                        continue
-                    if ch == '&':
-                        states.append((11, self.reader.save()))
-                        continue
-                    if ch == '.':
-                        states.append((12, self.reader.save()))
-                        continue
-                    if ch == '':
-                        states.append((13, self.reader.save()))
+                    if ch == '/':
+                        states.append((4, self.reader.save()))
                         continue
                     if ch == '\\':
-                        states.append((14, self.reader.save()))
+                        states.append((7, self.reader.save()))
                         continue
-                    if ch == '=':
+                    if ch == 'u':
+                        states.append((8, self.reader.save()))
+                        continue
+                    if ch == '&':
+                        states.append((9, self.reader.save()))
+                        continue
+                    if ch == '%':
+                        states.append((10, self.reader.save()))
+                        continue
+                    if ch == '>':
+                        states.append((11, self.reader.save()))
+                        continue
+                    if ch == '#':
+                        states.append((12, self.reader.save()))
+                        continue
+                    if ch == '<':
+                        states.append((13, self.reader.save()))
+                        continue
+                    if ch == '-':
                         states.append((15, self.reader.save()))
+                        continue
+                    if ch == ':':
+                        states.append((16, self.reader.save()))
                         continue
                     if ch == '^':
                         states.append((17, self.reader.save()))
                         continue
-                    if ch == '!':
+                    if ch == '"':
                         states.append((18, self.reader.save()))
                         continue
-                    if ch == 'u':
+                    if ch == '+':
                         states.append((19, self.reader.save()))
                         continue
-                    if ch == '|':
+                    if ch == '*':
                         states.append((20, self.reader.save()))
                         continue
-                    if ch == '/':
+                    if ch == '.':
                         states.append((21, self.reader.save()))
                         continue
-                    if ch == '%':
+                    if ch == '=':
                         states.append((22, self.reader.save()))
                         continue
-                    if ch == ':':
+                    if ch == "'":
                         states.append((23, self.reader.save()))
                         continue
-                    if ch == '"':
+                    if ch == '':
                         states.append((24, self.reader.save()))
                         continue
-                    if ch == "'":
+                    if ch == '!':
                         states.append((25, self.reader.save()))
                         continue
-                    if ch in ('6', '7', '2', '8', '3', '9', '4', '5', '1'):
-                        states.append((1, self.reader.save()))
+                    if ch in ('6', '2', '7', '3', '8', '4', '1', '9', '5'):
+                        states.append((2, self.reader.save()))
                         continue
-                    if ch in ('a', 'q', 'G', 'W', 'b', 'H', 'r', 'X', 'c', 's', 'I', 'Y', 'd', 'J', 't', 'Z', 'e', 'K', 'f', 'v', 'g', 'w', 'M', 'h', 'x', 'N', 'i', 'y', 'O', 'j', 'z', 'P', 'k', 'A', 'Q', 'l', 'B', 'R', 'm', 'C', 'S', 'n', 'D', 'T', 'o', 'E', '_', 'p', 'F', 'V'):
-                        states.append((4, self.reader.save()))
+                    if ch in ('f', 'v', 'g', 'w', 'M', 'h', 'x', 'N', 'i', 'y', 'O', 'j', 'z', 'P', 'k', 'A', 'Q', 'l', 'B', 'R', 'm', 'C', 'S', 'n', 'D', 'T', 'o', 'E', '_', 'p', 'F', 'V', 'a', 'q', 'G', 'W', 'b', 'r', 'H', 'X', 'c', 's', 'I', 'Y', 't', 'd', 'J', 'Z', 'e', 'K'):
+                        states.append((5, self.reader.save()))
                         continue
-                    if ch in ('U', 'L'):
-                        states.append((10, self.reader.save()))
+                    if ch in ('L', 'U'):
+                        states.append((6, self.reader.save()))
                         continue
-                    if ch in ('~', '[', ']', '(', ')', '?', '{', '}', ';', ','):
-                        states.append((16, self.reader.save()))
+                    if ch in ('[', ']', '(', ')', '?', '{', '}', ';', ',', '~'):
+                        states.append((14, self.reader.save()))
                         continue
                     if self.other_identifier_start(ch):
-                        states.append((4, self.reader.save()))
+                        states.append((5, self.reader.save()))
                         continue
                     break
                 case 1:
-                    if ch == 'l':
-                        states.append((26, self.reader.save()))
-                        continue
-                    if ch == 'W':
-                        states.append((28, self.reader.save()))
-                        continue
                     if ch == "'":
                         states.append((29, self.reader.save()))
                         continue
                     if ch == 'E':
-                        states.append((30, self.reader.save()))
-                        continue
-                    if ch == 'L':
                         states.append((31, self.reader.save()))
                         continue
-                    if ch == '.':
+                    if ch == 'L':
                         states.append((32, self.reader.save()))
                         continue
-                    if ch == 'e':
+                    if ch == '.':
                         states.append((34, self.reader.save()))
                         continue
                     if ch == 'w':
                         states.append((35, self.reader.save()))
                         continue
-                    if ch in ('0', '4', '1', '8', '5', '9', '2', '6', '3', '7'):
-                        states.append((1, self.reader.save()))
+                    if ch == 'e':
+                        states.append((37, self.reader.save()))
+                        continue
+                    if ch == 'l':
+                        states.append((38, self.reader.save()))
+                        continue
+                    if ch == 'W':
+                        states.append((39, self.reader.save()))
+                        continue
+                    if ch in ('7', '1', '5', '2', '6', '0', '4', '3'):
+                        states.append((26, self.reader.save()))
+                        continue
+                    if ch in ('9', '8'):
+                        states.append((27, self.reader.save()))
                         continue
                     if ch in ('U', 'u'):
-                        states.append((27, self.reader.save()))
+                        states.append((28, self.reader.save()))
+                        continue
+                    if ch in ('x', 'X'):
+                        states.append((30, self.reader.save()))
+                        continue
+                    if ch in ('b', 'B'):
+                        states.append((33, self.reader.save()))
                         continue
                     break
                 case 2:
-                    if ch == '<':
-                        states.append((36, self.reader.save()))
-                        continue
-                    if ch == '=':
-                        states.append((16, self.reader.save()))
-                        continue
-                    break
-                case 3:
-                    if ch == '=':
-                        states.append((16, self.reader.save()))
-                        continue
-                    break
-                case 4:
-                    if ch == '\\':
-                        states.append((37, self.reader.save()))
-                        continue
-                    if ch in ('1', '9', 'n', 'f', 'v', 'D', 'L', 'T', '2', 'o', 'g', 'w', 'E', 'M', 'U', '3', '_', 'p', 'h', 'x', 'F', 'N', 'V', '4', 'q', 'a', 'i', 'y', 'G', 'O', 'W', '5', 'b', 'j', 'r', 'z', 'H', 'P', 'X', 's', '6', 'c', 'k', 'A', 'I', 'Q', 'Y', '7', 'd', 'l', 't', 'Z', 'B', 'J', 'R', '0', 'u', '8', 'm', 'e', 'C', 'K', 'S'):
-                        states.append((4, self.reader.save()))
-                        continue
-                    if self.other_identifier_continue(ch):
-                        states.append((4, self.reader.save()))
-                        continue
-                    break
-                case 5:
-                    if ch == '#':
-                        states.append((16, self.reader.save()))
-                        continue
-                    break
-                case 6:
-                    if ch in ('>', '=', '-'):
-                        states.append((16, self.reader.save()))
-                        continue
-                    break
-                case 7:
                     if ch == 'W':
-                        states.append((38, self.reader.save()))
+                        states.append((40, self.reader.save()))
                         continue
                     if ch == 'l':
-                        states.append((41, self.reader.save()))
+                        states.append((42, self.reader.save()))
+                        continue
+                    if ch == "'":
+                        states.append((43, self.reader.save()))
+                        continue
+                    if ch == 'E':
+                        states.append((31, self.reader.save()))
                         continue
                     if ch == 'L':
                         states.append((44, self.reader.save()))
                         continue
-                    if ch == "'":
-                        states.append((45, self.reader.save()))
-                        continue
-                    if ch == 'E':
-                        states.append((30, self.reader.save()))
-                        continue
                     if ch == '.':
-                        states.append((32, self.reader.save()))
-                        continue
-                    if ch == 'w':
-                        states.append((47, self.reader.save()))
-                        continue
-                    if ch == 'e':
                         states.append((34, self.reader.save()))
                         continue
-                    if ch in ('0', '4', '1', '5', '3', '7', '2', '6'):
-                        states.append((39, self.reader.save()))
+                    if ch == 'e':
+                        states.append((37, self.reader.save()))
+                        continue
+                    if ch == 'w':
+                        states.append((45, self.reader.save()))
+                        continue
+                    if ch in ('8', '9', '1', '5', '2', '6', '3', '7', '0', '4'):
+                        states.append((2, self.reader.save()))
                         continue
                     if ch in ('u', 'U'):
-                        states.append((40, self.reader.save()))
+                        states.append((41, self.reader.save()))
                         continue
-                    if ch in ('8', '9'):
-                        states.append((42, self.reader.save()))
+                    break
+                case 3:
+                    if ch in ('=', '|'):
+                        states.append((14, self.reader.save()))
                         continue
-                    if ch in ('X', 'x'):
-                        states.append((43, self.reader.save()))
+                    break
+                case 4:
+                    if ch == '=':
+                        states.append((14, self.reader.save()))
                         continue
-                    if ch in ('b', 'B'):
+                    break
+                case 5:
+                    if ch == '\\':
                         states.append((46, self.reader.save()))
                         continue
-                    break
-                case 8:
-                    if ch in ('+', '='):
-                        states.append((16, self.reader.save()))
+                    if ch in ('6', 'c', 'k', 's', 'A', 'I', 'Q', 'Y', 't', '7', 'd', 'l', 'Z', 'B', 'J', 'R', '0', '8', 'm', 'u', 'e', 'C', 'K', 'S', '1', '9', 'v', 'n', 'f', 'D', 'L', 'T', '2', 'o', 'w', 'g', 'E', 'M', 'U', '3', 'x', '_', 'p', 'h', 'F', 'N', 'V', '4', 'y', 'a', 'i', 'q', 'G', 'O', 'W', '5', 'r', 'z', 'b', 'j', 'H', 'P', 'X'):
+                        states.append((5, self.reader.save()))
+                        continue
+                    if self.other_identifier_continue(ch):
+                        states.append((5, self.reader.save()))
                         continue
                     break
-                case 9:
-                    if ch == '=':
-                        states.append((16, self.reader.save()))
+                case 6:
+                    if ch == '\\':
+                        states.append((46, self.reader.save()))
                         continue
-                    if ch == '>':
+                    if ch == "'":
+                        states.append((23, self.reader.save()))
+                        continue
+                    if ch == '"':
+                        states.append((18, self.reader.save()))
+                        continue
+                    if ch in ('6', 'c', 'k', 's', 'A', 'I', 'Q', 'Y', 't', '7', 'd', 'l', 'Z', 'B', 'J', 'R', '0', '8', 'm', 'u', 'e', 'C', 'K', 'S', '1', '9', 'v', 'n', 'f', 'D', 'L', 'T', '2', 'o', 'w', 'g', 'E', 'M', 'U', '3', 'x', '_', 'p', 'h', 'F', 'N', 'V', '4', 'y', 'a', 'i', 'q', 'G', 'O', 'W', '5', 'r', 'z', 'b', 'j', 'H', 'P', 'X'):
+                        states.append((5, self.reader.save()))
+                        continue
+                    if self.other_identifier_continue(ch):
+                        states.append((5, self.reader.save()))
+                        continue
+                    break
+                case 7:
+                    if ch == 'u':
+                        states.append((47, self.reader.save()))
+                        continue
+                    if ch == 'U':
                         states.append((48, self.reader.save()))
                         continue
                     break
-                case 10:
-                    if ch == '\\':
-                        states.append((37, self.reader.save()))
+                case 8:
+                    if ch == '8':
+                        states.append((6, self.reader.save()))
                         continue
-                    if ch == '"':
-                        states.append((24, self.reader.save()))
+                    if ch == '\\':
+                        states.append((46, self.reader.save()))
                         continue
                     if ch == "'":
-                        states.append((25, self.reader.save()))
+                        states.append((23, self.reader.save()))
                         continue
-                    if ch in ('1', '9', 'n', 'f', 'v', 'D', 'L', 'T', '2', 'o', 'g', 'w', 'E', 'M', 'U', '3', '_', 'p', 'h', 'x', 'F', 'N', 'V', '4', 'q', 'a', 'i', 'y', 'G', 'O', 'W', '5', 'b', 'j', 'r', 'z', 'H', 'P', 'X', 's', '6', 'c', 'k', 'A', 'I', 'Q', 'Y', '7', 'd', 'l', 't', 'Z', 'B', 'J', 'R', '0', 'u', '8', 'm', 'e', 'C', 'K', 'S'):
-                        states.append((4, self.reader.save()))
+                    if ch == '"':
+                        states.append((18, self.reader.save()))
+                        continue
+                    if ch in ('6', 'c', 'k', 's', 'A', 'I', 'Q', 'Y', 't', '7', 'd', 'l', 'Z', 'B', 'J', 'R', '0', 'm', 'u', 'e', 'C', 'K', 'S', '1', '9', 'v', 'n', 'f', 'D', 'L', 'T', '2', 'o', 'w', 'g', 'E', 'M', 'U', '3', 'x', '_', 'p', 'h', 'F', 'N', 'V', '4', 'y', 'a', 'i', 'q', 'G', 'O', 'W', '5', 'r', 'z', 'b', 'j', 'H', 'P', 'X'):
+                        states.append((5, self.reader.save()))
                         continue
                     if self.other_identifier_continue(ch):
-                        states.append((4, self.reader.save()))
+                        states.append((5, self.reader.save()))
+                        continue
+                    break
+                case 9:
+                    if ch in ('&', '='):
+                        states.append((14, self.reader.save()))
+                        continue
+                    break
+                case 10:
+                    if ch == '=':
+                        states.append((14, self.reader.save()))
                         continue
                     break
                 case 11:
-                    if ch in ('&', '='):
-                        states.append((16, self.reader.save()))
+                    if ch == '>':
+                        states.append((49, self.reader.save()))
+                        continue
+                    if ch == '=':
+                        states.append((14, self.reader.save()))
                         continue
                     break
                 case 12:
-                    if ch == '.':
-                        states.append((49, self.reader.save()))
-                        continue
-                    if ch in ('0', '2', '3', '4', '9', '1', '5', '6', '7', '8'):
-                        states.append((50, self.reader.save()))
+                    if ch == '#':
+                        states.append((14, self.reader.save()))
                         continue
                     break
                 case 13:
+                    if ch == '<':
+                        states.append((50, self.reader.save()))
+                        continue
+                    if ch == '=':
+                        states.append((14, self.reader.save()))
+                        continue
                     break
                 case 14:
-                    if ch == 'u':
-                        states.append((51, self.reader.save()))
-                        continue
-                    if ch == 'U':
-                        states.append((52, self.reader.save()))
-                        continue
                     break
                 case 15:
-                    if ch == '=':
-                        states.append((16, self.reader.save()))
+                    if ch in ('-', '>', '='):
+                        states.append((14, self.reader.save()))
                         continue
                     break
                 case 16:
+                    if ch == ':':
+                        states.append((14, self.reader.save()))
+                        continue
                     break
                 case 17:
                     if ch == '=':
-                        states.append((16, self.reader.save()))
+                        states.append((14, self.reader.save()))
                         continue
                     break
                 case 18:
-                    if ch == '=':
-                        states.append((16, self.reader.save()))
+                    if ch == '\\':
+                        states.append((51, self.reader.save()))
+                        continue
+                    if ch == '"':
+                        states.append((53, self.reader.save()))
+                        continue
+                    if self.other_s_char(ch):
+                        states.append((52, self.reader.save()))
                         continue
                     break
                 case 19:
-                    if ch == '\\':
-                        states.append((37, self.reader.save()))
-                        continue
-                    if ch == '"':
-                        states.append((24, self.reader.save()))
-                        continue
-                    if ch == '8':
-                        states.append((10, self.reader.save()))
-                        continue
-                    if ch == "'":
-                        states.append((25, self.reader.save()))
-                        continue
-                    if ch in ('1', '9', 'n', 'f', 'v', 'D', 'L', 'T', '2', 'o', 'g', 'w', 'E', 'M', 'U', '3', '_', 'p', 'h', 'x', 'F', 'N', 'V', '4', 'q', 'a', 'i', 'y', 'G', 'O', 'W', '5', 'b', 'j', 'r', 'z', 'H', 'P', 'X', 's', '6', 'c', 'k', 'A', 'I', 'Q', 'Y', '7', 'd', 'l', 't', 'Z', 'B', 'J', 'R', '0', 'u', 'm', 'e', 'C', 'K', 'S'):
-                        states.append((4, self.reader.save()))
-                        continue
-                    if self.other_identifier_continue(ch):
-                        states.append((4, self.reader.save()))
+                    if ch in ('=', '+'):
+                        states.append((14, self.reader.save()))
                         continue
                     break
                 case 20:
-                    if ch in ('|', '='):
-                        states.append((16, self.reader.save()))
+                    if ch == '=':
+                        states.append((14, self.reader.save()))
                         continue
                     break
                 case 21:
-                    if ch == '=':
-                        states.append((16, self.reader.save()))
+                    if ch == '.':
+                        states.append((55, self.reader.save()))
+                        continue
+                    if ch in ('5', '6', '7', '8', '1', '3', '4', '0', '9', '2'):
+                        states.append((54, self.reader.save()))
                         continue
                     break
                 case 22:
                     if ch == '=':
-                        states.append((16, self.reader.save()))
+                        states.append((14, self.reader.save()))
                         continue
                     break
                 case 23:
-                    if ch == ':':
-                        states.append((16, self.reader.save()))
-                        continue
-                    break
-                case 24:
-                    if ch == '\\':
-                        states.append((53, self.reader.save()))
-                        continue
-                    if ch == '"':
-                        states.append((55, self.reader.save()))
-                        continue
-                    if self.other_s_char(ch):
-                        states.append((54, self.reader.save()))
-                        continue
-                    break
-                case 25:
                     if ch == '\\':
                         states.append((56, self.reader.save()))
                         continue
@@ -326,287 +319,294 @@ class Gen_Lexer(LexerBase):
                         states.append((57, self.reader.save()))
                         continue
                     break
-                case 26:
-                    if ch == 'l':
-                        states.append((59, self.reader.save()))
+                case 24:
+                    break
+                case 25:
+                    if ch == '=':
+                        states.append((14, self.reader.save()))
                         continue
-                    if ch in ('u', 'U'):
-                        states.append((58, self.reader.save()))
+                    break
+                case 26:
+                    if ch == "'":
+                        states.append((29, self.reader.save()))
+                        continue
+                    if ch == 'E':
+                        states.append((31, self.reader.save()))
+                        continue
+                    if ch == 'L':
+                        states.append((32, self.reader.save()))
+                        continue
+                    if ch == '.':
+                        states.append((34, self.reader.save()))
+                        continue
+                    if ch == 'w':
+                        states.append((35, self.reader.save()))
+                        continue
+                    if ch == 'e':
+                        states.append((37, self.reader.save()))
+                        continue
+                    if ch == 'l':
+                        states.append((38, self.reader.save()))
+                        continue
+                    if ch == 'W':
+                        states.append((39, self.reader.save()))
+                        continue
+                    if ch in ('7', '1', '2', '5', '6', '0', '4', '3'):
+                        states.append((26, self.reader.save()))
+                        continue
+                    if ch in ('U', 'u'):
+                        states.append((28, self.reader.save()))
+                        continue
+                    if ch in ('9', '8'):
+                        states.append((27, self.reader.save()))
                         continue
                     break
                 case 27:
-                    if ch == 'l':
-                        states.append((60, self.reader.save()))
+                    if ch == 'e':
+                        states.append((37, self.reader.save()))
                         continue
-                    if ch == 'L':
-                        states.append((61, self.reader.save()))
+                    if ch == 'E':
+                        states.append((31, self.reader.save()))
                         continue
-                    if ch == 'W':
-                        states.append((62, self.reader.save()))
+                    if ch == "'":
+                        states.append((58, self.reader.save()))
                         continue
-                    if ch == 'w':
-                        states.append((63, self.reader.save()))
+                    if ch == '.':
+                        states.append((34, self.reader.save()))
+                        continue
+                    if ch in ('9', '3', '1', '5', '7', '0', '2', '4', '6', '8'):
+                        states.append((27, self.reader.save()))
                         continue
                     break
                 case 28:
-                    if ch == 'B':
-                        states.append((64, self.reader.save()))
+                    if ch == 'w':
+                        states.append((59, self.reader.save()))
+                        continue
+                    if ch == 'L':
+                        states.append((60, self.reader.save()))
+                        continue
+                    if ch == 'W':
+                        states.append((61, self.reader.save()))
+                        continue
+                    if ch == 'l':
+                        states.append((62, self.reader.save()))
                         continue
                     break
                 case 29:
-                    if ch in ('0', '4', '1', '8', '5', '9', '2', '6', '3', '7'):
-                        states.append((1, self.reader.save()))
+                    if ch in ('7', '1', '2', '5', '6', '0', '4', '3'):
+                        states.append((26, self.reader.save()))
+                        continue
+                    if ch in ('9', '8'):
+                        states.append((27, self.reader.save()))
                         continue
                     break
                 case 30:
-                    if ch in ('+', '-'):
-                        states.append((65, self.reader.save()))
+                    if ch == '.':
+                        states.append((64, self.reader.save()))
                         continue
-                    if ch in ('0', '1', '2', '3', '4', '5', '6', '7', '8', '9'):
-                        states.append((66, self.reader.save()))
+                    if ch in ('3', 'b', 'D', 'e', '6', 'E', '4', 'c', 'f', '7', 'd', 'F', '5', '0', 'A', '8', '1', '9', 'B', '2', 'a', 'C'):
+                        states.append((63, self.reader.save()))
                         continue
                     break
                 case 31:
-                    if ch == 'L':
-                        states.append((59, self.reader.save()))
+                    if ch in ('6', '7', '8', '0', '1', '2', '3', '4', '9', '5'):
+                        states.append((65, self.reader.save()))
                         continue
-                    if ch in ('u', 'U'):
-                        states.append((58, self.reader.save()))
+                    if ch in ('+', '-'):
+                        states.append((66, self.reader.save()))
                         continue
                     break
                 case 32:
-                    if ch == 'd':
+                    if ch == 'L':
                         states.append((68, self.reader.save()))
                         continue
-                    if ch == 'D':
-                        states.append((69, self.reader.save()))
-                        continue
-                    if ch == 'e':
-                        states.append((70, self.reader.save()))
-                        continue
-                    if ch == 'E':
-                        states.append((71, self.reader.save()))
-                        continue
-                    if ch in ('F', 'f', 'l', 'L'):
+                    if ch in ('U', 'u'):
                         states.append((67, self.reader.save()))
-                        continue
-                    if ch in ('0', '2', '4', '6', '8', '1', '7', '9', '3', '5'):
-                        states.append((50, self.reader.save()))
                         continue
                     break
                 case 33:
+                    if ch in ('0', '1'):
+                        states.append((69, self.reader.save()))
+                        continue
                     break
                 case 34:
-                    if ch in ('-', '+'):
+                    if ch == 'd':
+                        states.append((71, self.reader.save()))
+                        continue
+                    if ch == 'E':
                         states.append((72, self.reader.save()))
                         continue
-                    if ch in ('1', '2', '3', '4', '6', '0', '5', '7', '8', '9'):
+                    if ch == 'D':
                         states.append((73, self.reader.save()))
+                        continue
+                    if ch == 'e':
+                        states.append((74, self.reader.save()))
+                        continue
+                    if ch in ('6', '8', '4', '3', '9', '1', '5', '7', '0', '2'):
+                        states.append((54, self.reader.save()))
+                        continue
+                    if ch in ('l', 'L', 'f', 'F'):
+                        states.append((70, self.reader.save()))
                         continue
                     break
                 case 35:
                     if ch == 'b':
-                        states.append((64, self.reader.save()))
-                        continue
-                    break
-                case 36:
-                    if ch == '=':
-                        states.append((16, self.reader.save()))
-                        continue
-                    break
-                case 37:
-                    if ch == 'U':
-                        states.append((74, self.reader.save()))
-                        continue
-                    if ch == 'u':
                         states.append((75, self.reader.save()))
                         continue
                     break
-                case 38:
-                    if ch == 'B':
+                case 36:
+                    break
+                case 37:
+                    if ch in ('+', '-'):
                         states.append((76, self.reader.save()))
+                        continue
+                    if ch in ('0', '2', '3', '4', '5', '6', '7', '1', '8', '9'):
+                        states.append((77, self.reader.save()))
+                        continue
+                    break
+                case 38:
+                    if ch == 'l':
+                        states.append((68, self.reader.save()))
+                        continue
+                    if ch in ('U', 'u'):
+                        states.append((67, self.reader.save()))
                         continue
                     break
                 case 39:
-                    if ch == 'W':
-                        states.append((38, self.reader.save()))
-                        continue
-                    if ch == 'l':
-                        states.append((41, self.reader.save()))
-                        continue
-                    if ch == 'L':
-                        states.append((44, self.reader.save()))
-                        continue
-                    if ch == "'":
-                        states.append((45, self.reader.save()))
-                        continue
-                    if ch == 'E':
-                        states.append((30, self.reader.save()))
-                        continue
-                    if ch == '.':
-                        states.append((32, self.reader.save()))
-                        continue
-                    if ch == 'w':
-                        states.append((47, self.reader.save()))
-                        continue
-                    if ch == 'e':
-                        states.append((34, self.reader.save()))
-                        continue
-                    if ch in ('0', '4', '1', '5', '3', '7', '2', '6'):
-                        states.append((39, self.reader.save()))
-                        continue
-                    if ch in ('u', 'U'):
-                        states.append((40, self.reader.save()))
-                        continue
-                    if ch in ('8', '9'):
-                        states.append((42, self.reader.save()))
+                    if ch == 'B':
+                        states.append((75, self.reader.save()))
                         continue
                     break
                 case 40:
-                    if ch == 'w':
-                        states.append((77, self.reader.save()))
-                        continue
-                    if ch == 'W':
+                    if ch == 'B':
                         states.append((78, self.reader.save()))
-                        continue
-                    if ch == 'l':
-                        states.append((79, self.reader.save()))
-                        continue
-                    if ch == 'L':
-                        states.append((80, self.reader.save()))
                         continue
                     break
                 case 41:
+                    if ch == 'w':
+                        states.append((79, self.reader.save()))
+                        continue
+                    if ch == 'W':
+                        states.append((80, self.reader.save()))
+                        continue
                     if ch == 'l':
                         states.append((81, self.reader.save()))
                         continue
-                    if ch in ('u', 'U'):
-                        states.append((58, self.reader.save()))
+                    if ch == 'L':
+                        states.append((82, self.reader.save()))
                         continue
                     break
                 case 42:
-                    if ch == '.':
-                        states.append((32, self.reader.save()))
+                    if ch == 'l':
+                        states.append((83, self.reader.save()))
                         continue
-                    if ch == "'":
-                        states.append((82, self.reader.save()))
-                        continue
-                    if ch == 'e':
-                        states.append((34, self.reader.save()))
-                        continue
-                    if ch == 'E':
-                        states.append((30, self.reader.save()))
-                        continue
-                    if ch in ('2', '0', '4', '6', '8', '1', '3', '7', '5', '9'):
-                        states.append((42, self.reader.save()))
+                    if ch in ('U', 'u'):
+                        states.append((67, self.reader.save()))
                         continue
                     break
                 case 43:
-                    if ch == '.':
-                        states.append((84, self.reader.save()))
-                        continue
-                    if ch in ('e', '6', 'B', '1', '9', 'f', '7', '5', '2', 'a', 'C', 'A', '0', '8', 'b', '3', 'D', 'E', 'c', '4', 'd', 'F'):
-                        states.append((83, self.reader.save()))
+                    if ch in ('8', '1', '9', '2', '5', '6', '3', '7', '0', '4'):
+                        states.append((2, self.reader.save()))
                         continue
                     break
                 case 44:
                     if ch == 'L':
-                        states.append((81, self.reader.save()))
+                        states.append((83, self.reader.save()))
                         continue
                     if ch in ('U', 'u'):
-                        states.append((58, self.reader.save()))
+                        states.append((67, self.reader.save()))
                         continue
                     break
                 case 45:
-                    if ch in ('0', '4', '1', '5', '3', '7', '2', '6'):
-                        states.append((39, self.reader.save()))
-                        continue
-                    if ch in ('8', '9'):
-                        states.append((42, self.reader.save()))
+                    if ch == 'b':
+                        states.append((78, self.reader.save()))
                         continue
                     break
                 case 46:
-                    if ch in ('0', '1'):
+                    if ch == 'U':
+                        states.append((84, self.reader.save()))
+                        continue
+                    if ch == 'u':
                         states.append((85, self.reader.save()))
                         continue
                     break
                 case 47:
-                    if ch == 'b':
-                        states.append((76, self.reader.save()))
+                    if ch in ('F', 'f', 'B', '1', '3', '7', '5', '9', 'b', 'd', 'D', 'E', 'A', '2', '4', '0', '6', '8', 'a', 'c', 'e', 'C'):
+                        states.append((86, self.reader.save()))
                         continue
                     break
                 case 48:
-                    if ch == '=':
-                        states.append((16, self.reader.save()))
-                        continue
-                    break
-                case 49:
-                    if ch == '.':
-                        states.append((16, self.reader.save()))
-                        continue
-                    break
-                case 50:
-                    if ch == "'":
-                        states.append((86, self.reader.save()))
-                        continue
-                    if ch == 'd':
-                        states.append((68, self.reader.save()))
-                        continue
-                    if ch == 'D':
-                        states.append((69, self.reader.save()))
-                        continue
-                    if ch == 'e':
-                        states.append((70, self.reader.save()))
-                        continue
-                    if ch == 'E':
-                        states.append((71, self.reader.save()))
-                        continue
-                    if ch in ('F', 'L', 'l', 'f'):
-                        states.append((67, self.reader.save()))
-                        continue
-                    if ch in ('2', '0', '4', '6', '8', '1', '3', '9', '7', '5'):
-                        states.append((50, self.reader.save()))
-                        continue
-                    break
-                case 51:
-                    if ch in ('2', '0', '4', 'a', '6', '8', 'c', 'e', 'A', 'C', 'F', '1', '3', '9', 'b', '5', '7', 'd', 'f', 'B', 'D', 'E'):
+                    if ch in ('F', '4', '2', '0', 'a', '6', '8', 'c', 'e', 'A', 'C', 'E', '3', '1', '9', 'b', '7', '5', 'd', 'f', 'B', 'D'):
                         states.append((87, self.reader.save()))
                         continue
                     break
-                case 52:
-                    if ch in ('1', '3', '9', 'b', '7', '5', 'd', 'f', 'B', 'D', 'F', '2', '0', '4', 'a', '6', '8', 'c', 'e', 'A', 'C', 'E'):
-                        states.append((88, self.reader.save()))
+                case 49:
+                    if ch == '=':
+                        states.append((14, self.reader.save()))
                         continue
                     break
-                case 53:
+                case 50:
+                    if ch == '=':
+                        states.append((14, self.reader.save()))
+                        continue
+                    break
+                case 51:
                     if ch == 'U':
                         states.append((89, self.reader.save()))
+                        continue
+                    if ch == 'x':
+                        states.append((90, self.reader.save()))
                         continue
                     if ch == 'u':
                         states.append((91, self.reader.save()))
                         continue
-                    if ch == 'x':
-                        states.append((92, self.reader.save()))
+                    if ch in ('5', '7', '6', '3', '1', '4', '2', '0'):
+                        states.append((88, self.reader.save()))
                         continue
-                    if ch in ('4', '2', '1', '7', '5', '0', '6', '3'):
-                        states.append((90, self.reader.save()))
-                        continue
-                    if ch in ('"', 'n', '?', 'r', '\\', 't', 'a', 'v', 'b', "'", 'f'):
-                        states.append((54, self.reader.save()))
+                    if ch in ('v', 'b', "'", 'f', '"', 'n', '?', 'r', '\\', 't', 'a'):
+                        states.append((52, self.reader.save()))
                         continue
                     break
-                case 54:
+                case 52:
                     if ch == '\\':
-                        states.append((93, self.reader.save()))
+                        states.append((92, self.reader.save()))
                         continue
                     if ch == '"':
-                        states.append((55, self.reader.save()))
+                        states.append((53, self.reader.save()))
                         continue
                     if self.other_s_char(ch):
+                        states.append((52, self.reader.save()))
+                        continue
+                    break
+                case 53:
+                    break
+                case 54:
+                    if ch == 'd':
+                        states.append((71, self.reader.save()))
+                        continue
+                    if ch == 'E':
+                        states.append((72, self.reader.save()))
+                        continue
+                    if ch == 'D':
+                        states.append((73, self.reader.save()))
+                        continue
+                    if ch == "'":
+                        states.append((93, self.reader.save()))
+                        continue
+                    if ch == 'e':
+                        states.append((74, self.reader.save()))
+                        continue
+                    if ch in ('l', 'L', 'f', 'F'):
+                        states.append((70, self.reader.save()))
+                        continue
+                    if ch in ('9', '1', '3', '5', '7', '0', '2', '4', '6', '8'):
                         states.append((54, self.reader.save()))
                         continue
                     break
                 case 55:
+                    if ch == '.':
+                        states.append((14, self.reader.save()))
+                        continue
                     break
                 case 56:
                     if ch == 'u':
@@ -618,10 +618,10 @@ class Gen_Lexer(LexerBase):
                     if ch == 'x':
                         states.append((97, self.reader.save()))
                         continue
-                    if ch in ('0', '4', '1', '5', '3', '7', '2', '6'):
+                    if ch in ('2', '1', '6', '5', '0', '4', '3', '7'):
                         states.append((94, self.reader.save()))
                         continue
-                    if ch in ('r', '\\', 'f', '"', 't', 'a', 'n', '?', 'v', 'b', "'"):
+                    if ch in ('f', '"', 't', 'a', 'n', '?', 'v', 'b', "'", 'r', '\\'):
                         states.append((57, self.reader.save()))
                         continue
                     break
@@ -637,272 +637,272 @@ class Gen_Lexer(LexerBase):
                         continue
                     break
                 case 58:
+                    if ch in ('3', '1', '9', '0', '2', '4', '5', '6', '8', '7'):
+                        states.append((27, self.reader.save()))
+                        continue
                     break
                 case 59:
-                    if ch in ('u', 'U'):
-                        states.append((58, self.reader.save()))
+                    if ch == 'b':
+                        states.append((67, self.reader.save()))
                         continue
                     break
                 case 60:
-                    if ch == 'l':
-                        states.append((58, self.reader.save()))
+                    if ch == 'L':
+                        states.append((67, self.reader.save()))
                         continue
                     break
                 case 61:
-                    if ch == 'L':
-                        states.append((58, self.reader.save()))
+                    if ch == 'B':
+                        states.append((67, self.reader.save()))
                         continue
                     break
                 case 62:
-                    if ch == 'B':
-                        states.append((58, self.reader.save()))
+                    if ch == 'l':
+                        states.append((67, self.reader.save()))
                         continue
                     break
                 case 63:
-                    if ch == 'b':
-                        states.append((58, self.reader.save()))
+                    if ch == "'":
+                        states.append((101, self.reader.save()))
+                        continue
+                    if ch == '.':
+                        states.append((102, self.reader.save()))
+                        continue
+                    if ch == 'w':
+                        states.append((103, self.reader.save()))
+                        continue
+                    if ch == 'l':
+                        states.append((104, self.reader.save()))
+                        continue
+                    if ch == 'P':
+                        states.append((105, self.reader.save()))
+                        continue
+                    if ch == 'W':
+                        states.append((106, self.reader.save()))
+                        continue
+                    if ch == 'L':
+                        states.append((107, self.reader.save()))
+                        continue
+                    if ch == 'p':
+                        states.append((108, self.reader.save()))
+                        continue
+                    if ch in ('u', 'U'):
+                        states.append((100, self.reader.save()))
+                        continue
+                    if ch in ('2', 'a', 'C', '1', '9', 'B', 'F', 'd', '5', '3', 'b', 'D', 'e', '6', '4', 'c', 'E', 'f', '7', '0', 'A', '8'):
+                        states.append((63, self.reader.save()))
                         continue
                     break
                 case 64:
-                    if ch in ('u', 'U'):
-                        states.append((58, self.reader.save()))
+                    if ch in ('a', '2', '0', '4', '6', '8', 'c', 'e', 'A', 'C', 'E', '3', '1', '9', 'b', '5', '7', 'd', 'f', 'B', 'D', 'F'):
+                        states.append((109, self.reader.save()))
                         continue
                     break
                 case 65:
-                    if ch in ('0', '1', '2', '3', '4', '5', '6', '7', '8', '9'):
-                        states.append((66, self.reader.save()))
+                    if ch == "'":
+                        states.append((110, self.reader.save()))
+                        continue
+                    if ch == 'D':
+                        states.append((111, self.reader.save()))
+                        continue
+                    if ch == 'd':
+                        states.append((112, self.reader.save()))
+                        continue
+                    if ch in ('0', '2', '4', '6', '8', '1', '3', '9', '5', '7'):
+                        states.append((65, self.reader.save()))
+                        continue
+                    if ch in ('l', 'f', 'F', 'L'):
+                        states.append((70, self.reader.save()))
                         continue
                     break
                 case 66:
-                    if ch == 'd':
-                        states.append((100, self.reader.save()))
-                        continue
-                    if ch == 'D':
-                        states.append((101, self.reader.save()))
-                        continue
-                    if ch == "'":
-                        states.append((102, self.reader.save()))
-                        continue
-                    if ch in ('5', '7', '1', '9', '2', '4', '0', '6', '8', '3'):
-                        states.append((66, self.reader.save()))
-                        continue
-                    if ch in ('f', 'L', 'F', 'l'):
-                        states.append((67, self.reader.save()))
+                    if ch in ('5', '7', '8', '0', '1', '2', '3', '4', '9', '6'):
+                        states.append((65, self.reader.save()))
                         continue
                     break
                 case 67:
                     break
                 case 68:
-                    if ch in ('l', 'd', 'f'):
+                    if ch in ('u', 'U'):
                         states.append((67, self.reader.save()))
                         continue
                     break
                 case 69:
-                    if ch in ('D', 'F', 'L'):
-                        states.append((67, self.reader.save()))
-                        continue
-                    break
-                case 70:
-                    if ch in ('4', '1', '0', '5', '8', '9', '6', '7', '2', '3'):
-                        states.append((103, self.reader.save()))
-                        continue
-                    if ch in ('-', '+'):
-                        states.append((104, self.reader.save()))
-                        continue
-                    break
-                case 71:
-                    if ch in ('4', '9', '5', '6', '7', '8', '1', '2', '3', '0'):
-                        states.append((105, self.reader.save()))
-                        continue
-                    if ch in ('-', '+'):
-                        states.append((106, self.reader.save()))
-                        continue
-                    break
-                case 72:
-                    if ch in ('1', '2', '3', '4', '6', '0', '5', '7', '8', '9'):
-                        states.append((73, self.reader.save()))
-                        continue
-                    break
-                case 73:
-                    if ch == 'd':
-                        states.append((100, self.reader.save()))
-                        continue
-                    if ch == 'D':
-                        states.append((101, self.reader.save()))
-                        continue
-                    if ch == "'":
-                        states.append((107, self.reader.save()))
-                        continue
-                    if ch in ('0', '2', '4', '5', '8', '6', '1', '3', '9', '7'):
-                        states.append((73, self.reader.save()))
-                        continue
-                    if ch in ('L', 'f', 'l', 'F'):
-                        states.append((67, self.reader.save()))
-                        continue
-                    break
-                case 74:
-                    if ch in ('a', '2', '0', '4', '6', '8', 'c', 'e', 'A', 'C', 'F', '3', '1', '9', 'd', '5', '7', 'f', 'B', 'b', 'D', 'E'):
-                        states.append((108, self.reader.save()))
-                        continue
-                    break
-                case 75:
-                    if ch in ('3', '1', '9', 'b', '5', '7', 'd', 'f', 'B', 'D', 'E', '0', '2', '4', 'a', '6', '8', 'c', 'e', 'A', 'C', 'F'):
-                        states.append((109, self.reader.save()))
-                        continue
-                    break
-                case 76:
-                    if ch in ('U', 'u'):
-                        states.append((58, self.reader.save()))
-                        continue
-                    break
-                case 77:
-                    if ch == 'b':
-                        states.append((58, self.reader.save()))
-                        continue
-                    break
-                case 78:
-                    if ch == 'B':
-                        states.append((58, self.reader.save()))
-                        continue
-                    break
-                case 79:
-                    if ch == 'l':
-                        states.append((58, self.reader.save()))
-                        continue
-                    break
-                case 80:
                     if ch == 'L':
-                        states.append((58, self.reader.save()))
-                        continue
-                    break
-                case 81:
-                    if ch in ('u', 'U'):
-                        states.append((58, self.reader.save()))
-                        continue
-                    break
-                case 82:
-                    if ch in ('2', '0', '4', '6', '8', '1', '3', '7', '5', '9'):
-                        states.append((42, self.reader.save()))
-                        continue
-                    break
-                case 83:
-                    if ch == 'P':
-                        states.append((110, self.reader.save()))
-                        continue
-                    if ch == 'l':
-                        states.append((111, self.reader.save()))
-                        continue
-                    if ch == 'W':
-                        states.append((112, self.reader.save()))
-                        continue
-                    if ch == "'":
                         states.append((113, self.reader.save()))
                         continue
-                    if ch == 'L':
+                    if ch == 'w':
                         states.append((114, self.reader.save()))
                         continue
-                    if ch == 'p':
+                    if ch == 'l':
                         states.append((116, self.reader.save()))
                         continue
-                    if ch == '.':
+                    if ch == "'":
                         states.append((117, self.reader.save()))
                         continue
-                    if ch == 'w':
+                    if ch == 'W':
                         states.append((118, self.reader.save()))
                         continue
-                    if ch in ('d', 'F', 'c', '4', '5', 'E', 'A', '0', '8', 'e', '6', '9', 'B', '1', 'f', '7', '2', 'a', 'C', 'b', 'D', '3'):
-                        states.append((83, self.reader.save()))
+                    if ch in ('1', '0'):
+                        states.append((69, self.reader.save()))
                         continue
                     if ch in ('u', 'U'):
                         states.append((115, self.reader.save()))
                         continue
                     break
-                case 84:
-                    if ch in ('5', '7', 'd', 'f', 'B', 'D', 'F', '3', '9', 'b', '2', '4', 'a', '0', '6', '8', 'c', 'e', 'A', 'C', 'E', '1'):
-                        states.append((119, self.reader.save()))
+                case 70:
+                    break
+                case 71:
+                    if ch in ('f', 'd', 'l'):
+                        states.append((70, self.reader.save()))
                         continue
                     break
-                case 85:
-                    if ch == "'":
-                        states.append((121, self.reader.save()))
+                case 72:
+                    if ch in ('2', '0', '3', '1', '4', '5', '6', '7', '8', '9'):
+                        states.append((119, self.reader.save()))
                         continue
-                    if ch == 'l':
-                        states.append((122, self.reader.save()))
-                        continue
-                    if ch == 'W':
-                        states.append((123, self.reader.save()))
-                        continue
-                    if ch == 'w':
-                        states.append((124, self.reader.save()))
-                        continue
-                    if ch == 'L':
-                        states.append((125, self.reader.save()))
-                        continue
-                    if ch in ('0', '1'):
-                        states.append((85, self.reader.save()))
-                        continue
-                    if ch in ('U', 'u'):
+                    if ch in ('-', '+'):
                         states.append((120, self.reader.save()))
                         continue
                     break
-                case 86:
-                    if ch in ('2', '0', '1', '3', '7', '4', '5', '6', '8', '9'):
-                        states.append((50, self.reader.save()))
+                case 73:
+                    if ch in ('F', 'L', 'D'):
+                        states.append((70, self.reader.save()))
                         continue
                     break
-                case 87:
-                    if ch in ('b', 'd', 'f', 'B', 'D', 'F', '0', '5', 'a', 'c', 'e', 'A', '8', '4', '6', '2', 'C', 'E', '1', '9', '7', '3'):
+                case 74:
+                    if ch in ('7', '8', '2', '6', '9', '1', '0', '3', '4', '5'):
+                        states.append((121, self.reader.save()))
+                        continue
+                    if ch in ('+', '-'):
+                        states.append((122, self.reader.save()))
+                        continue
+                    break
+                case 75:
+                    if ch in ('U', 'u'):
+                        states.append((67, self.reader.save()))
+                        continue
+                    break
+                case 76:
+                    if ch in ('0', '2', '3', '4', '5', '6', '7', '1', '8', '9'):
+                        states.append((77, self.reader.save()))
+                        continue
+                    break
+                case 77:
+                    if ch == 'D':
+                        states.append((111, self.reader.save()))
+                        continue
+                    if ch == 'd':
+                        states.append((112, self.reader.save()))
+                        continue
+                    if ch == "'":
+                        states.append((123, self.reader.save()))
+                        continue
+                    if ch in ('l', 'L', 'f', 'F'):
+                        states.append((70, self.reader.save()))
+                        continue
+                    if ch in ('2', '4', '3', '9', '1', '5', '7', '8', '0', '6'):
+                        states.append((77, self.reader.save()))
+                        continue
+                    break
+                case 78:
+                    if ch in ('U', 'u'):
+                        states.append((67, self.reader.save()))
+                        continue
+                    break
+                case 79:
+                    if ch == 'b':
+                        states.append((67, self.reader.save()))
+                        continue
+                    break
+                case 80:
+                    if ch == 'B':
+                        states.append((67, self.reader.save()))
+                        continue
+                    break
+                case 81:
+                    if ch == 'l':
+                        states.append((67, self.reader.save()))
+                        continue
+                    break
+                case 82:
+                    if ch == 'L':
+                        states.append((67, self.reader.save()))
+                        continue
+                    break
+                case 83:
+                    if ch in ('u', 'U'):
+                        states.append((67, self.reader.save()))
+                        continue
+                    break
+                case 84:
+                    if ch in ('3', '1', '9', 'b', 'd', 'f', '7', '5', 'B', 'D', 'F', '0', '2', '4', 'a', 'c', 'e', 'A', '6', '8', 'C', 'E'):
+                        states.append((124, self.reader.save()))
+                        continue
+                    break
+                case 85:
+                    if ch in ('0', '4', '2', 'a', 'c', '6', '8', 'e', 'A', 'C', 'E', '1', '3', '9', 'b', 'd', '7', '5', 'f', 'B', 'D', 'F'):
+                        states.append((125, self.reader.save()))
+                        continue
+                    break
+                case 86:
+                    if ch in ('8', '2', '4', '6', 'C', '1', '3', 'f', '5', '9', 'b', '7', 'B', 'd', 'D', 'F', 'a', 'c', '0', 'A', 'e', 'E'):
                         states.append((126, self.reader.save()))
                         continue
                     break
-                case 88:
-                    if ch in ('c', 'e', 'A', 'C', 'E', '6', '3', '1', '9', 'b', 'd', 'f', 'B', '5', '7', 'D', 'F', '0', '2', '4', 'a', '8'):
+                case 87:
+                    if ch in ('1', '3', '0', '2', '4', 'A', '6', '8', 'a', 'c', 'e', '9', 'C', 'E', 'F', '5', '7', 'b', 'd', 'B', 'D', 'f'):
                         states.append((127, self.reader.save()))
                         continue
                     break
-                case 89:
-                    if ch in ('C', '2', '3', 'a', '1', '4', '9', '5', 'd', 'B', '0', 'F', 'e', '6', 'b', 'f', 'D', '7', 'E', 'c', 'A', '8'):
+                case 88:
+                    if ch == '\\':
+                        states.append((92, self.reader.save()))
+                        continue
+                    if ch == '"':
+                        states.append((53, self.reader.save()))
+                        continue
+                    if ch in ('3', '2', '7', '6', '5', '0', '4', '1'):
                         states.append((128, self.reader.save()))
+                        continue
+                    if self.other_s_char(ch):
+                        states.append((52, self.reader.save()))
+                        continue
+                    break
+                case 89:
+                    if ch in ('e', 'c', 'd', '2', 'a', 'C', '6', 'B', '7', '5', 'f', 'A', 'D', '3', '4', 'b', '0', '8', '1', '9', 'E', 'F'):
+                        states.append((129, self.reader.save()))
                         continue
                     break
                 case 90:
-                    if ch == '\\':
-                        states.append((93, self.reader.save()))
-                        continue
-                    if ch == '"':
-                        states.append((55, self.reader.save()))
-                        continue
-                    if ch in ('6', '7', '5', '1', '2', '3', '4', '0'):
-                        states.append((129, self.reader.save()))
-                        continue
-                    if self.other_s_char(ch):
-                        states.append((54, self.reader.save()))
-                        continue
-                    break
-                case 91:
-                    if ch in ('2', 'a', 'e', 'C', '6', 'B', 'A', 'E', 'D', 'c', '7', 'F', 'd', 'b', '5', '3', 'f', '8', '9', '0', '1', '4'):
+                    if ch in ('7', '5', 'B', 'F', 'f', 'A', 'C', '9', 'e', 'D', 'E', '4', 'a', 'b', 'c', '0', '2', 'd', '1', '3', '6', '8'):
                         states.append((130, self.reader.save()))
                         continue
                     break
-                case 92:
-                    if ch in ('2', 'A', '1', '5', '9', 'd', 'B', 'E', 'F', 'a', 'C', '6', 'e', '0', '7', '3', '4', '8', 'f', 'b', 'D', 'c'):
+                case 91:
+                    if ch in ('f', '3', 'b', 'D', '7', 'F', 'E', 'A', 'C', '4', '0', '8', 'B', 'e', 'c', 'a', '6', 'd', '2', '9', '1', '5'):
                         states.append((131, self.reader.save()))
                         continue
                     break
-                case 93:
-                    if ch == 'U':
+                case 92:
+                    if ch == 'x':
                         states.append((133, self.reader.save()))
                         continue
-                    if ch == 'x':
+                    if ch == 'u':
                         states.append((134, self.reader.save()))
                         continue
-                    if ch == 'u':
+                    if ch == 'U':
                         states.append((135, self.reader.save()))
                         continue
-                    if ch in ('2', '7', '5', '0', '3', '6', '1', '4'):
+                    if ch in ('4', '7', '2', '0', '5', '3', '1', '6'):
                         states.append((132, self.reader.save()))
                         continue
-                    if ch in ('n', '?', 'r', '\\', 't', 'a', 'v', 'b', "'", 'f', '"'):
+                    if ch in ('v', 'b', "'", 'f', '"', 'n', '?', 'r', '\\', 't', 'a'):
+                        states.append((52, self.reader.save()))
+                        continue
+                    break
+                case 93:
+                    if ch in ('0', '1', '2', '3', '5', '6', '7', '4', '8', '9'):
                         states.append((54, self.reader.save()))
                         continue
                     break
@@ -913,7 +913,7 @@ class Gen_Lexer(LexerBase):
                     if ch == "'":
                         states.append((99, self.reader.save()))
                         continue
-                    if ch in ('2', '0', '7', '4', '6', '5', '1', '3'):
+                    if ch in ('1', '2', '5', '6', '0', '3', '7', '4'):
                         states.append((136, self.reader.save()))
                         continue
                     if self.other_c_char(ch):
@@ -921,17 +921,17 @@ class Gen_Lexer(LexerBase):
                         continue
                     break
                 case 95:
-                    if ch in ('b', '1', '3', '9', '5', '7', 'd', 'f', 'B', 'D', '0', 'c', '4', '2', 'a', '6', '8', 'e', 'A', 'C', 'E', 'F'):
+                    if ch in ('4', '0', '2', 'A', 'a', 'c', 'e', '6', '8', 'C', 'E', '1', '3', 'B', '5', '9', 'b', '7', 'd', 'f', 'D', 'F'):
                         states.append((137, self.reader.save()))
                         continue
                     break
                 case 96:
-                    if ch in ('0', '2', '4', 'a', 'c', 'A', '6', '8', 'e', 'C', 'E', '1', '3', '9', 'b', 'd', 'f', '5', '7', 'B', 'D', 'F'):
+                    if ch in ('3', '1', '5', '7', '9', 'b', 'd', 'f', 'B', 'D', 'F', '4', '0', '2', '6', '8', 'a', 'c', 'e', 'A', 'C', 'E'):
                         states.append((138, self.reader.save()))
                         continue
                     break
                 case 97:
-                    if ch in ('d', '1', '3', '9', '5', '7', 'f', 'B', 'b', 'D', 'F', '0', '2', '4', 'e', '6', '8', 'A', 'a', 'c', 'C', 'E'):
+                    if ch in ('2', '0', '4', 'a', '6', '8', 'c', 'e', 'A', 'C', 'F', '3', '1', '9', 'b', '5', '7', 'd', 'f', 'B', 'D', 'E'):
                         states.append((139, self.reader.save()))
                         continue
                     break
@@ -945,294 +945,294 @@ class Gen_Lexer(LexerBase):
                     if ch == 'x':
                         states.append((143, self.reader.save()))
                         continue
-                    if ch in ('3', '7', '0', '4', '1', '2', '5', '6'):
+                    if ch in ('6', '5', '0', '4', '2', '3', '7', '1'):
                         states.append((140, self.reader.save()))
                         continue
-                    if ch in ("'", '\\', 'f', '"', 't', 'r', 'a', 'n', '?', 'v', 'b'):
+                    if ch in ('f', '"', 't', 'a', 'n', 'v', '?', 'b', "'", 'r', '\\'):
                         states.append((57, self.reader.save()))
                         continue
                     break
                 case 99:
                     break
                 case 100:
-                    if ch in ('l', 'd', 'f'):
-                        states.append((67, self.reader.save()))
-                        continue
-                    break
-                case 101:
-                    if ch in ('D', 'L', 'F'):
-                        states.append((67, self.reader.save()))
-                        continue
-                    break
-                case 102:
-                    if ch in ('5', '6', '1', '2', '7', '4', '3', '8', '9', '0'):
-                        states.append((66, self.reader.save()))
-                        continue
-                    break
-                case 103:
-                    if ch == "'":
+                    if ch == 'W':
                         states.append((144, self.reader.save()))
                         continue
-                    if ch == 'd':
-                        states.append((68, self.reader.save()))
-                        continue
-                    if ch == 'D':
-                        states.append((69, self.reader.save()))
-                        continue
-                    if ch in ('F', 'L', 'l', 'f'):
-                        states.append((67, self.reader.save()))
-                        continue
-                    if ch in ('2', '0', '4', '6', '8', '3', '1', '9', '7', '5'):
-                        states.append((103, self.reader.save()))
-                        continue
-                    break
-                case 104:
-                    if ch in ('9', '7', '1', '0', '5', '8', '4', '6', '2', '3'):
-                        states.append((103, self.reader.save()))
-                        continue
-                    break
-                case 105:
-                    if ch == 'd':
-                        states.append((68, self.reader.save()))
-                        continue
-                    if ch == 'D':
-                        states.append((69, self.reader.save()))
-                        continue
-                    if ch == "'":
+                    if ch == 'l':
                         states.append((145, self.reader.save()))
                         continue
-                    if ch in ('F', 'L', 'l', 'f'):
-                        states.append((67, self.reader.save()))
-                        continue
-                    if ch in ('4', '0', '2', '6', '8', '1', '3', '9', '5', '7'):
-                        states.append((105, self.reader.save()))
-                        continue
-                    break
-                case 106:
-                    if ch in ('4', '9', '5', '6', '7', '8', '0', '1', '2', '3'):
-                        states.append((105, self.reader.save()))
-                        continue
-                    break
-                case 107:
-                    if ch in ('7', '1', '0', '2', '3', '4', '5', '6', '8', '9'):
-                        states.append((73, self.reader.save()))
-                        continue
-                    break
-                case 108:
-                    if ch in ('f', 'B', 'D', 'F', '2', '0', '4', 'c', 'e', 'A', '8', '6', '5', 'a', 'C', 'E', '1', '3', '9', 'd', '7', 'b'):
+                    if ch == 'L':
                         states.append((146, self.reader.save()))
                         continue
-                    break
-                case 109:
-                    if ch in ('3', '1', '9', 'b', 'd', 'f', 'B', '5', '7', 'D', 'F', 'c', 'e', 'A', 'C', 'E', '8', '0', '2', '4', 'a', '6'):
+                    if ch == 'w':
                         states.append((147, self.reader.save()))
                         continue
                     break
-                case 110:
-                    if ch in ('-', '+'):
+                case 101:
+                    if ch in ('2', 'a', 'C', '1', '9', 'B', 'F', 'd', '5', '3', 'b', 'D', 'e', '6', '4', 'c', 'E', 'f', '7', '0', 'A', '8'):
+                        states.append((63, self.reader.save()))
+                        continue
+                    break
+                case 102:
+                    if ch == 'P':
                         states.append((148, self.reader.save()))
                         continue
-                    if ch in ('0', '1', '2', '3', '4', '9', '5', '6', '7', '8'):
+                    if ch == 'p':
                         states.append((149, self.reader.save()))
+                        continue
+                    if ch in ('a', '2', '0', '4', '6', '8', 'c', 'e', 'A', 'C', 'E', '3', '1', '9', 'b', '5', '7', 'd', 'f', 'B', 'D', 'F'):
+                        states.append((109, self.reader.save()))
+                        continue
+                    break
+                case 103:
+                    if ch == 'b':
+                        states.append((150, self.reader.save()))
+                        continue
+                    break
+                case 104:
+                    if ch == 'l':
+                        states.append((151, self.reader.save()))
+                        continue
+                    if ch in ('u', 'U'):
+                        states.append((67, self.reader.save()))
+                        continue
+                    break
+                case 105:
+                    if ch in ('+', '-'):
+                        states.append((152, self.reader.save()))
+                        continue
+                    if ch in ('1', '0', '3', '2', '4', '5', '6', '9', '7', '8'):
+                        states.append((153, self.reader.save()))
+                        continue
+                    break
+                case 106:
+                    if ch == 'B':
+                        states.append((150, self.reader.save()))
+                        continue
+                    break
+                case 107:
+                    if ch == 'L':
+                        states.append((151, self.reader.save()))
+                        continue
+                    if ch in ('u', 'U'):
+                        states.append((67, self.reader.save()))
+                        continue
+                    break
+                case 108:
+                    if ch in ('+', '-'):
+                        states.append((154, self.reader.save()))
+                        continue
+                    if ch in ('0', '1', '2', '3', '4', '9', '5', '6', '7', '8'):
+                        states.append((155, self.reader.save()))
+                        continue
+                    break
+                case 109:
+                    if ch == 'P':
+                        states.append((148, self.reader.save()))
+                        continue
+                    if ch == "'":
+                        states.append((156, self.reader.save()))
+                        continue
+                    if ch == 'p':
+                        states.append((149, self.reader.save()))
+                        continue
+                    if ch in ('b', 'd', 'f', 'B', '1', '3', '5', '7', '9', 'D', 'F', 'C', 'a', 'c', 'e', 'A', '0', '2', '4', '6', '8', 'E'):
+                        states.append((109, self.reader.save()))
+                        continue
+                    break
+                case 110:
+                    if ch in ('0', '1', '2', '3', '4', '5', '6', '7', '8', '9'):
+                        states.append((65, self.reader.save()))
                         continue
                     break
                 case 111:
-                    if ch == 'l':
-                        states.append((150, self.reader.save()))
-                        continue
-                    if ch in ('u', 'U'):
-                        states.append((58, self.reader.save()))
+                    if ch in ('F', 'D', 'L'):
+                        states.append((70, self.reader.save()))
                         continue
                     break
                 case 112:
-                    if ch == 'B':
-                        states.append((151, self.reader.save()))
+                    if ch in ('l', 'f', 'd'):
+                        states.append((70, self.reader.save()))
                         continue
                     break
                 case 113:
-                    if ch in ('d', 'F', '5', 'c', '4', 'E', 'A', '0', '8', 'e', '6', 'B', '9', '1', 'f', '7', '2', 'a', 'C', '3', 'b', 'D'):
-                        states.append((83, self.reader.save()))
+                    if ch == 'L':
+                        states.append((157, self.reader.save()))
+                        continue
+                    if ch in ('U', 'u'):
+                        states.append((67, self.reader.save()))
                         continue
                     break
                 case 114:
-                    if ch == 'L':
-                        states.append((150, self.reader.save()))
-                        continue
-                    if ch in ('u', 'U'):
-                        states.append((58, self.reader.save()))
+                    if ch == 'b':
+                        states.append((158, self.reader.save()))
                         continue
                     break
                 case 115:
                     if ch == 'l':
-                        states.append((152, self.reader.save()))
+                        states.append((159, self.reader.save()))
                         continue
                     if ch == 'L':
-                        states.append((153, self.reader.save()))
-                        continue
-                    if ch == 'W':
-                        states.append((154, self.reader.save()))
+                        states.append((160, self.reader.save()))
                         continue
                     if ch == 'w':
-                        states.append((155, self.reader.save()))
+                        states.append((161, self.reader.save()))
+                        continue
+                    if ch == 'W':
+                        states.append((162, self.reader.save()))
                         continue
                     break
                 case 116:
-                    if ch in ('3', '4', '2', '0', '7', '6', '5', '1', '8', '9'):
-                        states.append((156, self.reader.save()))
-                        continue
-                    if ch in ('-', '+'):
+                    if ch == 'l':
                         states.append((157, self.reader.save()))
+                        continue
+                    if ch in ('U', 'u'):
+                        states.append((67, self.reader.save()))
                         continue
                     break
                 case 117:
-                    if ch == 'p':
-                        states.append((158, self.reader.save()))
-                        continue
-                    if ch == 'P':
-                        states.append((159, self.reader.save()))
-                        continue
-                    if ch in ('5', '7', 'd', 'f', 'B', 'D', 'F', '3', '9', 'b', '2', '4', 'a', '0', '6', '8', 'c', 'e', 'A', 'C', 'E', '1'):
-                        states.append((119, self.reader.save()))
+                    if ch in ('1', '0'):
+                        states.append((69, self.reader.save()))
                         continue
                     break
                 case 118:
-                    if ch == 'b':
-                        states.append((151, self.reader.save()))
+                    if ch == 'B':
+                        states.append((158, self.reader.save()))
                         continue
                     break
                 case 119:
+                    if ch == 'd':
+                        states.append((71, self.reader.save()))
+                        continue
+                    if ch == 'D':
+                        states.append((73, self.reader.save()))
+                        continue
                     if ch == "'":
-                        states.append((160, self.reader.save()))
+                        states.append((163, self.reader.save()))
                         continue
-                    if ch == 'p':
-                        states.append((158, self.reader.save()))
+                    if ch in ('l', 'L', 'f', 'F'):
+                        states.append((70, self.reader.save()))
                         continue
-                    if ch == 'P':
-                        states.append((159, self.reader.save()))
-                        continue
-                    if ch in ('A', '0', '2', '4', '6', '8', 'a', 'c', 'e', 'C', 'E', 'B', '3', '1', '9', '5', '7', 'b', 'd', 'f', 'D', 'F'):
+                    if ch in ('9', '1', '3', '5', '7', '0', '2', '4', '6', '8'):
                         states.append((119, self.reader.save()))
                         continue
                     break
                 case 120:
-                    if ch == 'l':
-                        states.append((161, self.reader.save()))
-                        continue
-                    if ch == 'L':
-                        states.append((162, self.reader.save()))
-                        continue
-                    if ch == 'W':
-                        states.append((163, self.reader.save()))
-                        continue
-                    if ch == 'w':
-                        states.append((164, self.reader.save()))
+                    if ch in ('2', '0', '3', '1', '4', '5', '6', '7', '8', '9'):
+                        states.append((119, self.reader.save()))
                         continue
                     break
                 case 121:
-                    if ch in ('0', '1'):
-                        states.append((85, self.reader.save()))
+                    if ch == 'd':
+                        states.append((71, self.reader.save()))
+                        continue
+                    if ch == 'D':
+                        states.append((73, self.reader.save()))
+                        continue
+                    if ch == "'":
+                        states.append((164, self.reader.save()))
+                        continue
+                    if ch in ('l', 'L', 'f', 'F'):
+                        states.append((70, self.reader.save()))
+                        continue
+                    if ch in ('1', '3', '9', '7', '5', '0', '2', '4', '6', '8'):
+                        states.append((121, self.reader.save()))
                         continue
                     break
                 case 122:
-                    if ch == 'l':
-                        states.append((165, self.reader.save()))
-                        continue
-                    if ch in ('u', 'U'):
-                        states.append((58, self.reader.save()))
+                    if ch in ('7', '8', '5', '9', '0', '1', '2', '3', '4', '6'):
+                        states.append((121, self.reader.save()))
                         continue
                     break
                 case 123:
-                    if ch == 'B':
-                        states.append((166, self.reader.save()))
+                    if ch in ('6', '7', '8', '1', '2', '3', '4', '9', '0', '5'):
+                        states.append((77, self.reader.save()))
                         continue
                     break
                 case 124:
-                    if ch == 'b':
-                        states.append((166, self.reader.save()))
+                    if ch in ('8', 'A', 'C', 'E', '1', '3', '9', 'b', '5', 'f', 'B', 'd', '7', 'D', 'F', '0', '2', '4', 'a', 'c', '6', 'e'):
+                        states.append((165, self.reader.save()))
                         continue
                     break
                 case 125:
-                    if ch == 'L':
-                        states.append((165, self.reader.save()))
-                        continue
-                    if ch in ('u', 'U'):
-                        states.append((58, self.reader.save()))
+                    if ch in ('D', 'F', 'd', '1', 'f', 'B', '0', '2', '4', '9', '6', '8', 'c', 'b', 'e', 'a', 'A', 'C', 'E', '7', '3', '5'):
+                        states.append((166, self.reader.save()))
                         continue
                     break
                 case 126:
-                    if ch in ('1', '3', '9', 'f', 'B', '5', '7', 'b', 'd', 'D', 'F', '2', '4', '0', 'a', 'e', 'A', '6', '8', 'c', 'C', 'E'):
+                    if ch in ('e', '0', '2', '4', '6', '8', 'A', 'a', 'c', 'C', 'E', 'f', '1', '3', '9', '5', '7', 'B', 'b', 'd', 'D', 'F'):
                         states.append((167, self.reader.save()))
                         continue
                     break
                 case 127:
-                    if ch in ('2', '4', '0', 'a', 'e', 'A', '6', '8', 'c', 'C', 'E', '1', '3', '9', 'b', 'f', 'B', '7', '5', 'd', 'D', 'F'):
+                    if ch in ('B', '3', '1', '9', '5', '7', 'b', 'd', 'f', 'D', 'F', '2', '4', '0', 'a', '6', '8', 'c', 'e', 'A', 'C', 'E'):
                         states.append((168, self.reader.save()))
                         continue
                     break
                 case 128:
-                    if ch in ('a', '6', '8', 'C', 'D', '5', '7', 'B', 'E', 'c', 'F', 'b', 'f', 'e', '3', '9', 'A', 'd', '4', '1', '0', '2'):
-                        states.append((169, self.reader.save()))
+                    if ch == '\\':
+                        states.append((92, self.reader.save()))
+                        continue
+                    if ch == '"':
+                        states.append((53, self.reader.save()))
+                        continue
+                    if ch in ('1', '5', '2', '6', '3', '7', '0', '4'):
+                        states.append((52, self.reader.save()))
+                        continue
+                    if self.other_s_char(ch):
+                        states.append((52, self.reader.save()))
                         continue
                     break
                 case 129:
-                    if ch == '\\':
-                        states.append((93, self.reader.save()))
-                        continue
-                    if ch == '"':
-                        states.append((55, self.reader.save()))
-                        continue
-                    if ch in ('0', '4', '1', '5', '6', '7', '2', '3'):
-                        states.append((54, self.reader.save()))
-                        continue
-                    if self.other_s_char(ch):
-                        states.append((54, self.reader.save()))
+                    if ch in ('f', '0', '4', 'A', 'c', 'D', 'E', '6', '7', 'C', '8', '5', 'e', 'B', 'F', 'd', 'a', '9', '1', '2', 'b', '3'):
+                        states.append((169, self.reader.save()))
                         continue
                     break
                 case 130:
-                    if ch in ('D', 'F', 'B', 'C', 'E', 'A', '4', 'c', '8', '0', '6', '7', 'b', '5', 'a', 'e', 'f', '9', '3', '1', 'd', '2'):
-                        states.append((170, self.reader.save()))
+                    if ch == '\\':
+                        states.append((92, self.reader.save()))
+                        continue
+                    if ch == '"':
+                        states.append((53, self.reader.save()))
+                        continue
+                    if ch in ('5', '7', 'F', 'B', 'D', 'e', 'f', 'b', '9', '6', 'd', '1', '3', 'A', '0', '8', 'E', '4', '2', 'c', 'a', 'C'):
+                        states.append((130, self.reader.save()))
+                        continue
+                    if self.other_s_char(ch):
+                        states.append((52, self.reader.save()))
                         continue
                     break
                 case 131:
-                    if ch == '\\':
-                        states.append((93, self.reader.save()))
-                        continue
-                    if ch == '"':
-                        states.append((55, self.reader.save()))
-                        continue
-                    if ch in ('1', 'f', '8', '9', 'B', '2', 'a', 'C', '3', 'b', 'D', '6', 'E', '4', 'c', 'A', '0', 'e', 'd', '5', 'F', '7'):
-                        states.append((131, self.reader.save()))
-                        continue
-                    if self.other_s_char(ch):
-                        states.append((54, self.reader.save()))
+                    if ch in ('8', '0', 'd', '1', '9', 'B', 'F', '5', 'E', 'D', 'f', 'c', 'A', '2', 'C', 'a', 'e', '6', '7', 'b', '4', '3'):
+                        states.append((170, self.reader.save()))
                         continue
                     break
                 case 132:
                     if ch == '\\':
-                        states.append((93, self.reader.save()))
+                        states.append((92, self.reader.save()))
                         continue
                     if ch == '"':
-                        states.append((55, self.reader.save()))
+                        states.append((53, self.reader.save()))
                         continue
-                    if ch in ('2', '1', '5', '6', '3', '7', '4', '0'):
+                    if ch in ('7', '6', '3', '2', '0', '4', '1', '5'):
                         states.append((171, self.reader.save()))
                         continue
                     if self.other_s_char(ch):
-                        states.append((54, self.reader.save()))
+                        states.append((52, self.reader.save()))
                         continue
                     break
                 case 133:
-                    if ch in ('5', 'B', '2', 'a', 'e', 'C', '6', '1', 'f', '3', 'b', 'D', '7', 'A', '0', '4', 'c', '8', 'E', '9', 'd', 'F'):
+                    if ch in ('2', 'a', '6', 'e', 'C', '3', 'b', '7', 'f', 'D', '0', '4', 'c', '8', 'A', 'E', '1', '9', 'd', '5', 'B', 'F'):
                         states.append((172, self.reader.save()))
                         continue
                     break
                 case 134:
-                    if ch in ('1', '5', '9', 'd', 'B', 'F', '2', '6', 'a', 'e', 'C', '3', 'f', '7', 'b', 'D', '0', '4', '8', 'c', 'A', 'E'):
+                    if ch in ('b', 'f', 'D', '7', 'c', 'A', '0', '4', '8', 'E', 'F', 'd', 'B', '1', '5', '9', 'a', 'e', '2', 'C', '6', '3'):
                         states.append((173, self.reader.save()))
                         continue
                     break
                 case 135:
-                    if ch in ('6', 'e', '3', 'b', 'f', 'D', '7', 'c', '0', '4', 'A', '8', 'E', '1', '9', 'd', 'B', '5', 'F', 'a', '2', 'C'):
+                    if ch in ('a', 'e', 'C', '6', 'b', 'f', '3', 'D', '7', 'E', 'c', 'A', '0', '4', '8', 'F', 'd', 'B', '1', '5', '9', '2'):
                         states.append((174, self.reader.save()))
                         continue
                     break
@@ -1243,7 +1243,7 @@ class Gen_Lexer(LexerBase):
                     if ch == "'":
                         states.append((99, self.reader.save()))
                         continue
-                    if ch in ('3', '1', '5', '7', '0', '2', '4', '6'):
+                    if ch in ('2', '0', '4', '6', '3', '1', '5', '7'):
                         states.append((57, self.reader.save()))
                         continue
                     if self.other_c_char(ch):
@@ -1251,12 +1251,12 @@ class Gen_Lexer(LexerBase):
                         continue
                     break
                 case 137:
-                    if ch in ('6', '8', 'c', 'e', 'A', 'C', 'E', '1', '3', '9', '5', '7', 'b', 'd', 'f', 'B', '0', 'D', 'F', '4', 'a', '2'):
+                    if ch in ('1', '3', '9', 'b', '5', '7', 'd', 'f', 'B', 'D', 'F', '0', '2', '4', 'a', '6', '8', 'c', 'e', 'A', 'C', 'E'):
                         states.append((175, self.reader.save()))
                         continue
                     break
                 case 138:
-                    if ch in ('5', '7', 'f', 'B', 'D', 'F', '3', '9', 'b', 'd', '2', '4', 'a', 'c', '6', '8', 'e', 'A', '0', 'C', 'E', '1'):
+                    if ch in ('c', '0', '2', '4', '6', '8', 'e', 'A', 'a', 'C', 'E', '1', '3', '9', 'd', '5', '7', 'B', 'f', 'b', 'D', 'F'):
                         states.append((176, self.reader.save()))
                         continue
                     break
@@ -1267,7 +1267,7 @@ class Gen_Lexer(LexerBase):
                     if ch == "'":
                         states.append((99, self.reader.save()))
                         continue
-                    if ch in ('7', 'b', 'D', 'c', 'A', '4', '0', '8', 'E', 'd', 'B', 'F', '1', '5', '9', 'a', 'e', '2', 'C', '6', '3', 'f'):
+                    if ch in ('4', 'c', 'A', 'E', '8', '1', '9', 'd', 'B', '5', 'F', '2', 'a', 'e', 'C', '6', '3', 'b', 'f', 'D', '7', '0'):
                         states.append((139, self.reader.save()))
                         continue
                     if self.other_c_char(ch):
@@ -1281,7 +1281,7 @@ class Gen_Lexer(LexerBase):
                     if ch == "'":
                         states.append((99, self.reader.save()))
                         continue
-                    if ch in ('3', '1', '0', '5', '7', '4', '6', '2'):
+                    if ch in ('1', '2', '6', '5', '3', '7', '0', '4'):
                         states.append((177, self.reader.save()))
                         continue
                     if self.other_c_char(ch):
@@ -1289,230 +1289,230 @@ class Gen_Lexer(LexerBase):
                         continue
                     break
                 case 141:
-                    if ch in ('1', '3', '5', '7', '9', 'b', 'd', 'f', 'B', 'D', 'F', '2', '0', '4', '6', '8', 'a', 'c', 'e', 'A', 'C', 'E'):
+                    if ch in ('0', '2', '4', 'a', 'e', 'A', '6', '8', 'c', 'C', 'E', '3', '1', '9', 'b', 'f', 'B', '7', '5', 'd', 'D', 'F'):
                         states.append((178, self.reader.save()))
                         continue
                     break
                 case 142:
-                    if ch in ('2', '0', '4', 'a', '6', '8', 'c', 'e', 'A', 'C', 'E', '3', '1', '9', 'b', '5', '7', 'd', 'f', 'B', 'D', 'F'):
+                    if ch in ('b', '3', '1', '9', 'B', '5', '7', 'd', 'f', 'D', 'F', 'a', '4', '0', '2', '6', '8', 'c', 'A', 'e', 'C', 'E'):
                         states.append((179, self.reader.save()))
                         continue
                     break
                 case 143:
-                    if ch in ('1', '9', 'b', 'd', 'f', 'B', 'D', 'F', '0', '2', '4', 'a', 'c', 'e', 'A', '6', '7', '8', 'C', 'E', '3', '5'):
+                    if ch in ('6', '8', 'D', 'F', '2', '4', 'a', 'f', 'B', 'c', '3', '5', '7', '9', 'b', '1', 'd', 'e', 'C', 'E', '0', 'A'):
                         states.append((180, self.reader.save()))
                         continue
                     break
                 case 144:
-                    if ch in ('2', '3', '0', '1', '6', '7', '4', '5', '8', '9'):
-                        states.append((103, self.reader.save()))
+                    if ch == 'B':
+                        states.append((67, self.reader.save()))
                         continue
                     break
                 case 145:
-                    if ch in ('4', '0', '2', '1', '5', '6', '7', '3', '8', '9'):
-                        states.append((105, self.reader.save()))
+                    if ch == 'l':
+                        states.append((67, self.reader.save()))
                         continue
                     break
                 case 146:
-                    if ch in ('b', 'd', '1', '3', '5', '7', '9', 'f', 'B', 'D', 'F', 'a', 'c', '0', '2', '6', '4', '8', 'e', 'A', 'C', 'E'):
-                        states.append((181, self.reader.save()))
+                    if ch == 'L':
+                        states.append((67, self.reader.save()))
                         continue
                     break
                 case 147:
-                    if ch in ('a', '4', '2', '0', 'A', '6', '8', 'c', 'e', 'C', 'E', 'b', '3', '1', '9', 'B', '7', '5', 'd', 'f', 'D', 'F'):
-                        states.append((182, self.reader.save()))
+                    if ch == 'b':
+                        states.append((67, self.reader.save()))
                         continue
                     break
                 case 148:
-                    if ch in ('0', '1', '2', '3', '4', '9', '5', '6', '7', '8'):
-                        states.append((149, self.reader.save()))
+                    if ch in ('2', '0', '3', '1', '4', '5', '6', '7', '8', '9'):
+                        states.append((181, self.reader.save()))
+                        continue
+                    if ch in ('-', '+'):
+                        states.append((182, self.reader.save()))
                         continue
                     break
                 case 149:
-                    if ch == "'":
+                    if ch in ('7', '8', '2', '6', '9', '1', '0', '3', '4', '5'):
                         states.append((183, self.reader.save()))
                         continue
-                    if ch == 'D':
+                    if ch in ('+', '-'):
                         states.append((184, self.reader.save()))
-                        continue
-                    if ch == 'd':
-                        states.append((185, self.reader.save()))
-                        continue
-                    if ch in ('4', '6', '8', '9', '3', '1', '5', '7', '0', '2'):
-                        states.append((149, self.reader.save()))
-                        continue
-                    if ch in ('F', 'f', 'l', 'L'):
-                        states.append((67, self.reader.save()))
                         continue
                     break
                 case 150:
-                    if ch in ('u', 'U'):
-                        states.append((58, self.reader.save()))
-                        continue
-                    break
-                case 151:
-                    if ch in ('u', 'U'):
-                        states.append((58, self.reader.save()))
-                        continue
-                    break
-                case 152:
-                    if ch == 'l':
-                        states.append((58, self.reader.save()))
-                        continue
-                    break
-                case 153:
-                    if ch == 'L':
-                        states.append((58, self.reader.save()))
-                        continue
-                    break
-                case 154:
-                    if ch == 'B':
-                        states.append((58, self.reader.save()))
-                        continue
-                    break
-                case 155:
-                    if ch == 'b':
-                        states.append((58, self.reader.save()))
-                        continue
-                    break
-                case 156:
-                    if ch == 'D':
-                        states.append((184, self.reader.save()))
-                        continue
-                    if ch == "'":
-                        states.append((186, self.reader.save()))
-                        continue
-                    if ch == 'd':
-                        states.append((185, self.reader.save()))
-                        continue
-                    if ch in ('8', '1', '3', '9', '5', '7', '2', '0', '4', '6'):
-                        states.append((156, self.reader.save()))
-                        continue
-                    if ch in ('F', 'f', 'L', 'l'):
+                    if ch in ('U', 'u'):
                         states.append((67, self.reader.save()))
                         continue
                     break
+                case 151:
+                    if ch in ('U', 'u'):
+                        states.append((67, self.reader.save()))
+                        continue
+                    break
+                case 152:
+                    if ch in ('1', '0', '3', '2', '4', '5', '6', '9', '7', '8'):
+                        states.append((153, self.reader.save()))
+                        continue
+                    break
+                case 153:
+                    if ch == 'd':
+                        states.append((185, self.reader.save()))
+                        continue
+                    if ch == 'D':
+                        states.append((186, self.reader.save()))
+                        continue
+                    if ch == "'":
+                        states.append((187, self.reader.save()))
+                        continue
+                    if ch in ('3', '1', '9', '5', '7', '0', '2', '4', '6', '8'):
+                        states.append((153, self.reader.save()))
+                        continue
+                    if ch in ('F', 'L', 'l', 'f'):
+                        states.append((70, self.reader.save()))
+                        continue
+                    break
+                case 154:
+                    if ch in ('0', '1', '2', '3', '4', '9', '5', '6', '7', '8'):
+                        states.append((155, self.reader.save()))
+                        continue
+                    break
+                case 155:
+                    if ch == 'd':
+                        states.append((185, self.reader.save()))
+                        continue
+                    if ch == 'D':
+                        states.append((186, self.reader.save()))
+                        continue
+                    if ch == "'":
+                        states.append((188, self.reader.save()))
+                        continue
+                    if ch in ('f', 'F', 'L', 'l'):
+                        states.append((70, self.reader.save()))
+                        continue
+                    if ch in ('0', '2', '4', '6', '8', '1', '9', '3', '7', '5'):
+                        states.append((155, self.reader.save()))
+                        continue
+                    break
+                case 156:
+                    if ch in ('b', 'd', 'f', 'B', '1', '3', '5', '7', '9', 'D', 'F', 'a', 'c', 'e', 'A', '0', '2', '4', '6', '8', 'C', 'E'):
+                        states.append((109, self.reader.save()))
+                        continue
+                    break
                 case 157:
-                    if ch in ('3', '4', '2', '0', '7', '6', '5', '1', '8', '9'):
-                        states.append((156, self.reader.save()))
+                    if ch in ('U', 'u'):
+                        states.append((67, self.reader.save()))
                         continue
                     break
                 case 158:
-                    if ch in ('4', '7', '1', '0', '5', '8', '9', '6', '2', '3'):
-                        states.append((187, self.reader.save()))
-                        continue
-                    if ch in ('-', '+'):
-                        states.append((188, self.reader.save()))
+                    if ch in ('U', 'u'):
+                        states.append((67, self.reader.save()))
                         continue
                     break
                 case 159:
-                    if ch in ('4', '9', '5', '6', '7', '8', '1', '2', '3', '0'):
-                        states.append((189, self.reader.save()))
-                        continue
-                    if ch in ('-', '+'):
-                        states.append((190, self.reader.save()))
+                    if ch == 'l':
+                        states.append((67, self.reader.save()))
                         continue
                     break
                 case 160:
-                    if ch in ('A', '0', '2', '4', '6', '8', 'a', 'c', 'e', 'C', 'E', 'B', '3', '1', '9', '5', '7', 'b', 'd', 'f', 'D', 'F'):
-                        states.append((119, self.reader.save()))
+                    if ch == 'L':
+                        states.append((67, self.reader.save()))
                         continue
                     break
                 case 161:
-                    if ch == 'l':
-                        states.append((58, self.reader.save()))
+                    if ch == 'b':
+                        states.append((67, self.reader.save()))
                         continue
                     break
                 case 162:
-                    if ch == 'L':
-                        states.append((58, self.reader.save()))
+                    if ch == 'B':
+                        states.append((67, self.reader.save()))
                         continue
                     break
                 case 163:
-                    if ch == 'B':
-                        states.append((58, self.reader.save()))
+                    if ch in ('0', '1', '2', '3', '4', '5', '6', '7', '8', '9'):
+                        states.append((119, self.reader.save()))
                         continue
                     break
                 case 164:
-                    if ch == 'b':
-                        states.append((58, self.reader.save()))
+                    if ch in ('0', '1', '2', '3', '7', '4', '5', '6', '8', '9'):
+                        states.append((121, self.reader.save()))
                         continue
                     break
                 case 165:
-                    if ch in ('U', 'u'):
-                        states.append((58, self.reader.save()))
+                    if ch in ('e', '0', '2', '4', '6', '8', 'a', 'c', 'A', 'C', 'F', 'f', 'd', '3', '1', '5', '7', '9', 'b', 'B', 'D', 'E'):
+                        states.append((189, self.reader.save()))
                         continue
                     break
                 case 166:
-                    if ch in ('u', 'U'):
-                        states.append((58, self.reader.save()))
+                    if ch in ('3', '1', '9', 'b', '5', '7', 'd', 'f', 'B', 'D', 'F', 'E', '4', '0', '2', 'a', '6', '8', 'c', 'e', 'A', 'C'):
+                        states.append((190, self.reader.save()))
                         continue
                     break
                 case 167:
-                    if ch in ('6', '8', '4', 'c', 'e', '0', 'A', 'C', 'E', '3', '9', 'b', 'd', '5', '7', 'f', 'B', '1', 'D', 'F', 'a', '2'):
-                        states.append((4, self.reader.save()))
+                    if ch in ('3', '1', '9', 'b', '5', '7', 'd', 'f', 'B', 'D', 'F', 'E', '0', '2', '4', 'a', '6', '8', 'c', 'e', 'A', 'C'):
+                        states.append((5, self.reader.save()))
                         continue
                     break
                 case 168:
-                    if ch in ('5', '7', 'b', 'd', 'f', 'B', 'D', 'F', '3', 'a', 'c', 'e', 'A', '6', '8', '0', '2', '4', 'C', 'E', '1', '9'):
+                    if ch in ('0', '2', '4', 'a', '6', '8', 'c', 'e', 'A', 'C', 'E', '1', '3', '9', 'b', '5', '7', 'd', 'f', 'B', 'D', 'F'):
                         states.append((191, self.reader.save()))
                         continue
                     break
                 case 169:
-                    if ch in ('4', '0', 'A', '8', 'c', 'E', '7', '1', '9', '6', 'B', '5', 'd', 'F', 'f', 'C', 'e', 'a', 'D', '2', 'b', '3'):
+                    if ch in ('1', '9', 'd', '5', 'B', 'F', '2', 'a', 'e', '6', 'C', '8', '7', 'f', 'A', '3', 'b', 'D', 'c', 'E', '0', '4'):
                         states.append((192, self.reader.save()))
                         continue
                     break
                 case 170:
-                    if ch in ('D', '1', '5', '9', 'd', 'B', 'F', '7', 'e', 'c', 'b', '6', '8', 'f', '2', 'a', 'C', '3', '0', '4', 'A', 'E'):
+                    if ch in ('2', 'a', '6', 'e', 'C', 'F', 'B', 'D', 'E', '3', 'b', '8', '7', 'f', 'A', 'c', '5', 'd', '9', '0', '4', '1'):
                         states.append((193, self.reader.save()))
                         continue
                     break
                 case 171:
                     if ch == '\\':
-                        states.append((93, self.reader.save()))
+                        states.append((92, self.reader.save()))
                         continue
                     if ch == '"':
-                        states.append((55, self.reader.save()))
+                        states.append((53, self.reader.save()))
                         continue
-                    if ch in ('1', '5', '2', '6', '3', '7', '4', '0'):
-                        states.append((54, self.reader.save()))
+                    if ch in ('1', '5', '2', '6', '3', '7', '0', '4'):
+                        states.append((52, self.reader.save()))
                         continue
                     if self.other_s_char(ch):
-                        states.append((54, self.reader.save()))
+                        states.append((52, self.reader.save()))
                         continue
                     break
                 case 172:
-                    if ch in ('b', 'f', 'D', '7', '3', '0', '4', 'c', 'A', 'E', '8', '1', '9', 'd', 'B', 'F', '5', '2', 'a', 'e', 'C', '6'):
-                        states.append((194, self.reader.save()))
+                    if ch == '\\':
+                        states.append((92, self.reader.save()))
+                        continue
+                    if ch == '"':
+                        states.append((53, self.reader.save()))
+                        continue
+                    if ch in ('e', '6', 'f', '7', 'A', '0', '8', '1', '9', 'B', '2', 'a', 'C', '3', 'b', 'D', '4', 'c', 'E', 'd', 'F', '5'):
+                        states.append((172, self.reader.save()))
+                        continue
+                    if self.other_s_char(ch):
+                        states.append((52, self.reader.save()))
                         continue
                     break
                 case 173:
-                    if ch == '\\':
-                        states.append((93, self.reader.save()))
-                        continue
-                    if ch == '"':
-                        states.append((55, self.reader.save()))
-                        continue
-                    if ch in ('1', '9', 'B', '2', 'a', 'C', 'b', '3', 'D', '4', 'c', 'E', 'd', '5', 'F', 'e', '6', 'f', '7', 'A', '0', '8'):
-                        states.append((173, self.reader.save()))
-                        continue
-                    if self.other_s_char(ch):
-                        states.append((54, self.reader.save()))
+                    if ch in ('1', '9', 'd', 'B', 'F', '5', '2', 'a', 'e', 'C', '6', '3', 'f', 'b', 'D', '7', '0', '4', 'c', 'A', 'E', '8'):
+                        states.append((194, self.reader.save()))
                         continue
                     break
                 case 174:
-                    if ch in ('4', 'c', 'A', 'E', '8', '0', 'F', '1', '9', 'd', '5', 'B', '2', 'a', 'e', 'C', '6', '3', 'b', 'f', 'D', '7'):
+                    if ch in ('0', '4', 'c', 'A', 'E', '8', '1', '5', '9', 'd', 'B', 'F', '2', 'e', '6', 'a', 'C', '3', '7', 'b', 'f', 'D'):
                         states.append((195, self.reader.save()))
                         continue
                     break
                 case 175:
-                    if ch in ('a', 'c', 'e', '0', '2', '4', '6', '8', 'A', 'C', 'E', 'B', 'b', 'd', '1', '3', '5', '7', '9', 'f', 'D', 'F'):
+                    if ch in ('F', 'f', 'B', '1', '3', '5', '7', '9', 'b', 'd', 'D', '8', 'A', '2', '0', '4', '6', 'a', 'c', 'e', 'C', 'E'):
                         states.append((196, self.reader.save()))
                         continue
                     break
                 case 176:
-                    if ch in ('b', 'd', 'f', 'B', '1', '3', '5', '7', '9', 'D', 'E', 'a', 'c', 'e', 'A', '0', '2', '4', '6', '8', 'C', 'F'):
+                    if ch in ('E', 'A', '2', '0', '4', '6', '8', 'a', 'c', 'e', 'C', '7', 'B', 'f', 'd', '3', '5', '1', '9', 'b', 'D', 'F'):
                         states.append((197, self.reader.save()))
                         continue
                     break
@@ -1523,7 +1523,7 @@ class Gen_Lexer(LexerBase):
                     if ch == "'":
                         states.append((99, self.reader.save()))
                         continue
-                    if ch in ('1', '3', '7', '5', '0', '2', '4', '6'):
+                    if ch in ('2', '0', '4', '6', '1', '3', '5', '7'):
                         states.append((57, self.reader.save()))
                         continue
                     if self.other_c_char(ch):
@@ -1531,12 +1531,12 @@ class Gen_Lexer(LexerBase):
                         continue
                     break
                 case 178:
-                    if ch in ('0', '2', '4', 'E', 'a', 'c', '1', '3', '9', 'b', '7', 'd', 'f', 'A', 'B', '5', 'C', 'D', 'F', '8', 'e', '6'):
+                    if ch in ('5', '7', 'C', 'E', '1', 'a', 'c', 'e', 'A', '6', '8', '0', '2', 'b', '3', 'd', 'f', 'B', 'D', 'F', '9', '4'):
                         states.append((198, self.reader.save()))
                         continue
                     break
                 case 179:
-                    if ch in ('7', 'B', '2', '4', 'a', 'c', '8', 'e', 'A', '0', '6', 'C', 'E', 'F', '3', '9', 'b', 'd', 'f', '1', 'D', '5'):
+                    if ch in ('6', '8', 'D', 'F', '0', '2', '4', '9', 'b', 'd', 'f', '5', '7', 'c', 'B', 'e', '1', 'A', 'C', 'E', '3', 'a'):
                         states.append((199, self.reader.save()))
                         continue
                     break
@@ -1547,7 +1547,7 @@ class Gen_Lexer(LexerBase):
                     if ch == "'":
                         states.append((99, self.reader.save()))
                         continue
-                    if ch in ('0', 'c', 'A', '4', 'E', '8', '1', 'd', 'B', 'F', '9', '5', 'f', 'D', '2', 'a', 'e', 'C', '6', '3', 'b', '7'):
+                    if ch in ('1', 'B', '5', '9', 'd', 'F', 'c', '2', 'A', '6', 'a', 'e', 'C', '3', 'f', 'b', '7', 'D', '8', '0', '4', 'E'):
                         states.append((180, self.reader.save()))
                         continue
                     if self.other_c_char(ch):
@@ -1555,276 +1555,276 @@ class Gen_Lexer(LexerBase):
                         continue
                     break
                 case 181:
-                    if ch in ('6', '8', 'e', 'A', 'C', 'E', 'b', 'd', 'f', 'B', '5', '7', '1', '3', '9', 'D', 'F', '0', '2', '4', 'c', 'a'):
+                    if ch == 'd':
                         states.append((200, self.reader.save()))
                         continue
-                    break
-                case 182:
-                    if ch in ('5', '7', 'C', 'E', '1', '3', 'a', 'c', 'e', 'A', '6', '8', 'b', '2', 'd', '4', 'f', 'B', 'D', 'F', '0', '9'):
-                        states.append((4, self.reader.save()))
-                        continue
-                    break
-                case 183:
-                    if ch in ('3', '4', '5', '6', '7', '8', '9', '0', '1', '2'):
-                        states.append((149, self.reader.save()))
-                        continue
-                    break
-                case 184:
-                    if ch in ('D', 'L', 'F'):
-                        states.append((67, self.reader.save()))
-                        continue
-                    break
-                case 185:
-                    if ch in ('f', 'd', 'l'):
-                        states.append((67, self.reader.save()))
-                        continue
-                    break
-                case 186:
-                    if ch in ('6', '7', '8', '1', '2', '3', '0', '5', '4', '9'):
-                        states.append((156, self.reader.save()))
-                        continue
-                    break
-                case 187:
-                    if ch == 'd':
+                    if ch == 'D':
                         states.append((201, self.reader.save()))
                         continue
                     if ch == "'":
                         states.append((202, self.reader.save()))
                         continue
+                    if ch in ('f', 'F', 'L', 'l'):
+                        states.append((70, self.reader.save()))
+                        continue
+                    if ch in ('9', '1', '3', '5', '7', '0', '2', '4', '6', '8'):
+                        states.append((181, self.reader.save()))
+                        continue
+                    break
+                case 182:
+                    if ch in ('2', '0', '3', '1', '4', '5', '6', '7', '8', '9'):
+                        states.append((181, self.reader.save()))
+                        continue
+                    break
+                case 183:
+                    if ch == 'd':
+                        states.append((200, self.reader.save()))
+                        continue
                     if ch == 'D':
+                        states.append((201, self.reader.save()))
+                        continue
+                    if ch == "'":
                         states.append((203, self.reader.save()))
                         continue
-                    if ch in ('2', '0', '4', '6', '8', '3', '1', '9', '7', '5'):
-                        states.append((187, self.reader.save()))
+                    if ch in ('1', '3', '9', '7', '5', '0', '2', '4', '6', '8'):
+                        states.append((183, self.reader.save()))
                         continue
-                    if ch in ('L', 'l', 'f', 'F'):
-                        states.append((67, self.reader.save()))
+                    if ch in ('f', 'F', 'L', 'l'):
+                        states.append((70, self.reader.save()))
+                        continue
+                    break
+                case 184:
+                    if ch in ('7', '8', '5', '9', '0', '1', '2', '3', '4', '6'):
+                        states.append((183, self.reader.save()))
+                        continue
+                    break
+                case 185:
+                    if ch in ('d', 'f', 'l'):
+                        states.append((70, self.reader.save()))
+                        continue
+                    break
+                case 186:
+                    if ch in ('D', 'L', 'F'):
+                        states.append((70, self.reader.save()))
+                        continue
+                    break
+                case 187:
+                    if ch in ('3', '0', '1', '2', '4', '5', '6', '7', '8', '9'):
+                        states.append((153, self.reader.save()))
                         continue
                     break
                 case 188:
-                    if ch in ('9', '1', '0', '6', '5', '4', '8', '7', '2', '3'):
-                        states.append((187, self.reader.save()))
+                    if ch in ('7', '8', '1', '2', '3', '4', '9', '0', '6', '5'):
+                        states.append((155, self.reader.save()))
                         continue
                     break
                 case 189:
-                    if ch == 'd':
-                        states.append((201, self.reader.save()))
-                        continue
-                    if ch == 'D':
-                        states.append((203, self.reader.save()))
-                        continue
-                    if ch == "'":
+                    if ch in ('3', '9', 'b', 'd', '5', '7', 'f', 'B', 'D', 'F', '0', '2', '4', 'a', 'c', '6', '8', 'e', 'A', 'C', 'E', '1'):
                         states.append((204, self.reader.save()))
-                        continue
-                    if ch in ('L', 'l', 'f', 'F'):
-                        states.append((67, self.reader.save()))
-                        continue
-                    if ch in ('4', '0', '2', '6', '8', '1', '3', '9', '5', '7'):
-                        states.append((189, self.reader.save()))
                         continue
                     break
                 case 190:
-                    if ch in ('4', '9', '5', '6', '7', '8', '0', '1', '2', '3'):
-                        states.append((189, self.reader.save()))
+                    if ch in ('0', '2', '4', 'a', '6', '8', 'c', 'e', 'A', 'C', 'E', '1', '3', '9', 'b', '5', '7', 'd', 'f', 'B', 'D', 'F'):
+                        states.append((5, self.reader.save()))
                         continue
                     break
                 case 191:
-                    if ch in ('A', '2', '0', '4', '6', '8', 'a', 'c', 'e', 'C', 'F', '5', 'd', 'f', 'B', '3', '7', '1', '9', 'b', 'D', 'E'):
+                    if ch in ('c', 'e', 'A', 'C', 'E', '6', '3', '1', '9', 'b', 'd', 'f', 'B', '5', '7', 'D', 'F', '0', '2', '4', 'a', '8'):
                         states.append((205, self.reader.save()))
                         continue
                     break
                 case 192:
-                    if ch in ('5', 'D', '9', 'F', 'B', 'a', 'e', '2', 'C', '6', 'E', 'b', 'f', '3', '7', '1', 'A', 'c', '0', '4', '8', 'd'):
+                    if ch in ('2', 'a', 'e', 'C', '6', '7', 'D', 'E', 'F', '4', '1', '9', '0', '3', '5', 'd', 'f', 'b', 'c', '8', 'A', 'B'):
                         states.append((206, self.reader.save()))
                         continue
                     break
                 case 193:
-                    if ch in ('6', 'a', 'e', 'C', 'E', 'A', 'f', 'D', 'd', 'c', '3', 'b', 'F', '7', 'B', '8', '9', '5', '4', '0', '1', '2'):
-                        states.append((54, self.reader.save()))
+                    if ch in ('3', 'b', 'f', 'D', '7', 'E', '0', '4', 'c', '8', 'A', 'F', 'e', 'd', 'B', '1', '9', '5', 'C', 'a', '6', '2'):
+                        states.append((52, self.reader.save()))
                         continue
                     break
                 case 194:
-                    if ch in ('0', '4', 'A', 'c', '8', 'E', '1', '9', 'B', '5', 'd', 'F', '2', 'a', 'e', '6', 'C', '3', 'b', 'f', '7', 'D'):
+                    if ch in ('2', 'a', 'e', 'C', '6', 'b', '3', 'f', '7', 'D', 'c', '0', '4', '8', 'E', 'A', 'd', '1', '9', 'B', '5', 'F'):
                         states.append((207, self.reader.save()))
                         continue
                     break
                 case 195:
-                    if ch in ('1', '9', 'd', '5', 'B', 'F', '2', 'e', '6', 'a', 'C', '3', 'f', '7', 'b', 'D', '0', '4', 'A', '8', 'c', 'E'):
+                    if ch in ('1', '9', 'd', 'B', '5', 'F', 'e', '2', 'a', '6', 'C', 'f', '3', 'b', 'D', '7', 'A', '0', '4', 'c', '8', 'E'):
                         states.append((208, self.reader.save()))
                         continue
                     break
                 case 196:
-                    if ch in ('3', '1', '9', 'b', '7', '5', 'd', 'f', 'B', 'D', 'F', '0', '2', '4', 'a', '6', '8', 'c', 'e', 'A', 'C', 'E'):
+                    if ch in ('0', '4', '2', 'a', 'c', '6', '8', 'e', 'A', 'C', 'E', '1', '3', '9', 'b', 'd', '7', '5', 'f', 'B', 'D', 'F'):
                         states.append((57, self.reader.save()))
                         continue
                     break
                 case 197:
-                    if ch in ('a', '2', '0', '4', '6', '8', 'c', 'A', 'e', 'C', 'F', '3', '1', '9', 'b', '5', '7', 'd', 'f', 'B', 'D', 'E'):
+                    if ch in ('3', '1', '9', 'b', 'd', 'f', '7', '5', 'B', 'D', 'F', '0', '2', '4', 'a', 'c', 'e', 'A', '6', '8', 'C', 'E'):
                         states.append((209, self.reader.save()))
                         continue
                     break
                 case 198:
-                    if ch in ('0', '4', '2', 'a', '6', '8', 'c', 'e', 'A', 'C', 'F', 'B', '1', '3', '9', '5', '7', 'b', 'd', 'f', 'D', 'E'):
+                    if ch in ('b', 'd', 'f', 'B', '3', '1', '5', '7', '9', 'D', 'F', '0', 'c', 'e', 'A', '2', '4', '6', '8', 'a', 'C', 'E'):
                         states.append((210, self.reader.save()))
                         continue
                     break
                 case 199:
-                    if ch in ('B', '3', '1', '9', '5', '7', 'd', 'f', 'b', 'D', 'E', '0', '2', '4', 'a', '6', '8', 'c', 'e', 'A', 'C', 'F'):
+                    if ch in ('2', '0', 'e', 'A', '4', 'a', '6', '8', 'c', 'C', 'E', '3', '1', 'f', 'B', '9', 'b', '5', '7', 'd', 'D', 'F'):
                         states.append((211, self.reader.save()))
                         continue
                     break
                 case 200:
-                    if ch in ('1', '3', 'B', '9', 'b', 'd', '7', 'f', '5', 'D', 'F', '0', '2', '4', 'A', 'a', 'c', 'e', '8', 'C', 'E', '6'):
-                        states.append((212, self.reader.save()))
+                    if ch in ('l', 'd', 'f'):
+                        states.append((70, self.reader.save()))
                         continue
                     break
                 case 201:
-                    if ch in ('d', 'l', 'f'):
-                        states.append((67, self.reader.save()))
+                    if ch in ('D', 'F', 'L'):
+                        states.append((70, self.reader.save()))
                         continue
                     break
                 case 202:
-                    if ch in ('2', '3', '0', '1', '6', '7', '4', '5', '8', '9'):
-                        states.append((187, self.reader.save()))
+                    if ch in ('0', '1', '2', '3', '4', '5', '6', '7', '8', '9'):
+                        states.append((181, self.reader.save()))
                         continue
                     break
                 case 203:
-                    if ch in ('L', 'F', 'D'):
-                        states.append((67, self.reader.save()))
+                    if ch in ('0', '1', '2', '3', '7', '4', '5', '6', '8', '9'):
+                        states.append((183, self.reader.save()))
                         continue
                     break
                 case 204:
-                    if ch in ('4', '0', '1', '2', '5', '6', '7', '3', '8', '9'):
-                        states.append((189, self.reader.save()))
+                    if ch in ('2', '0', '4', 'c', 'e', 'A', '6', '8', 'a', 'b', 'C', 'E', 'f', 'B', 'D', 'F', '5', '1', '3', '9', 'd', '7'):
+                        states.append((212, self.reader.save()))
                         continue
                     break
                 case 205:
-                    if ch in ('1', '3', '5', '7', '9', 'b', 'd', 'f', 'B', 'D', 'F', '2', '0', '4', '6', '8', 'a', 'c', 'e', 'A', 'C', 'E'):
+                    if ch in ('2', '4', '0', 'a', 'e', 'A', '6', '8', 'c', 'C', 'E', '1', '3', '9', 'b', 'f', 'B', '7', '5', 'd', 'D', 'F'):
                         states.append((213, self.reader.save()))
                         continue
                     break
                 case 206:
-                    if ch in ('C', 'e', '2', 'a', '6', '1', '7', '8', '4', 'D', 'E', 'f', '3', 'b', 'F', '5', 'A', '0', 'c', 'd', 'B', '9'):
+                    if ch in ('c', 'C', 'd', 'e', 'f', 'A', 'B', 'b', '3', 'D', '7', '4', 'a', '5', '1', '0', 'E', '8', '9', 'F', '6', '2'):
                         states.append((214, self.reader.save()))
                         continue
                     break
                 case 207:
-                    if ch in ('2', 'a', 'e', 'C', '6', '3', 'b', 'f', 'D', '7', '0', '4', 'c', 'A', '8', 'E', 'F', '1', '9', 'd', '5', 'B'):
-                        states.append((215, self.reader.save()))
+                    if ch in ('c', 'A', '0', '4', '8', 'E', 'b', 'd', 'B', '1', 'f', '5', '9', 'F', 'D', 'a', 'e', '2', 'C', '6', '3', '7'):
+                        states.append((52, self.reader.save()))
                         continue
                     break
                 case 208:
-                    if ch in ('3', 'b', 'f', '7', 'D', '0', '4', 'c', 'A', '8', 'E', '1', '9', 'd', 'B', '5', 'F', '2', 'a', 'e', 'C', '6'):
-                        states.append((54, self.reader.save()))
+                    if ch in ('a', 'f', '3', 'b', 'D', 'C', '7', 'E', 'A', '4', '0', '8', 'c', 'F', 'd', 'B', '1', '5', '9', 'e', '2', '6'):
+                        states.append((215, self.reader.save()))
                         continue
                     break
                 case 209:
-                    if ch in ('6', '8', 'a', 'c', '1', '3', 'A', 'C', '5', 'f', '9', 'b', 'd', '7', 'B', 'D', 'E', 'F', '4', '2', '0', 'e'):
+                    if ch in ('5', '7', 'f', 'B', 'D', 'F', '2', '4', 'a', 'c', '6', '8', 'e', 'A', '0', 'C', '3', 'E', '9', 'b', 'd', '1'):
                         states.append((216, self.reader.save()))
                         continue
                     break
                 case 210:
-                    if ch in ('9', 'b', 'd', 'f', '5', '7', 'B', 'D', 'F', '0', '2', '4', 'a', 'c', 'e', 'A', '6', '8', 'C', 'E', '3', '1'):
+                    if ch in ('0', '2', '4', 'A', '6', '8', 'a', 'c', 'e', 'C', 'E', '1', '3', '9', '5', '7', 'b', 'd', 'B', 'f', 'D', 'F'):
                         states.append((57, self.reader.save()))
                         continue
                     break
                 case 211:
-                    if ch in ('6', 'a', 'c', 'e', '8', 'A', 'C', 'E', '1', '3', '5', '7', '9', 'b', 'd', 'f', 'B', 'D', 'F', '2', '4', '0'):
+                    if ch in ('1', '3', '9', 'b', '5', '7', 'd', 'f', 'B', 'D', 'F', '0', '2', '4', 'a', '6', '8', 'c', 'e', 'A', 'C', 'E'):
                         states.append((217, self.reader.save()))
                         continue
                     break
                 case 212:
-                    if ch in ('0', '2', '4', 'a', '6', '8', 'e', 'A', 'c', 'C', 'E', '1', '3', '9', 'b', '5', '7', 'f', 'B', 'd', 'D', 'F'):
+                    if ch in ('b', 'd', '1', '3', '5', '7', '9', 'f', 'B', 'D', 'F', 'e', 'a', 'c', '0', '2', '6', '4', '8', 'A', 'C', 'E'):
                         states.append((218, self.reader.save()))
                         continue
                     break
                 case 213:
-                    if ch in ('0', '2', '4', 'E', 'a', 'c', '1', '3', '9', 'b', '7', 'd', 'f', 'A', 'B', '5', 'C', 'D', 'F', '8', 'e', '6'):
+                    if ch in ('5', '7', 'b', 'd', 'f', 'B', 'D', 'F', 'a', 'c', 'e', 'A', '6', '8', '2', '0', '4', 'C', '3', 'E', '1', '9'):
                         states.append((219, self.reader.save()))
                         continue
                     break
                 case 214:
-                    if ch in ('5', '3', 'b', 'f', 'D', '7', 'E', 'c', 'e', '0', '4', 'A', '8', '2', 'd', 'F', '1', '9', 'B', 'C', '6', 'a'):
+                    if ch in ('8', '4', '0', 'A', 'c', 'E', '5', 'B', 'C', '6', '7', 'b', 'F', 'd', '1', '9', 'a', 'f', '2', 'e', '3', 'D'):
                         states.append((220, self.reader.save()))
                         continue
                     break
                 case 215:
-                    if ch in ('6', '2', 'a', 'e', 'C', 'D', 'f', '3', 'b', '7', '0', '4', 'A', 'c', '8', 'E', 'F', 'd', 'B', '1', '5', '9'):
+                    if ch in ('b', 'f', 'D', '7', '3', '0', '4', 'c', 'A', 'E', '8', '1', '9', 'd', 'B', 'F', '5', '2', 'a', 'e', 'C', '6'):
                         states.append((221, self.reader.save()))
                         continue
                     break
                 case 216:
-                    if ch in ('A', '0', '2', '4', '6', '8', 'a', 'c', 'e', 'C', 'E', 'B', '3', '1', '9', '5', '7', 'b', 'd', 'f', 'D', 'F'):
+                    if ch in ('b', 'd', 'f', 'B', '1', '3', '5', '7', '9', 'D', 'F', 'a', 'c', 'e', 'A', '0', '2', '4', '6', '8', 'C', 'E'):
                         states.append((222, self.reader.save()))
                         continue
                     break
                 case 217:
-                    if ch in ('d', 'f', '1', '3', 'B', '7', '5', '8', '9', 'b', 'C', 'D', 'E', 'F', 'c', 'e', 'A', '2', '6', '0', '4', 'a'):
+                    if ch in ('7', '0', '2', '4', 'a', '8', 'c', 'e', 'A', '6', 'C', 'E', '1', '3', '9', 'b', 'd', 'f', 'B', 'F', 'D', '5'):
                         states.append((223, self.reader.save()))
                         continue
                     break
                 case 218:
-                    if ch in ('3', 'D', '9', 'b', 'd', 'f', 'B', '0', '2', '4', 'a', '8', 'c', 'e', 'A', '6', '5', 'F', 'C', '1', 'E', '7'):
+                    if ch in ('6', '8', 'D', 'F', '0', '2', '4', 'b', 'd', 'f', 'B', '5', '7', 'e', '1', 'A', '3', 'a', 'C', 'E', 'c', '9'):
                         states.append((224, self.reader.save()))
                         continue
                     break
                 case 219:
-                    if ch in ('0', '4', '2', 'a', '6', '8', 'c', 'e', 'A', 'C', 'F', '1', '3', '9', 'b', '5', '7', 'd', 'f', 'B', 'D', 'E'):
-                        states.append((4, self.reader.save()))
+                    if ch in ('b', 'd', 'f', 'B', '3', '1', '5', '7', '9', 'D', 'F', '0', 'c', 'e', 'A', '2', '4', '6', '8', 'a', 'C', 'E'):
+                        states.append((5, self.reader.save()))
                         continue
                     break
                 case 220:
-                    if ch in ('1', '5', '9', 'd', 'B', 'F', '2', 'e', '6', 'a', 'C', 'E', 'c', '3', 'f', '7', 'b', 'D', '0', '4', 'A', '8'):
+                    if ch in ('5', '2', 'a', '6', 'e', 'C', '9', 'd', '3', 'b', 'B', '7', 'f', 'D', 'F', 'c', '0', '4', '8', 'A', 'E', '1'):
                         states.append((225, self.reader.save()))
                         continue
                     break
                 case 221:
-                    if ch in ('7', 'D', '0', '4', 'c', 'A', 'E', '8', '3', '1', '5', '9', 'd', 'B', 'F', 'f', '2', '6', 'a', 'e', 'C', 'b'):
+                    if ch in ('0', '4', 'A', 'c', '8', 'E', '1', '9', 'B', '5', 'd', 'F', '2', 'a', 'e', '6', 'C', '3', 'b', 'f', '7', 'D'):
                         states.append((226, self.reader.save()))
                         continue
                     break
                 case 222:
-                    if ch in ('1', '3', '9', 'b', '5', '7', 'd', 'f', 'B', 'D', 'F', '0', '2', '4', 'a', '6', '8', 'c', 'e', 'A', 'C', 'E'):
+                    if ch in ('a', '2', '0', '4', '6', '8', 'e', 'c', 'A', 'C', 'E', 'f', '3', '1', '9', '5', '7', 'b', 'd', 'B', 'D', 'F'):
                         states.append((227, self.reader.save()))
                         continue
                     break
                 case 223:
-                    if ch in ('E', 'c', 'e', 'A', '2', '4', '0', '6', '8', 'a', 'C', 'F', 'd', 'f', 'B', '1', '3', '5', '7', '9', 'b', 'D'):
+                    if ch in ('1', '3', '9', 'b', '5', '7', 'd', 'f', 'B', 'D', 'F', 'a', '0', '4', '2', '6', '8', 'c', 'e', 'A', 'C', 'E'):
                         states.append((228, self.reader.save()))
                         continue
                     break
                 case 224:
-                    if ch in ('b', '1', '3', '9', '5', '7', 'd', 'B', 'f', 'D', '0', '4', '2', 'a', 'c', '6', '8', 'e', 'A', 'C', 'E', 'F'):
-                        states.append((4, self.reader.save()))
+                    if ch in ('4', '0', '2', 'A', 'a', 'c', 'e', '6', '8', 'C', 'E', '1', '3', 'B', '5', '9', 'b', '7', 'd', 'f', 'D', 'F'):
+                        states.append((5, self.reader.save()))
                         continue
                     break
                 case 225:
-                    if ch in ('6', 'a', 'e', '2', 'C', '3', 'b', 'f', '7', 'D', 'c', 'A', '4', '0', '8', 'E', '1', '9', 'd', 'B', '5', 'F'):
-                        states.append((54, self.reader.save()))
+                    if ch in ('3', 'b', 'f', 'D', '7', '0', '4', 'c', 'A', '8', 'E', 'B', '1', '9', 'd', '5', 'F', '2', 'a', 'e', 'C', '6'):
+                        states.append((52, self.reader.save()))
                         continue
                     break
                 case 226:
-                    if ch in ('1', '9', 'd', '5', 'B', 'F', '2', 'e', 'a', '6', 'C', 'b', '3', 'f', '7', 'D', '0', '4', 'c', 'A', '8', 'E'):
+                    if ch in ('2', 'a', 'e', 'C', '6', '3', 'b', 'f', 'D', '7', '0', '4', 'c', 'A', '8', 'E', '1', '9', 'd', 'B', '5', 'F'):
                         states.append((229, self.reader.save()))
                         continue
                     break
                 case 227:
-                    if ch in ('1', '3', 'B', '9', 'b', 'd', '7', 'f', '5', 'D', 'F', '6', '0', '2', '4', 'A', 'a', 'c', 'e', '8', 'C', 'E'):
+                    if ch in ('f', 'B', 'D', 'F', '2', '0', '4', 'c', 'e', 'A', '7', '5', '6', '8', 'a', 'C', 'E', '1', '3', '9', 'd', 'b'):
                         states.append((57, self.reader.save()))
                         continue
                     break
                 case 228:
-                    if ch in ('5', '7', 'D', 'F', '0', '2', 'e', 'a', 'c', '4', '6', '8', 'A', 'C', 'E', '3', 'f', '9', 'b', '1', 'd', 'B'):
+                    if ch in ('6', 'a', 'c', 'e', '8', 'A', 'C', 'E', '2', '4', '1', '3', '5', '7', '9', 'b', 'd', 'f', 'B', 'D', 'F', '0'):
                         states.append((230, self.reader.save()))
                         continue
                     break
                 case 229:
-                    if ch in ('2', 'a', 'e', 'C', '6', 'f', '3', 'b', 'D', '7', '0', '4', 'c', 'A', '8', 'E', 'B', 'd', '1', '9', '5', 'F'):
-                        states.append((54, self.reader.save()))
+                    if ch in ('3', 'b', 'f', 'D', '7', 'E', '4', 'c', 'A', '8', '0', '1', 'd', 'B', 'F', '9', '5', 'C', '2', 'a', 'e', '6'):
+                        states.append((52, self.reader.save()))
                         continue
                     break
                 case 230:
-                    if ch in ('b', '1', '3', '9', 'B', '5', '7', 'd', 'f', 'D', 'F', 'c', '0', '2', '4', '6', '8', 'e', 'A', 'a', 'C', 'E'):
+                    if ch in ('a', 'c', '0', '2', '4', '6', '8', 'e', 'A', 'C', 'E', 'd', 'b', '1', '3', '5', '7', '9', 'f', 'B', 'D', 'F'):
                         states.append((57, self.reader.save()))
                         continue
                     break
@@ -1843,31 +1843,28 @@ class Gen_Lexer(LexerBase):
                     return Token(TokenKind.INTCONST, location, text)
                 case 2:
                     self.reader.restore(back_index)
-                    return Token(Token.punctuator[text], location, text)
+                    return Token(TokenKind.INTCONST, location, text)
                 case 3:
                     self.reader.restore(back_index)
                     return Token(Token.punctuator[text], location, text)
                 case 4:
                     self.reader.restore(back_index)
-                    return Token(TokenKind.IDENTIFIER if text not in Token.keywords else Token.keywords[text], location, text)
+                    return Token(Token.punctuator[text], location, text)
                 case 5:
                     self.reader.restore(back_index)
-                    return Token(Token.punctuator[text], location, text)
+                    return Token(TokenKind.IDENTIFIER if text not in Token.keywords else Token.keywords[text], location, text)
                 case 6:
                     self.reader.restore(back_index)
-                    return Token(Token.punctuator[text], location, text)
-                case 7:
-                    self.reader.restore(back_index)
-                    return Token(TokenKind.INTCONST, location, text)
+                    return Token(TokenKind.IDENTIFIER if text not in Token.keywords else Token.keywords[text], location, text)
                 case 8:
                     self.reader.restore(back_index)
-                    return Token(Token.punctuator[text], location, text)
+                    return Token(TokenKind.IDENTIFIER if text not in Token.keywords else Token.keywords[text], location, text)
                 case 9:
                     self.reader.restore(back_index)
                     return Token(Token.punctuator[text], location, text)
                 case 10:
                     self.reader.restore(back_index)
-                    return Token(TokenKind.IDENTIFIER if text not in Token.keywords else Token.keywords[text], location, text)
+                    return Token(Token.punctuator[text], location, text)
                 case 11:
                     self.reader.restore(back_index)
                     return Token(Token.punctuator[text], location, text)
@@ -1876,7 +1873,10 @@ class Gen_Lexer(LexerBase):
                     return Token(Token.punctuator[text], location, text)
                 case 13:
                     self.reader.restore(back_index)
-                    return Token(TokenKind.END, location, text)
+                    return Token(Token.punctuator[text], location, text)
+                case 14:
+                    self.reader.restore(back_index)
+                    return Token(Token.punctuator[text], location, text)
                 case 15:
                     self.reader.restore(back_index)
                     return Token(Token.punctuator[text], location, text)
@@ -1888,10 +1888,10 @@ class Gen_Lexer(LexerBase):
                     return Token(Token.punctuator[text], location, text)
                 case 18:
                     self.reader.restore(back_index)
-                    return Token(Token.punctuator[text], location, text)
+                    return self.error('字符串未终止', location)
                 case 19:
                     self.reader.restore(back_index)
-                    return Token(TokenKind.IDENTIFIER if text not in Token.keywords else Token.keywords[text], location, text)
+                    return Token(Token.punctuator[text], location, text)
                 case 20:
                     self.reader.restore(back_index)
                     return Token(Token.punctuator[text], location, text)
@@ -1901,103 +1901,103 @@ class Gen_Lexer(LexerBase):
                 case 22:
                     self.reader.restore(back_index)
                     return Token(Token.punctuator[text], location, text)
-                case 23:
-                    self.reader.restore(back_index)
-                    return Token(Token.punctuator[text], location, text)
                 case 24:
                     self.reader.restore(back_index)
-                    return self.error('字符串未终止', location)
+                    return Token(TokenKind.END, location, text)
+                case 25:
+                    self.reader.restore(back_index)
+                    return Token(Token.punctuator[text], location, text)
                 case 26:
                     self.reader.restore(back_index)
                     return Token(TokenKind.INTCONST, location, text)
-                case 27:
-                    self.reader.restore(back_index)
-                    return Token(TokenKind.INTCONST, location, text)
-                case 31:
+                case 28:
                     self.reader.restore(back_index)
                     return Token(TokenKind.INTCONST, location, text)
                 case 32:
                     self.reader.restore(back_index)
-                    return Token(TokenKind.FLOATCONST, location, text)
-                case 36:
-                    self.reader.restore(back_index)
-                    return Token(Token.punctuator[text], location, text)
-                case 39:
-                    self.reader.restore(back_index)
                     return Token(TokenKind.INTCONST, location, text)
-                case 40:
+                case 34:
+                    self.reader.restore(back_index)
+                    return Token(TokenKind.FLOATCONST, location, text)
+                case 38:
                     self.reader.restore(back_index)
                     return Token(TokenKind.INTCONST, location, text)
                 case 41:
                     self.reader.restore(back_index)
                     return Token(TokenKind.INTCONST, location, text)
+                case 42:
+                    self.reader.restore(back_index)
+                    return Token(TokenKind.INTCONST, location, text)
                 case 44:
                     self.reader.restore(back_index)
                     return Token(TokenKind.INTCONST, location, text)
-                case 48:
+                case 49:
                     self.reader.restore(back_index)
                     return Token(Token.punctuator[text], location, text)
                 case 50:
                     self.reader.restore(back_index)
-                    return Token(TokenKind.FLOATCONST, location, text)
-                case 53:
+                    return Token(Token.punctuator[text], location, text)
+                case 51:
                     self.reader.restore(back_index)
                     return self.error('未知的转义字符', location)
-                case 54:
+                case 52:
                     self.reader.restore(back_index)
                     return self.error('字符串未终止', location)
-                case 55:
+                case 53:
                     self.reader.restore(back_index)
                     return Token(TokenKind.STRINGLITERAL, location, text)
+                case 54:
+                    self.reader.restore(back_index)
+                    return Token(TokenKind.FLOATCONST, location, text)
                 case 56:
                     self.reader.restore(back_index)
                     return self.error('未知的转义字符', location)
-                case 58:
-                    self.reader.restore(back_index)
-                    return Token(TokenKind.INTCONST, location, text)
-                case 59:
-                    self.reader.restore(back_index)
-                    return Token(TokenKind.INTCONST, location, text)
                 case 60:
                     self.reader.restore(back_index)
                     return Token(TokenKind.INTCONST, location, text)
-                case 61:
+                case 62:
                     self.reader.restore(back_index)
                     return Token(TokenKind.INTCONST, location, text)
-                case 64:
+                case 63:
                     self.reader.restore(back_index)
                     return Token(TokenKind.INTCONST, location, text)
-                case 66:
+                case 65:
                     self.reader.restore(back_index)
                     return Token(TokenKind.FLOATCONST, location, text)
                 case 67:
                     self.reader.restore(back_index)
-                    return Token(TokenKind.FLOATCONST, location, text)
-                case 73:
-                    self.reader.restore(back_index)
-                    return Token(TokenKind.FLOATCONST, location, text)
-                case 76:
+                    return Token(TokenKind.INTCONST, location, text)
+                case 68:
                     self.reader.restore(back_index)
                     return Token(TokenKind.INTCONST, location, text)
-                case 79:
+                case 69:
                     self.reader.restore(back_index)
                     return Token(TokenKind.INTCONST, location, text)
-                case 80:
+                case 70:
+                    self.reader.restore(back_index)
+                    return Token(TokenKind.FLOATCONST, location, text)
+                case 75:
+                    self.reader.restore(back_index)
+                    return Token(TokenKind.INTCONST, location, text)
+                case 77:
+                    self.reader.restore(back_index)
+                    return Token(TokenKind.FLOATCONST, location, text)
+                case 78:
                     self.reader.restore(back_index)
                     return Token(TokenKind.INTCONST, location, text)
                 case 81:
                     self.reader.restore(back_index)
                     return Token(TokenKind.INTCONST, location, text)
+                case 82:
+                    self.reader.restore(back_index)
+                    return Token(TokenKind.INTCONST, location, text)
                 case 83:
                     self.reader.restore(back_index)
                     return Token(TokenKind.INTCONST, location, text)
-                case 85:
-                    self.reader.restore(back_index)
-                    return Token(TokenKind.INTCONST, location, text)
-                case 90:
+                case 88:
                     self.reader.restore(back_index)
                     return self.error('字符串未终止', location)
-                case 93:
+                case 92:
                     self.reader.restore(back_index)
                     return self.error('未知的转义字符', location)
                 case 98:
@@ -2006,79 +2006,79 @@ class Gen_Lexer(LexerBase):
                 case 99:
                     self.reader.restore(back_index)
                     return Token(TokenKind.CHARCONST, location, text)
-                case 103:
-                    self.reader.restore(back_index)
-                    return Token(TokenKind.FLOATCONST, location, text)
-                case 105:
-                    self.reader.restore(back_index)
-                    return Token(TokenKind.FLOATCONST, location, text)
-                case 111:
+                case 100:
                     self.reader.restore(back_index)
                     return Token(TokenKind.INTCONST, location, text)
-                case 114:
+                case 104:
+                    self.reader.restore(back_index)
+                    return Token(TokenKind.INTCONST, location, text)
+                case 107:
+                    self.reader.restore(back_index)
+                    return Token(TokenKind.INTCONST, location, text)
+                case 113:
                     self.reader.restore(back_index)
                     return Token(TokenKind.INTCONST, location, text)
                 case 115:
                     self.reader.restore(back_index)
                     return Token(TokenKind.INTCONST, location, text)
-                case 120:
+                case 116:
                     self.reader.restore(back_index)
                     return Token(TokenKind.INTCONST, location, text)
-                case 122:
+                case 119:
                     self.reader.restore(back_index)
-                    return Token(TokenKind.INTCONST, location, text)
-                case 125:
+                    return Token(TokenKind.FLOATCONST, location, text)
+                case 121:
                     self.reader.restore(back_index)
-                    return Token(TokenKind.INTCONST, location, text)
-                case 129:
+                    return Token(TokenKind.FLOATCONST, location, text)
+                case 128:
                     self.reader.restore(back_index)
                     return self.error('字符串未终止', location)
-                case 131:
+                case 130:
                     self.reader.restore(back_index)
                     return self.error('字符串未终止', location)
                 case 132:
                     self.reader.restore(back_index)
                     return self.error('字符串未终止', location)
-                case 149:
+                case 145:
                     self.reader.restore(back_index)
-                    return Token(TokenKind.FLOATCONST, location, text)
+                    return Token(TokenKind.INTCONST, location, text)
+                case 146:
+                    self.reader.restore(back_index)
+                    return Token(TokenKind.INTCONST, location, text)
                 case 150:
                     self.reader.restore(back_index)
                     return Token(TokenKind.INTCONST, location, text)
                 case 151:
                     self.reader.restore(back_index)
                     return Token(TokenKind.INTCONST, location, text)
-                case 152:
-                    self.reader.restore(back_index)
-                    return Token(TokenKind.INTCONST, location, text)
                 case 153:
                     self.reader.restore(back_index)
-                    return Token(TokenKind.INTCONST, location, text)
-                case 156:
+                    return Token(TokenKind.FLOATCONST, location, text)
+                case 155:
                     self.reader.restore(back_index)
                     return Token(TokenKind.FLOATCONST, location, text)
-                case 161:
+                case 157:
                     self.reader.restore(back_index)
                     return Token(TokenKind.INTCONST, location, text)
-                case 162:
+                case 158:
                     self.reader.restore(back_index)
                     return Token(TokenKind.INTCONST, location, text)
-                case 165:
+                case 159:
                     self.reader.restore(back_index)
                     return Token(TokenKind.INTCONST, location, text)
-                case 166:
+                case 160:
                     self.reader.restore(back_index)
                     return Token(TokenKind.INTCONST, location, text)
                 case 171:
                     self.reader.restore(back_index)
                     return self.error('字符串未终止', location)
-                case 173:
+                case 172:
                     self.reader.restore(back_index)
                     return self.error('字符串未终止', location)
-                case 187:
+                case 181:
                     self.reader.restore(back_index)
                     return Token(TokenKind.FLOATCONST, location, text)
-                case 189:
+                case 183:
                     self.reader.restore(back_index)
                     return Token(TokenKind.FLOATCONST, location, text)
         self.reader.restore(start_index)

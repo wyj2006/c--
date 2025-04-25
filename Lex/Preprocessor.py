@@ -28,7 +28,6 @@ from AST import (
 from Lex.EmbedLexer import EmbedLexer
 from Lex.Macro import Macro, MacroArg
 from Lex.PPFlag import PPFlag
-from Parse import memorize
 
 from .gen_Lexer import Gen_Lexer
 

@@ -1,13 +1,12 @@
-from Basic import TokenGen, TokenKind, Token, Error
-from .Memory import LR, Head, memorize
+from Basic import TokenGen, TokenKind, Error
+from .Memory import memorize
 
 
 class ParserBase:
     def __init__(self, tokengen: TokenGen):
         self.tokengen = tokengen
+        self.last_token = None  # 读取到的最后一个token
         self._memo = {}
-        self._lr_stack: list[LR] = []
-        self._heads: dict[int, Head] = {}
 
     def save(self):
         return self.tokengen.save()
@@ -19,7 +18,8 @@ class ParserBase:
         return self.tokengen.curtoken()
 
     def nexttoken(self):
-        return self.tokengen.next()
+        self.last_token = self.tokengen.next()
+        return self.last_token
 
     def lookahead(self, *args):
         z = self.save()

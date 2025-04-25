@@ -3,7 +3,7 @@ from AST import DumpVisitor
 from Analyze import DeclAnalyzer, SymtabFiller, AttrAnalyzer
 from Basic import Diagnostic, Diagnostics, Symtab, TokenKind, MergeReader
 from Lex import Preprocessor
-from Parse import Parser
+from Parse import Parser, generic_syntax_error
 
 version = "1.0.0"
 
@@ -48,6 +48,9 @@ def main():
         if dump_tokens:
             for token in lexer.tokens:
                 print(token)
+
+        if ast == None:
+            raise generic_syntax_error(parser)
 
         symtab = Symtab(ast.location)
         ast.accept(AttrAnalyzer(symtab))

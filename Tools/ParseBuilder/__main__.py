@@ -4,6 +4,7 @@ import os
 from argparse import ArgumentParser
 from Basic import Diagnostic, MergeReader
 from AST import DumpVisitor
+from Parse import generic_syntax_error
 
 from .GrammarLexer import GrammarLexer
 from .GrammarParser import GrammarParser
@@ -33,6 +34,8 @@ try:
     parser.nexttoken()
 
     grammar = parser.start()
+    if grammar == None:
+        raise generic_syntax_error(parser)
     grammar.class_name = class_name
     grammar.merge()
     grammar.accept(LeftRecDetector())

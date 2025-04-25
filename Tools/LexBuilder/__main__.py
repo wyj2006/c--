@@ -1,9 +1,9 @@
 import ast
-
-from argparse import ArgumentParser
 import os
+from argparse import ArgumentParser
 from Basic import Diagnostic, Location, MergeReader, Error
 from AST import DumpVisitor, RegExpr, Letter
+from Parse import generic_syntax_error
 
 from Tools.ParseBuilder import GrammarLexer, GrammarParser, LeftRecDetector
 
@@ -39,6 +39,8 @@ try:
     parser.nexttoken()
 
     grammar = parser.start()
+    if grammar == None:
+        raise generic_syntax_error(parser)
 
     grammar.merge()
     grammar.accept(LeftRecDetector())
