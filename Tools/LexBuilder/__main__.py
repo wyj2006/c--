@@ -2,7 +2,7 @@ import ast
 
 from argparse import ArgumentParser
 import os
-from Basic import Diagnostic, MergeReader
+from Basic import Diagnostic, Location, MergeReader, Error
 from AST import DumpVisitor, RegExpr, Letter
 
 from Tools.ParseBuilder import GrammarLexer, GrammarParser, LeftRecDetector
@@ -68,3 +68,5 @@ try:
 
 except Diagnostic as e:
     e.dump()
+except RecursionError:
+    Error("无法转换成正则表达式(可能是因为有递归)", Location([])).dump()

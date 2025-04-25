@@ -1,13 +1,5 @@
 """
 from Basic import *
-
-def check_keyword(a):
-    if a.text in Token.keywords:
-        a.kind=Token.keywords[a.text]
-    return a
-
-def check_punctuator(a):
-    return Token(Token.punctuator[a[1]],a[0],a[1])
 """
 
 start:
@@ -15,9 +7,9 @@ start:
 
 token:
     string_literal {Token(TokenKind.STRINGLITERAL,location,text)}
-    | identifier {check_keyword(Token(TokenKind.IDENTIFIER,location,text))}
+    | identifier {Token(TokenKind.IDENTIFIER if text not in Token.keywords else Token.keywords[text],location,text)}
     | constant
-    | punctuator
+    | punctuator {Token(Token.punctuator[text],location,text)}
     | "" {Token(TokenKind.END,location,text)}
 
 identifier:
@@ -235,52 +227,52 @@ s_char:
     | other_s_char
 
 punctuator:
-    "." "." "." {check_punctuator((location,text))}
-    | "<" "<" "=" {check_punctuator((location,text))}
-    | ">" ">" "=" {check_punctuator((location,text))}
-    | "-" ">" {check_punctuator((location,text))}
-    | "+" "+" {check_punctuator((location,text))}
-    | "-" "-" {check_punctuator((location,text))}
-    | "<" "<" {check_punctuator((location,text))}
-    | ">" ">" {check_punctuator((location,text))}
-    | "<" "=" {check_punctuator((location,text))}
-    | ">" "=" {check_punctuator((location,text))}
-    | "=" "=" {check_punctuator((location,text))}
-    | "!" "=" {check_punctuator((location,text))}
-    | "&" "&" {check_punctuator((location,text))}
-    | "|" "|" {check_punctuator((location,text))}
-    | ":" ":" {check_punctuator((location,text))}
-    | "*" "=" {check_punctuator((location,text))}
-    | "/" "=" {check_punctuator((location,text))}
-    | "%" "=" {check_punctuator((location,text))}
-    | "+" "=" {check_punctuator((location,text))}
-    | "-" "=" {check_punctuator((location,text))}
-    | "&" "=" {check_punctuator((location,text))}
-    | "^" "=" {check_punctuator((location,text))}
-    | "|" "=" {check_punctuator((location,text))}
-    | "#" "#" {check_punctuator((location,text))}
-    | "[" {check_punctuator((location,text))}
-    | "]" {check_punctuator((location,text))}
-    | "(" {check_punctuator((location,text))}
-    | ")" {check_punctuator((location,text))}
-    | "{" {check_punctuator((location,text))}
-    | "}" {check_punctuator((location,text))}
-    | "." {check_punctuator((location,text))}
-    | "&" {check_punctuator((location,text))}
-    | "*" {check_punctuator((location,text))}
-    | "+" {check_punctuator((location,text))}
-    | "-" {check_punctuator((location,text))}
-    | "~" {check_punctuator((location,text))}
-    | "!" {check_punctuator((location,text))}
-    | "/" {check_punctuator((location,text))}
-    | "%" {check_punctuator((location,text))}
-    | "<" {check_punctuator((location,text))}
-    | ">" {check_punctuator((location,text))}
-    | "^" {check_punctuator((location,text))}
-    | "|" {check_punctuator((location,text))}
-    | "?" {check_punctuator((location,text))}
-    | ":" {check_punctuator((location,text))}
-    | ";" {check_punctuator((location,text))}
-    | "=" {check_punctuator((location,text))}
-    | "," {check_punctuator((location,text))}
-    | "#" {check_punctuator((location,text))}
+    "." "." "."
+    | "<" "<" "="
+    | ">" ">" "="
+    | "-" ">"
+    | "+" "+"
+    | "-" "-"
+    | "<" "<"
+    | ">" ">"
+    | "<" "="
+    | ">" "="
+    | "=" "="
+    | "!" "="
+    | "&" "&"
+    | "|" "|"
+    | ":" ":"
+    | "*" "="
+    | "/" "="
+    | "%" "="
+    | "+" "="
+    | "-" "="
+    | "&" "="
+    | "^" "="
+    | "|" "="
+    | "#" "#"
+    | "["
+    | "]"
+    | "("
+    | ")"
+    | "{"
+    | "}"
+    | "."
+    | "&"
+    | "*"
+    | "+"
+    | "-"
+    | "~"
+    | "!"
+    | "/"
+    | "%"
+    | "<"
+    | ">"
+    | "^"
+    | "|"
+    | "?"
+    | ":"
+    | ";"
+    | "="
+    | ","
+    | "#"

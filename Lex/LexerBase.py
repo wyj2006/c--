@@ -47,13 +47,6 @@ class LexerBase(TokenGen):
     def error(self, msg, location):
         raise Error(msg, location)
 
-    def digit(self, ch: str):
-        """
-        digit: one of
-            0 1 2 3 4 5 6 7 8 9
-        """
-        return ch and ch.isdigit()
-
     def other_identifier_start(self, ch: str):
         """
         identifier-start:
@@ -98,36 +91,6 @@ class LexerBase(TokenGen):
 
     identifier_continue = other_identifier_continue
 
-    def nonzero_digit(self, ch: str):
-        """
-        nonzero-digit: one of
-            1 2 3 4 5 6 7 8 9
-        """
-        return ch and ch in "123456789"
-
-    def octal_digit(self, ch: str):
-        """
-        octal-digit: one of
-            0 1 2 3 4 5 6 7
-        """
-        return ch and ch in "01234567"
-
-    def hexadecimal_digit(self, ch: str):
-        """
-        hexadecimal-digit: one of
-            0 1 2 3 4 5 6 7 8 9
-            a b c d e f
-            A B C D E F
-        """
-        return ch and ch in "0123456789abcdefABCDEF"
-
-    def binary_digit(self, ch: str):
-        """
-        binary-digit: one of
-            0 1
-        """
-        return ch and ch in "01"
-
     def other_c_char(self, ch):
         """
         c-char:
@@ -145,7 +108,3 @@ class LexerBase(TokenGen):
             escape-sequence
         """
         return ch not in '"\\\n'
-
-    def pattern_end(self, _: str):
-        """标志一个模式匹配的完成"""
-        return False

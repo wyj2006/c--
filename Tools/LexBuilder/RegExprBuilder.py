@@ -14,33 +14,9 @@ from AST import (
     NamedItem,
     Option,
     EmptyString,
-    Transformer,
-    Item,
     Repeat0,
 )
 from Basic import Error
-
-
-class BackPatchMark(RegExpr):
-    """
-    回填标记
-    用于回填规则对应的正则表达式
-    """
-
-    rule_name: str
-
-    _attributes = RegExpr._attributes + ("rule_name",)
-
-
-class BackPatcher(Transformer):
-    """回填"""
-
-    def __init__(self, rules_regexpr: dict[str, RegExpr]):
-        super().__init__()
-        self.rules_regexpr = rules_regexpr
-
-    def visit_BackPatchMark(self, node: BackPatchMark):
-        return deepcopy(self.rules_regexpr[node.rule_name].accept(self))
 
 
 class RegExprBuilder(Visitor):
@@ -61,7 +37,6 @@ class RegExprBuilder(Visitor):
             a.exprs.append(rule.accept(self))
             if rule.name == "start":
                 start = a.exprs[-1]
-        a.accept(BackPatcher(self.rules_regexpr))
 
         return start
 
@@ -69,7 +44,7 @@ class RegExprBuilder(Visitor):
         if not node.is_left_rec:
             self.rules_regexpr[node.name] = node.rhs.accept(self)
             return self.rules_regexpr[node.name]
-
+        # TODO: 支持间接左递归
         left_rec: RegExpr = Choice(exprs=[])
         non_left_rec: RegExpr = Choice(exprs=[])
         for alt in node.rhs.alts:
@@ -142,4 +117,6 @@ class RegExprBuilder(Visitor):
     def visit_NameLeaf(self, node: NameLeaf):
         if node.name not in self.rules_map:
             return Letter(char=node.name, is_func=True, location=node.location)
-        return BackPatchMark(rule_name=node.name, location=node.location)
+        if node.name not in self.rules_regexpr:
+            self.rules_map[node.name].accept(self)
+        return deepcopy(self.rules_regexpr[node.name])

@@ -168,15 +168,12 @@ def generate_code(states: list[State], class_name: str, header: str):
             body=[
                 ast.parse("state, back_index = states.pop()").body[0],
                 ast.parse('text=""').body[0],
-                ast.parse("location=None").body[0],
+                ast.parse("location=Location([])").body[0],
                 ast.parse(
                     """
 for i in range(start_index, back_index):
     text += self.reader.hasread[i][0]
-    if location == None:
-        location = deepcopy(self.reader.hasread[i][1])
-    else:
-        location += self.reader.hasread[i][1]
+    location += self.reader.hasread[i][1]
 """
                 ).body[0],
                 accept_match,
@@ -202,7 +199,7 @@ for i in range(start_index, back_index):
     ast.fix_missing_locations(classdef)
     module = ast.Module(
         body=[
-            ast.parse("from Lex.LexerBase import LexerBase").body[0],
+            ast.parse("from Lex import LexerBase").body[0],
             ast.parse("from copy import deepcopy").body[0],
         ],
         type_ignores=[],
