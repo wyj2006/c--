@@ -14,10 +14,10 @@ from . import generate_state, generate_code
 
 argparser = ArgumentParser(description=f"词法分析器生成工具")
 argparser.add_argument("file", help="词法对应的语法描述文件")
-argparser.add_argument("-class_name", help="类名", action="store", default=None)
-argparser.add_argument("-dump-ast", help="输出AST", action="store_true", default=False)
+argparser.add_argument("--class-name", help="类名", action="store", default=None)
+argparser.add_argument("--dump-ast", help="输出AST", action="store_true", default=False)
 argparser.add_argument(
-    "-dump-regexpr", help="输出正则表达式树", action="store_true", default=False
+    "--dump-regexpr", help="输出正则表达式树", action="store_true", default=False
 )
 args = argparser.parse_args()
 file: str = args.file

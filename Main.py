@@ -12,13 +12,13 @@ def main():
     argparser = ArgumentParser(description=f"c--编译器 {version}")
     argparser.add_argument("file", help="源代码文件")
     argparser.add_argument(
-        "-dump-tokens", help="输出tokens", action="store_true", default=False
+        "--dump-tokens", help="输出tokens", action="store_true", default=False
     )
     argparser.add_argument(
-        "-dump-ast", help="输出AST", action="store_true", default=False
+        "--dump-ast", help="输出AST", action="store_true", default=False
     )
     argparser.add_argument(
-        "-dump-symtab", help="输出符号表", action="store_true", default=False
+        "--dump-symtab", help="输出符号表", action="store_true", default=False
     )
     argparser.add_argument(
         "-E", help="只进行预处理", action="store_true", default=False

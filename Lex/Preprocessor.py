@@ -88,7 +88,7 @@ class Preprocessor(Gen_Lexer):
                     text += ch
                     location.extend(loc)
                     ch, loc = self.reader.next()
-                return Token(TokenKind.COMMENT, location, text)
+                return Token(TokenKind.COMMENT, location, "//" + text)
             elif ch == "*":
                 text = ""
                 ch, loc = self.reader.next()
@@ -97,7 +97,7 @@ class Preprocessor(Gen_Lexer):
                     location.extend(loc)
                     ch, loc = self.reader.next()
                 self.reader.back()
-                return Token(TokenKind.COMMENT, location, text[:-2])
+                return Token(TokenKind.COMMENT, location, "/*" + text)
             else:
                 # 多读了两个
                 self.reader.back()
@@ -116,11 +116,7 @@ class Preprocessor(Gen_Lexer):
             self.reader.back()
         token = super().getNewToken()
         if token != None:
-            if token.kind == TokenKind.IDENTIFIER and self.flag.has(
-                PPFlag.TRANS_PPKEYWORD
-            ):
-                token.kind = Token.ppkeywords.get(token.text, TokenKind.IDENTIFIER)
-            elif token.kind == TokenKind.HASH:
+            if token.kind == TokenKind.HASH:
                 token.ispphash = self.check_pphash()
             elif token.kind == TokenKind.L_PAREN:
                 i = self.reader.nextindex - 2
@@ -171,9 +167,9 @@ class Preprocessor(Gen_Lexer):
             elif (
                 self.flag.has(PPFlag.ALLOW_REPLACE)
                 and token.kind == TokenKind.IDENTIFIER
+                and self.replaceMacro()  # 进行了替换
             ):
-                if self.replaceMacro():  # 进行了替换
-                    continue
+                continue
             elif (
                 not self.flag.has(PPFlag.KEEP_NEWLINE)
                 and token.kind == TokenKind.NEWLINE
@@ -189,7 +185,9 @@ class Preprocessor(Gen_Lexer):
                 self.tokens.pop(self.nexttk_index)
                 continue
             elif (
-                self.flag.has(PPFlag.TRANS_PPKEYWORD) and token.text in Token.ppkeywords
+                self.flag.has(PPFlag.TRANS_PPKEYWORD)
+                and token.kind == TokenKind.IDENTIFIER
+                and token.text in Token.ppkeywords
             ):
                 token.kind = Token.ppkeywords[token.text]
             elif (

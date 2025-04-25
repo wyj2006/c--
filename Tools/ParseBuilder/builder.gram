@@ -8,7 +8,7 @@ def unpack_header_rule(a):
     for i in a:
         rule.append(i[0])
         if i[1]!=None:
-            header+=i[1].text
+            header+=i[1].content
     return {
         "header":header,
         "rules":rule
@@ -36,7 +36,7 @@ alts:
     | alt {[alt]}
 
 alt:
-    items [action] {Alt(items=items, location=BEGIN_LOCATION,action=action.text if action!=None else None)}
+    items [action] {Alt(items=items, location=BEGIN_LOCATION,action=action.content if action!=None else None)}
 
 items:
     items item {items+[item]}

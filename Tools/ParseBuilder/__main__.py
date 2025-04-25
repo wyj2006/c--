@@ -13,8 +13,8 @@ from .Generator import Generator
 
 argparser = ArgumentParser(description=f"语法分析器生成工具")
 argparser.add_argument("file", help="语法文件")
-argparser.add_argument("-class_name", help="类名", action="store", default=None)
-argparser.add_argument("-dump-ast", help="输出AST", action="store_true", default=False)
+argparser.add_argument("--class-name", help="类名", action="store", default=None)
+argparser.add_argument("--dump-ast", help="输出AST", action="store_true", default=False)
 args = argparser.parse_args()
 file: str = args.file
 class_name: str = args.class_name

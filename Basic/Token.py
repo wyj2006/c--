@@ -292,17 +292,31 @@ class Token:
         self.kind = kind
         self.location = location
         self.text = text
-        self.content = None  # 字符串内容
-        self.prefix = None  # 字符串前缀
-        if kind in (TokenKind.CHARCONST, TokenKind.STRINGLITERAL):
-            i = self.text.find('"' if kind == TokenKind.STRINGLITERAL else "'")
-            self.prefix = self.text[:i]
-            self.content = self.text[i:]
-            self.content = eval(self.content)
+        self.content = None  #  内容
+        self.prefix = None  # 前缀
+        self.suffix = None  # 后缀
         self.ispphash = False  # 是否是预处理指令开头的'#'
         self.islparen = False  # define预处理指令中跟在宏名后面的括号
         self.pp_directive = None  # 未处理的预处理指令
         self.tokengen = None  # Token生成器
+
+        match kind:
+            case TokenKind.CHARCONST | TokenKind.STRINGLITERAL:
+                i = self.text.find('"' if kind == TokenKind.STRINGLITERAL else "'")
+                self.prefix = self.text[:i]
+                self.content = self.text[i:]
+                self.content = eval(self.content)
+            case TokenKind.COMMENT:
+                if text.startswith("//"):
+                    self.content = text[2:]
+                elif text.startswith("/*"):
+                    self.content = text[2:-2]
+                else:
+                    assert False, "未知的注释结构"
+            case TokenKind.HEADER:
+                self.content = text[3:-3]
+            case TokenKind.ACTION:
+                self.content = text[1:-1]
 
     def __repr__(self):
         return f"Token({self.kind.name},{self.location},{repr(self.text)})"

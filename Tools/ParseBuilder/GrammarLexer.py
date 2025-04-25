@@ -25,7 +25,7 @@ class GrammarLexer(Preprocessor):
                 text += ch
                 location.extend(loc)
                 ch, loc = self.reader.next()
-            return Token(TokenKind.ACTION, location, text)
+            return Token(TokenKind.ACTION, location, "{" + text + "}")
         elif ch == '"':
             back_count = 1
             ch, loc = self.reader.next()
@@ -43,7 +43,7 @@ class GrammarLexer(Preprocessor):
                     if text[-3:] != '"""':
                         raise Error('\'"""\'未闭合', loc)
                     self.reader.back()
-                    return Token(TokenKind.HEADER, location, text[:-3])
+                    return Token(TokenKind.HEADER, location, '"""' + text)
                 else:
                     self.reader.back()
                     self.reader.back()
