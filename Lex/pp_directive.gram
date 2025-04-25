@@ -10,7 +10,10 @@ def reconstruct(if_group,else_groups):
     return if_group
 """
 
-primary_expression:
+start:
+    group_part
+
+conditional_inclusion:
     defined_macro_expression
     | has_include_expression
     | has_embed_expression
@@ -22,29 +25,24 @@ defined_macro_expression:
 
 has_include_expression:
     a="__has_include" "(" b=header_name ")" {HasInclude(location=a.location,filename=b.text,search_current_path=False)}
-    | a="__has_include" "(" b=string_literal ")" {HasInclude(location=a.location,filename=b.text[1:-1],search_current_path=True)}
+    | a="__has_include" "(" b=string_literal ")" {HasInclude(location=a.location,filename=b.content,search_current_path=True)}
 
 has_embed_expression:
     a="__has_embed" "(" b=header_name c=[embed_parameter_sequence] ")" {HasEmbed(location=a.location,filename=b.text,search_current_path=False,parameters=c)}
-    | a="__has_embed" "(" b=string_literal c=[embed_parameter_sequence] ")" {HasEmbed(location=a.location,filename=b.text[1:-1],search_current_path=True,parameters=c)}
+    | a="__has_embed" "(" b=string_literal c=[embed_parameter_sequence] ")" {HasEmbed(location=a.location,filename=b.content,search_current_path=True,parameters=c)}
 
 has_c_attribute_express:
     a="__has_c_attribute" "(" b=attribute ")" {HasCAttribute(location=a.location,attribute=b)}
-
-start:
-    group_part
-
-#include "../Parse/c.gram"
 
 control_line:
     "#" a="include" b=header_name [pp_tokens] new_line 
         {Include(location=a.location,filename=b.text,search_current_path=False)}
     | "#" a="include" b=string_literal [pp_tokens] new_line 
-        {Include(location=a.location,filename=b.text[1:-1],search_current_path=True)}
+        {Include(location=a.location,filename=b.content,search_current_path=True)}
     | "#" a="embed" b=header_name c=[embed_parameter_sequence] [pp_tokens] new_line 
         {Embed(location=a.location,filename=b.text,search_current_path=False,parameters=c)}
     | "#" a="embed" b=string_literal c=[embed_parameter_sequence] [pp_tokens] new_line 
-        {Embed(location=a.location,filename=b.text[1:-1],search_current_path=True,parameters=c)}
+        {Embed(location=a.location,filename=b.content,search_current_path=True,parameters=c)}
     | "#" a="define" b=identifier lparen c=identifier_list "," "..." ")" d=[replacement_list] new_line 
         {DefineDirective(location=a.location,name=b.text,parameters=c,hasvarparam=True,is_object_like=False,replacement=d)}
     | "#" a="define" b=identifier lparen c=[identifier_list] ")" d=[replacement_list] new_line

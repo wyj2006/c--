@@ -132,88 +132,97 @@ class Preprocessor(Gen_Lexer):
         return token
 
     def next(self):
-        token = super().next()
+        while True:
+            token = super().next()
 
-        if (
-            not self.flag.has(PPFlag.IGNORE_PPDIRECTIVE)
-            and token.kind == TokenKind.UNHANDLE_PPDIRECTIVE
-        ):
-            self.nexttk_index -= 1
-            self.tokens.pop(self.nexttk_index)
-            self.handleDirective(token.pp_directive)
-            return self.next()
-
-        if (
-            not self.flag.has(PPFlag.IGNORE_PPDIRECTIVE)
-            and token.kind == TokenKind.HASH
-            and token.ispphash
-        ):
-            from Lex.PPDirectiveParser import PPDirectiveParser
-
-            start = self.nexttk_index - 1
-            with self.setFlag(
-                PPFlag.KEEP_NEWLINE
-                | PPFlag.IGNORE_PPDIRECTIVE
-                | PPFlag.TRANS_PPKEYWORD,
-                PPFlag.ALLOW_CONTACT | PPFlag.ALLOW_REPLACE,
+            if (
+                not self.flag.has(PPFlag.IGNORE_PPDIRECTIVE)
+                and token.kind == TokenKind.UNHANDLE_PPDIRECTIVE
             ):
-                parser = PPDirectiveParser(self)
-                pp_directive = parser.start()
-            if isinstance(pp_directive, list):
-                # pp_directive[0]是'#'
-                raise Error("未知的预处理指令", pp_directive[1].location)
-            end = self.nexttk_index - 1
-            self.tokens[start:end] = []
-            self.nexttk_index = start
-            # pp_directive.accept(DumpVisitor())
-            self.handleDirective(pp_directive)
-            return self.next()
-
-        # 尝试进行宏替换
-        if self.flag.has(PPFlag.ALLOW_REPLACE) and token.kind == TokenKind.IDENTIFIER:
-            if self.replaceMacro():  # 进行了替换
-                return self.next()
-
-        if not self.flag.has(PPFlag.KEEP_NEWLINE) and token.kind == TokenKind.NEWLINE:
-            self.nexttk_index -= 1
-            self.tokens.pop(self.nexttk_index)
-            return self.next()
-        elif not self.flag.has(PPFlag.KEEP_COMMENT) and token.kind == TokenKind.COMMENT:
-            self.nexttk_index -= 1
-            self.tokens.pop(self.nexttk_index)
-            return self.next()
-        elif self.flag.has(PPFlag.TRANS_PPKEYWORD) and token.text in Token.ppkeywords:
-            token.kind = Token.ppkeywords[token.text]
-        elif (
-            not self.flag.has(PPFlag.TRANS_PPKEYWORD)
-            and token.kind in Token.ppkeywords.values()
-        ):
-            token.kind = TokenKind.IDENTIFIER
-
-        # 连接相邻的字符串字面量
-        while (
-            self.flag.has(PPFlag.ALLOW_CONTACT)
-            and token.kind == TokenKind.STRINGLITERAL
-        ):
-            t = self.save()
-            token2: Token = self.next()
-            if token2.kind == TokenKind.STRINGLITERAL:
-                token.text += " " + token2.text
-                token.content += token2.content
-                token.location.extend(token2.location)
-                prefix_index = ["", "u8", "L", "u", "U"]
-                token.prefix = prefix_index[
-                    max(
-                        prefix_index.index(token.prefix),
-                        prefix_index.index(token2.prefix),
-                    )
-                ]
                 self.nexttk_index -= 1
                 self.tokens.pop(self.nexttk_index)
-            else:
-                self.restore(t)
-                break
-        return token
+                self.handleDirective(token.pp_directive)
+                continue
+            elif (
+                not self.flag.has(PPFlag.IGNORE_PPDIRECTIVE)
+                and token.kind == TokenKind.HASH
+                and token.ispphash
+            ):
+                from Lex.PPDirectiveParser import PPDirectiveParser
+
+                start = self.nexttk_index - 1
+                with self.setFlag(
+                    PPFlag.KEEP_NEWLINE
+                    | PPFlag.IGNORE_PPDIRECTIVE
+                    | PPFlag.TRANS_PPKEYWORD,
+                    PPFlag.ALLOW_CONTACT | PPFlag.ALLOW_REPLACE,
+                ):
+                    parser = PPDirectiveParser(self)
+                    pp_directive = parser.start()
+                if isinstance(pp_directive, list):
+                    # pp_directive[0]是'#'
+                    raise Error("未知的预处理指令", pp_directive[1].location)
+                end = self.nexttk_index - 1
+                self.tokens[start:end] = []
+                self.nexttk_index = start
+                # pp_directive.accept(DumpVisitor())
+                self.handleDirective(pp_directive)
+                continue
+            # 尝试进行宏替换
+            elif (
+                self.flag.has(PPFlag.ALLOW_REPLACE)
+                and token.kind == TokenKind.IDENTIFIER
+            ):
+                if self.replaceMacro():  # 进行了替换
+                    continue
+            elif (
+                not self.flag.has(PPFlag.KEEP_NEWLINE)
+                and token.kind == TokenKind.NEWLINE
+            ):
+                self.nexttk_index -= 1
+                self.tokens.pop(self.nexttk_index)
+                continue
+            elif (
+                not self.flag.has(PPFlag.KEEP_COMMENT)
+                and token.kind == TokenKind.COMMENT
+            ):
+                self.nexttk_index -= 1
+                self.tokens.pop(self.nexttk_index)
+                continue
+            elif (
+                self.flag.has(PPFlag.TRANS_PPKEYWORD) and token.text in Token.ppkeywords
+            ):
+                token.kind = Token.ppkeywords[token.text]
+            elif (
+                not self.flag.has(PPFlag.TRANS_PPKEYWORD)
+                and token.kind in Token.ppkeywords.values()
+            ):
+                token.kind = TokenKind.IDENTIFIER
+
+            # 连接相邻的字符串字面量
+            while (
+                self.flag.has(PPFlag.ALLOW_CONTACT)
+                and token.kind == TokenKind.STRINGLITERAL
+            ):
+                t = self.save()
+                token2: Token = super().next()
+                if token2.kind == TokenKind.STRINGLITERAL:
+                    token.text += " " + token2.text
+                    token.content += token2.content
+                    token.location.extend(token2.location)
+                    prefix_index = ["", "u8", "L", "u", "U"]
+                    token.prefix = prefix_index[
+                        max(
+                            prefix_index.index(token.prefix),
+                            prefix_index.index(token2.prefix),
+                        )
+                    ]
+                    self.nexttk_index -= 1
+                    self.tokens.pop(self.nexttk_index)
+                else:
+                    self.restore(t)
+                    break
+            return token
 
     def handleDirective(self, pp_directive: PPDirective):
         if isinstance(pp_directive, DefineDirective):

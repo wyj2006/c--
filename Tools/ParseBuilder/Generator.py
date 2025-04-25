@@ -132,7 +132,18 @@ class Generator(Visitor):
         return ast.Tuple(elts=[node.item.accept(self)])
 
     def visit_NameLeaf(self, node: NameLeaf):
-        return ast.parse(f"{node.name}:=self.{node.name}()", mode="eval").body
+        return ast.NamedExpr(
+            target=ast.Name(id=node.name, ctx=ast.Store()),
+            value=ast.Call(
+                func=ast.Attribute(
+                    value=ast.Name(id="self", ctx=ast.Load()),
+                    attr=node.name,
+                    ctx=ast.Load(),
+                ),
+                args=[],
+                keywords=[],
+            ),
+        )
 
     def visit_StringLeaf(self, node: StringLeaf):
         token_kind = None

@@ -165,3 +165,10 @@ class PPDirectiveParser(Gen_PPDirectiveParser, Parser):
             pp_directive.group = self.group()
             return pp_directive
         return super().elif_group()
+
+    def primary_expression(self):
+        if a := Gen_PPDirectiveParser.conditional_inclusion(self):
+            return a
+        if a := Parser.primary_expression(self):
+            return a
+        return None
