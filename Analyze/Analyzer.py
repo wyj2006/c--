@@ -47,12 +47,14 @@ def block_scope(func):
         else:
             self.cur_symtab = node._symtab = self.cur_symtab.enterScope(node.location)
 
-        func(self, node, *args, **kwargs)
+        ret = func(self, node, *args, **kwargs)
 
         self.cur_symtab = _cur_symtab
 
         if isinstance(node, FunctionDef):
             self.flag.restore(_flag)
+
+        return ret
 
     return inner
 
@@ -69,10 +71,12 @@ def func_prototype_scope(func):
                 )
 
         with self.setFlag(AnalyzerFlag.FUNCPARAM):
-            func(self, node, *args, **kwargs)
+            ret = func(self, node, *args, **kwargs)
 
         if not self.flag.has(AnalyzerFlag.FUNCDEF):
             self.cur_symtab = _cur_symtab
+
+        return ret
 
     return inner
 
@@ -108,20 +112,22 @@ class Analyzer(Visitor):
         for declarator in node.declarators:
             declarator.accept(self)
         self._visit_CompoundStmt(node.body)
+        return node
 
     @block_scope
     def visit_FunctionDef(self, node: FunctionDef, *args, **kwargs):
-        self._visit_FunctionDef(node, *args, **kwargs)
+        return self._visit_FunctionDef(node, *args, **kwargs)
 
     def _visit_CompoundStmt(self, node: CompoundStmt, *args, **kwargs):
         if node.items == None:
             node.items = []
         for item in node.items:
             item.accept(self)
+        return node
 
     @block_scope
     def visit_CompoundStmt(self, node: CompoundStmt, *args, **kwargs):
-        self._visit_CompoundStmt(node, *args, **kwargs)
+        return self._visit_CompoundStmt(node, *args, **kwargs)
 
     @block_scope
     def visit_IfStmt(self, node: IfStmt, *args, **kwargs):
@@ -129,11 +135,13 @@ class Analyzer(Visitor):
         node.body.accept(self)
         if node.else_body != None:
             node.else_body.accept(self)
+        return node
 
     @block_scope
     def visit_SwitchStmt(self, node: SwitchStmt, *args, **kwargs):
         node.condition_expr.accept(self)
         node.body.accept(self)
+        return node
 
     @block_scope
     def visit_ForStmt(self, node: ForStmt, *args, **kwargs):
@@ -144,16 +152,19 @@ class Analyzer(Visitor):
         if node.increase_expr != None:
             node.increase_expr.accept(self)
         node.body.accept(self)
+        return node
 
     @block_scope
     def visit_WhileStmt(self, node: WhileStmt, *args, **kwargs):
         node.condition_expr.accept(self)
         node.body.accept(self)
+        return node
 
     @block_scope
     def visit_DoWhileStmt(self, node: DoWhileStmt, *args, **kwargs):
         node.condition_expr.accept(self)
         node.body.accept(self)
+        return node
 
     @func_prototype_scope
     def visitParam(self, node: FunctionDeclarator, *args, **kwargs):
@@ -164,3 +175,4 @@ class Analyzer(Visitor):
     def visit_FunctionDeclarator(self, node: FunctionDeclarator, *args, **kwargs):
         node.declarator.accept(self)
         self.visitParam(node, *args, **kwargs)
+        return node

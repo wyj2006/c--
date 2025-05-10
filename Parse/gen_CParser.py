@@ -640,7 +640,7 @@ class Gen_CParser(ParserBase):
             return (a, UnaryOpKind.ADDRESS)
         self.restore(_z)
         if (a := self.expect(TokenKind.STAR)):
-            return (a, UnaryOpKind.INDIRECTION)
+            return (a, UnaryOpKind.DEREFERENCE)
         self.restore(_z)
         if (a := self.expect(TokenKind.PLUS)):
             return (a, UnaryOpKind.POSITIVE)
@@ -793,7 +793,7 @@ class Gen_CParser(ParserBase):
             return constant
         self.restore(_z)
         if (a := self.string_literal()):
-            return StringLiteral(value=a.content, prefix=a.prefix, location=a.location)
+            return StringLiteral(value=a.content + '\x00', prefix=a.prefix, location=a.location)
         self.restore(_z)
         if self.expect(TokenKind.L_PAREN) and (a := self.expression()) and self.expect(TokenKind.R_PAREN):
             return a
@@ -811,13 +811,31 @@ class Gen_CParser(ParserBase):
         begin_location = self.curtoken().location
         _z = self.save()
         if (a := self.integer_constant()):
-            return IntegerLiteral(value=a.text, location=a.location)
+            return IntegerLiteral(value=a.content, prefix=a.prefix, suffix=a.suffix, location=a.location)
         self.restore(_z)
         if (a := self.floating_constant()):
-            return FloatLiteral(value=a.text, location=a.location)
+            return FloatLiteral(value=a.content, prefix=a.prefix, suffix=a.suffix, location=a.location)
         self.restore(_z)
         if (a := self.character_constant()):
             return CharLiteral(value=a.content, prefix=a.prefix, location=a.location)
+        self.restore(_z)
+        if (predefined_constant := self.predefined_constant()):
+            return predefined_constant
+        self.restore(_z)
+        return None
+
+    @memorize
+    def predefined_constant(self):
+        begin_location = self.curtoken().location
+        _z = self.save()
+        if (a := self.expect(TokenKind.TRUE)):
+            return BoolLiteral(value=True, location=a.location)
+        self.restore(_z)
+        if (a := self.expect(TokenKind.FALSE)):
+            return BoolLiteral(value=False, location=a.location)
+        self.restore(_z)
+        if (a := self.expect(TokenKind.NULLPTR)):
+            return NullPtrLiteral(location=a.location)
         self.restore(_z)
         return None
 

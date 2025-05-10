@@ -30,7 +30,7 @@ def check_type(actual: Type, expected: Type):
 def check_ast(node: Node, expected: Node):
     assert type(node) == type(expected)
     for key, val in expected.__dict__.items():
-        assert hasattr(node, key)
+        assert hasattr(node, key), key
         attr = getattr(node, key)
         if isinstance(attr, Node):
             check_ast(attr, val)

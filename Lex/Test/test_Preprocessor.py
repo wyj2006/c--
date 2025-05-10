@@ -42,7 +42,7 @@ def examplestest(examples, handle=None):
 def test_stringconcat():
     examples = [
         {
-            "filename": "stringchar.txt",
+            "filename": "stringconcat.txt",
             "tokens": [
                 {
                     "kind": TokenKind.STRINGLITERAL,

@@ -317,6 +317,46 @@ class Token:
                 self.content = text[3:-3]
             case TokenKind.ACTION:
                 self.content = text[1:-1]
+            case TokenKind.INTCONST | TokenKind.FLOATCONST:
+                self.content = self.text.replace("'", "")
+                self.prefix = ""
+                self.suffix = []
+                for prefix in ("0x", "0X", "0B", "0b"):
+                    if self.content.startswith(prefix):
+                        self.prefix = prefix.lower()
+                        self.content = self.content[len(prefix) :]
+                        break
+                else:
+                    if self.content[0] == "0" and len(self.content) > 1:
+                        self.prefix = "0"
+                        self.content = self.content[1:]
+                while True:
+                    for suffix in (
+                        "wb",
+                        "WB",
+                        "ll",
+                        "LL",
+                        "l",
+                        "L",
+                        "U",
+                        "u",
+                        "df",
+                        "dd",
+                        "dl",
+                        "DF",
+                        "DD",
+                        "DL",
+                        "f",
+                        "F",
+                        "l",
+                        "L",
+                    ):
+                        if self.content.endswith(suffix):
+                            self.suffix.append(suffix.lower())
+                            self.content = self.content[: -len(suffix)]
+                            break
+                    else:
+                        break
 
     def __repr__(self):
         return f"Token({self.kind.name},{self.location},{repr(self.text)})"

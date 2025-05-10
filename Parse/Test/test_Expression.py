@@ -6,7 +6,7 @@ def test_primary_expression():
     parser.nexttoken()
     for i in (
         Reference(name="a"),
-        StringLiteral(value="123"),
+        StringLiteral(value="123\0"),
         CharLiteral(value="1"),
         IntegerLiteral(value="123"),
         FloatLiteral(value="123.5"),
@@ -27,6 +27,9 @@ def test_primary_expression():
                 ),
             ],
         ),
+        BoolLiteral(value=True),
+        BoolLiteral(value=False),
+        NullPtrLiteral(),
     ):
         a = parser.primary_expression()
         a.accept(DumpVisitor())
@@ -67,7 +70,7 @@ def test_unary_expression():
     for i in (
         UnaryOperator(op=UnaryOpKind.PREFIX_INC, operand=Reference(name="a")),
         UnaryOperator(op=UnaryOpKind.ADDRESS, operand=Reference(name="a")),
-        UnaryOperator(op=UnaryOpKind.INDIRECTION, operand=Reference(name="a")),
+        UnaryOperator(op=UnaryOpKind.DEREFERENCE, operand=Reference(name="a")),
         UnaryOperator(op=UnaryOpKind.POSITIVE, operand=Reference(name="a")),
         UnaryOperator(op=UnaryOpKind.NEGATIVE, operand=Reference(name="a")),
         UnaryOperator(op=UnaryOpKind.NOT, operand=Reference(name="a")),

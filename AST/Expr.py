@@ -2,7 +2,7 @@ from enum import Enum
 from typing import Any, Union
 from AST.Node import Node
 from AST.Decl import TypeName, StorageClass
-from Basic import Symbol, Type
+from Basic import Symbol, Token, Type
 
 
 class Expr(Node):
@@ -10,33 +10,26 @@ class Expr(Node):
 
     value: Any  # 表达式的值(如果可以在编译期计算的话)
     type: Type  # 表达式的类型
-    _attributes = Node._attributes + ("type", "value")
+    is_lvalue: bool  # 是否是左值
+    _attributes = Node._attributes + ("type", "value", "is_lvalue")
 
 
 class IntegerLiteral(Expr):
     """整数字面量"""
 
-    def determine(self):
-        """确定类型和值"""
-        value: str = self.value.lower()
-        suffix = ""
-        while not (value[-1].isdigit() or value[-1] == '"'):
-            suffix = value[-1] + suffix
-            value = value[:-1]
+    prefix: str
+    suffix: list[str]
 
-        if value.startswith("0b"):
-            value = int(value, base=2)
-        elif value.startswith("0x"):
-            value = int(value, base=16)
-        elif value.startswith("0"):
-            value = int(value, base=8)
-        else:
-            value = int(value)
-        self.value = value
+    _attributes = Expr._attributes + ("prefix", "suffix")
 
 
 class FloatLiteral(Expr):
     """浮点数字面量"""
+
+    prefix: str
+    suffix: list[str]
+
+    _attributes = Expr._attributes + ("prefix", "suffix")
 
 
 class StringLiteral(Expr):
@@ -53,6 +46,14 @@ class CharLiteral(Expr):
     prefix: str
 
     _attributes = Expr._attributes + ("prefix",)
+
+
+class BoolLiteral(Expr):
+    pass
+
+
+class NullPtrLiteral(Expr):
+    pass
 
 
 class Reference(Expr):
@@ -78,8 +79,9 @@ class GenericSelection(Expr):
 
     controling_expr: Expr
     assoc_list: list[GenericAssociation]
+    select: Expr
 
-    _fields = Expr._fields + ("controling_expr", "assoc_list")
+    _fields = Expr._fields + ("select", "controling_expr", "assoc_list")
 
 
 class ArraySubscript(Expr):
@@ -119,7 +121,7 @@ class UnaryOpKind(Enum):
     PREFIX_INC = "prefix ++"
     PREFIX_DEC = "prefix --"
     ADDRESS = "&"
-    INDIRECTION = "*"
+    DEREFERENCE = "*"
     POSITIVE = "+"
     NEGATIVE = "-"
     INVERT = "~"
@@ -156,6 +158,14 @@ class ExplicitCast(Expr):
     expr: Expr
 
     _fields = Expr._fields + ("type_name", "expr")
+
+
+class ImplicitCast(Expr):
+    """隐式类型转换"""
+
+    expr: Expr
+
+    _fields = Expr._fields + ("expr",)
 
 
 class BinOpKind(Enum):

@@ -213,6 +213,8 @@ class FieldDecl(Declaration):
 
 
 class MemberDecl(TypeOrVarDecl):
+    initializer = None
+
     bit_field: "Expr"
 
     _fields = Declarator._fields + ("bit_field",)

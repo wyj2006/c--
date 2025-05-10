@@ -4,3 +4,6 @@ a
 123
 123.5
 _Generic(a, int:b,char:c)
+true
+false
+nullptr

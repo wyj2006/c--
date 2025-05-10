@@ -185,7 +185,7 @@ unary_expression:
 
 unary_operator:
     a="&" {a,UnaryOpKind.ADDRESS}
-    | a="*" {a,UnaryOpKind.INDIRECTION}
+    | a="*" {a,UnaryOpKind.DEREFERENCE}
     | a="+" {a,UnaryOpKind.POSITIVE}
     | a="-" {a,UnaryOpKind.NEGATIVE}
     | a="~" {a,UnaryOpKind.INVERT}
@@ -226,14 +226,20 @@ generic_association:
 primary_expression:
     a=identifier {Reference(name=a.text, location=a.location)}
     | constant
-    | a=string_literal {StringLiteral(value=a.content,prefix=a.prefix,location=a.location)}
+    | a=string_literal {StringLiteral(value=a.content+"\0",prefix=a.prefix,location=a.location)}
     | "(" a=expression ")" {a}
     | generic_selection
 
 constant:
-    a=integer_constant {IntegerLiteral(value=a.text, location=a.location)}
-    | a=floating_constant {FloatLiteral(value=a.text, location=a.location)}
+    a=integer_constant {IntegerLiteral(value=a.content,prefix=a.prefix,suffix=a.suffix,location=a.location)}
+    | a=floating_constant {FloatLiteral(value=a.content,prefix=a.prefix,suffix=a.suffix,location=a.location)}
     | a=character_constant {CharLiteral(value=a.content,prefix=a.prefix,location=a.location)}
+    | predefined_constant
+
+predefined_constant:
+    a="true" {BoolLiteral(value=True,location=a.location)}
+    | a="false" {BoolLiteral(value=False,location=a.location)}
+    | a="nullptr" {NullPtrLiteral(location=a.location)}
 
 declaration:
     a=attribute_specifier_sequence b=declaration_specifiers c=init_declarator_list d=";" {DeclStmt(attribute_specifiers=a,specifiers=b[0],specifier_attributes=b[1],declarators=c,location=d.location)}

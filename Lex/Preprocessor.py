@@ -204,16 +204,14 @@ class Preprocessor(Gen_Lexer):
                 t = self.save()
                 token2: Token = super().next()
                 if token2.kind == TokenKind.STRINGLITERAL:
+                    if (
+                        token.prefix != "" and token2.prefix != ""
+                    ) and token2.prefix != token.prefix:
+                        raise Error("无法连接字符串", token2.location)
                     token.text += " " + token2.text
                     token.content += token2.content
                     token.location.extend(token2.location)
-                    prefix_index = ["", "u8", "L", "u", "U"]
-                    token.prefix = prefix_index[
-                        max(
-                            prefix_index.index(token.prefix),
-                            prefix_index.index(token2.prefix),
-                        )
-                    ]
+                    token.prefix = token.prefix if token.prefix != "" else token2.prefix
                     self.nexttk_index -= 1
                     self.tokens.pop(self.nexttk_index)
                 else:

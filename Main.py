@@ -1,11 +1,11 @@
 from argparse import ArgumentParser
-from AST import DumpVisitor
-from Analyze import DeclAnalyzer, SymtabFiller, AttrAnalyzer
-from Basic import Diagnostic, Diagnostics, Symtab, TokenKind, MergeReader
+from AST import DumpVisitor, Visitor, Transformer
+from Analyze import DeclAnalyzer, SymtabFiller, AttrAnalyzer, TypeChecker
+from Basic import Diagnostic, Diagnostics, Symtab, TokenKind, MergeReader, Token
 from Lex import Preprocessor
 from Parse import Parser, generic_syntax_error
 
-version = "1.0.0"
+version = "0.8.0"
 
 
 def main():
@@ -34,7 +34,7 @@ def main():
         lexer = Preprocessor(reader)
 
         if pp_only and True:
-            token = lexer.next()
+            token: Token = lexer.next()
             while token.kind != TokenKind.END:
                 print(token)
                 token = lexer.next()
@@ -48,20 +48,34 @@ def main():
         if dump_tokens:
             for token in lexer.tokens:
                 print(token)
-
         if ast == None:
             raise generic_syntax_error(parser)
 
         symtab = Symtab(ast.location)
-        ast.accept(AttrAnalyzer(symtab))
-        ast.accept(DeclAnalyzer(symtab))
-        ast.accept(SymtabFiller(symtab))
+
+        exceptions = []
+
+        for analyzer in (
+            AttrAnalyzer(symtab),
+            DeclAnalyzer(symtab),
+            SymtabFiller(symtab),
+            TypeChecker(symtab),
+        ):
+            try:
+                if isinstance(analyzer, Transformer):
+                    ast = ast.accept(analyzer)
+                else:
+                    ast.accept(analyzer)
+            except Exception as e:
+                exceptions.append(e)
 
         if dump_ast:
             ast.accept(DumpVisitor())
-
         if dump_symtab:
             symtab.print()
+
+        if exceptions:
+            raise exceptions[0]
     except Diagnostic as e:
         e.dump()
     except Diagnostics as e:

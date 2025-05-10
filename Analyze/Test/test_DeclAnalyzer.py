@@ -76,16 +76,12 @@ def test_basic():
                 ),
                 DeclStmt(
                     declarators=[
-                        TypeOrVarDecl(
-                            name="g", type=BasicType(BasicTypeKind.UNSIGNEDLONGLONG)
-                        )
+                        TypeOrVarDecl(name="g", type=BasicType(BasicTypeKind.ULONGLONG))
                     ]
                 ),
                 DeclStmt(
                     declarators=[
-                        TypeOrVarDecl(
-                            name="h", type=BasicType(BasicTypeKind.UNSIGNEDLONGLONG)
-                        )
+                        TypeOrVarDecl(name="h", type=BasicType(BasicTypeKind.ULONGLONG))
                     ]
                 ),
                 DeclStmt(

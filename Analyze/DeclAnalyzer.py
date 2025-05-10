@@ -126,7 +126,7 @@ class DeclAnalyzer(Analyzer):
                     "long",
                     "float",
                     "double",
-                    "_Bool",
+                    "bool",
                     "_Complex",
                     "_Imaginary",
                     "unsigned",

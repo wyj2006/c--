@@ -57,7 +57,9 @@ class Evaluater(Visitor):
         raise Error(f"{node.__class__.__name__}不应该出现在这个上下文中", node.location)
 
     def visit_IntegerLiteral(self, node: IntegerLiteral):
-        node.determine()
+        from Analyze import TypeChecker
+
+        node.value = node.accept(TypeChecker(self.symtab)).value
 
     def visit_BinaryOperator(self, node: BinaryOperator):
         if node.op not in self.operator:
