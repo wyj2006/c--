@@ -20,17 +20,14 @@ from Basic import (
     Member,
     EnumConst,
     MEMBER_NAMES,
-    TAG_NAMES,
     Symbol,
     Parameter,
     Function,
-    FunctionType,
-    EnumType,
     Note,
     Diagnostics,
-    ArrayType,
     Symtab,
 )
+from Types import FunctionType, EnumType, ArrayType
 
 
 class SymtabFiller(Analyzer):

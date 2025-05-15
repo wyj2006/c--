@@ -2,7 +2,8 @@ from enum import Enum
 from typing import Any, Union
 from AST.Node import Node
 from AST.Decl import TypeName, StorageClass
-from Basic import Symbol, Token, Type
+from Basic import Symbol, Token
+from Types import Type
 
 
 class Expr(Node):

@@ -2,18 +2,8 @@
 
 from typing import TYPE_CHECKING, Callable, TypeVar
 from Basic import (
-    Type,
-    is_compatible_type,
-    ArrayType,
-    PointerType,
-    FunctionType,
-    remove_atomic,
-    remove_qualifier,
     Function,
     EnumConst,
-    integer_promotion,
-    QualifiedType,
-    RecordType,
 )
 from AST import (
     ImplicitCast,
@@ -30,7 +20,18 @@ from AST import (
     CompoundLiteral,
     Reference,
     ArraySubscript,
-    TypeQualifierKind,
+)
+from Types import (
+    Type,
+    is_compatible_type,
+    ArrayType,
+    PointerType,
+    FunctionType,
+    remove_atomic,
+    remove_qualifier,
+    integer_promotion,
+    QualifiedType,
+    RecordType,
 )
 
 if TYPE_CHECKING:
@@ -94,9 +95,12 @@ def generic_implicit_cast(func: Callable[["TypeChecker", Node], _T]):
     """
 
     def wrapper(self: "TypeChecker", node: Node) -> _T:
-        self.path.append(node)
-        ret = func(self, node)
-        self.path.pop()
+        ret = node
+        if not hasattr(node, "value"):
+            # 在ConstEvaluater中处理过了
+            self.path.append(node)
+            ret = func(self, node)
+            self.path.pop()
 
         if not isinstance(node, Expr):
             return ret

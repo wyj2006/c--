@@ -13,17 +13,9 @@ def test_basic():
         ast,
         TranslationUnit(
             body=[
+                DeclStmt(declarators=[TypeOrVarDecl(name="a", type=IntType())]),
                 DeclStmt(
-                    declarators=[
-                        TypeOrVarDecl(name="a", type=BasicType(BasicTypeKind.INT))
-                    ]
-                ),
-                DeclStmt(
-                    declarators=[
-                        TypeOrVarDecl(
-                            name="b", type=PointerType(BasicType(BasicTypeKind.INT))
-                        )
-                    ]
+                    declarators=[TypeOrVarDecl(name="b", type=PointerType(IntType()))]
                 ),
                 DeclStmt(
                     declarators=[
@@ -31,7 +23,7 @@ def test_basic():
                             name="c",
                             type=ArrayType(
                                 ArrayType(
-                                    BasicType(BasicTypeKind.INT),
+                                    IntType(),
                                     IntegerLiteral(value="6"),
                                 ),
                                 IntegerLiteral(value="5"),
@@ -46,7 +38,7 @@ def test_basic():
                             type=PointerType(
                                 ArrayType(
                                     ArrayType(
-                                        BasicType(BasicTypeKind.INT),
+                                        IntType(),
                                         IntegerLiteral(value="6"),
                                     ),
                                     IntegerLiteral(value="5"),
@@ -61,7 +53,7 @@ def test_basic():
                             name="e",
                             type=ArrayType(
                                 ArrayType(
-                                    PointerType(BasicType(BasicTypeKind.INT)),
+                                    PointerType(IntType()),
                                     IntegerLiteral(value="6"),
                                 ),
                                 IntegerLiteral(value="5"),
@@ -69,26 +61,10 @@ def test_basic():
                         )
                     ]
                 ),
-                DeclStmt(
-                    declarators=[
-                        TypeOrVarDecl(name="f", type=BasicType(BasicTypeKind.LONGLONG))
-                    ]
-                ),
-                DeclStmt(
-                    declarators=[
-                        TypeOrVarDecl(name="g", type=BasicType(BasicTypeKind.ULONGLONG))
-                    ]
-                ),
-                DeclStmt(
-                    declarators=[
-                        TypeOrVarDecl(name="h", type=BasicType(BasicTypeKind.ULONGLONG))
-                    ]
-                ),
-                DeclStmt(
-                    declarators=[
-                        TypeOrVarDecl(name="i", type=BasicType(BasicTypeKind.LONG))
-                    ]
-                ),
+                DeclStmt(declarators=[TypeOrVarDecl(name="f", type=LongLongType())]),
+                DeclStmt(declarators=[TypeOrVarDecl(name="g", type=ULongLongType())]),
+                DeclStmt(declarators=[TypeOrVarDecl(name="h", type=ULongLongType())]),
+                DeclStmt(declarators=[TypeOrVarDecl(name="i", type=LongType())]),
                 DeclStmt(
                     declarators=[
                         TypeOrVarDecl(
@@ -110,23 +86,19 @@ def test_basic():
                             name="l",
                             type=QualifiedType(
                                 [TypeQualifier(qualifier=TypeQualifierKind.CONST)],
-                                BasicType(BasicTypeKind.INT),
+                                IntType(),
                             ),
                         )
                     ]
                 ),
                 DeclStmt(
-                    declarators=[
-                        TypeOrVarDecl(
-                            name="m", type=AtomicType(BasicType(BasicTypeKind.INT))
-                        )
-                    ]
+                    declarators=[TypeOrVarDecl(name="m", type=AtomicType(IntType()))]
                 ),
                 DeclStmt(
                     declarators=[
                         TypeOrVarDecl(
                             name="n",
-                            type=AtomicType(PointerType(BasicType(BasicTypeKind.INT))),
+                            type=AtomicType(PointerType(IntType())),
                         )
                     ]
                 ),
@@ -148,9 +120,7 @@ def test_basic():
                     declarators=[
                         TypeOrVarDecl(
                             name="p",
-                            type=TypeofType(
-                                PointerType(PointerType(BasicType(BasicTypeKind.INT)))
-                            ),
+                            type=TypeofType(PointerType(PointerType(IntType()))),
                         )
                     ]
                 ),
@@ -167,7 +137,7 @@ def test_basic():
                                                 qualifier=TypeQualifierKind.CONST
                                             )
                                         ],
-                                        BasicType(BasicTypeKind.INT),
+                                        IntType(),
                                     )
                                 ),
                             ),
@@ -176,7 +146,7 @@ def test_basic():
                             name="w",
                             type=QualifiedType(
                                 [TypeQualifier(qualifier=TypeQualifierKind.CONST)],
-                                BasicType(BasicTypeKind.INT),
+                                IntType(),
                             ),
                         ),
                     ]
@@ -185,10 +155,10 @@ def test_basic():
                     func_name="main",
                     func_type=FunctionType(
                         [
-                            BasicType(BasicTypeKind.INT),
-                            ArrayType(PointerType(BasicType(BasicTypeKind.CHAR)), None),
+                            IntType(),
+                            ArrayType(PointerType(CharType()), None),
                         ],
-                        BasicType(BasicTypeKind.INT),
+                        IntType(),
                     ),
                 ),
             ]
@@ -222,11 +192,7 @@ def test_symtab_related():
         ast,
         TranslationUnit(
             body=[
-                DeclStmt(  # 0
-                    declarators=[
-                        TypeOrVarDecl(name="A", type=BasicType(BasicTypeKind.INT))
-                    ]
-                ),
+                DeclStmt(declarators=[TypeOrVarDecl(name="A", type=IntType())]),  # 0
                 DeclStmt(declarators=[TypeOrVarDecl(name="q", type=typedef_type)]),  # 1
                 DeclStmt(  # 2
                     declarators=[
@@ -300,14 +266,10 @@ def test_funcdef():
                     func_name="main",
                     func_type=FunctionType(
                         [
-                            BasicType(BasicTypeKind.INT),
-                            ArrayPtrType(
-                                ArrayType(
-                                    PointerType(BasicType(BasicTypeKind.CHAR)), None
-                                )
-                            ),
+                            IntType(),
+                            ArrayPtrType(ArrayType(PointerType(CharType()), None)),
                         ],
-                        BasicType(BasicTypeKind.INT),
+                        IntType(),
                     ),
                 ),
                 DeclStmt(
@@ -318,15 +280,15 @@ def test_funcdef():
                                 [
                                     PointerType(
                                         FunctionType(
-                                            [BasicType(BasicTypeKind.INT)],
-                                            BasicType(BasicTypeKind.INT),
+                                            [IntType()],
+                                            IntType(),
                                         )
                                     )
                                 ],
-                                BasicType(BasicTypeKind.INT),
+                                IntType(),
                             ),
                         ),
-                        TypeOrVarDecl(name="a", type=BasicType(BasicTypeKind.INT)),
+                        TypeOrVarDecl(name="a", type=IntType()),
                     ]
                 ),
                 DeclStmt(
@@ -334,8 +296,8 @@ def test_funcdef():
                         TypeOrVarDecl(
                             name="printf",
                             type=FunctionType(
-                                [PointerType(BasicType(BasicTypeKind.CHAR))],
-                                BasicType(BasicTypeKind.VOID),
+                                [PointerType(CharType())],
+                                VoidType(),
                                 has_varparam=True,
                             ),
                         )

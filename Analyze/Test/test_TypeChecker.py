@@ -6,43 +6,49 @@ def test_const_and_literal():
     parser.tokengen.flag.remove(PPFlag.ALLOW_CONTACT)
     parser.nexttoken()
     for i in (
-        BoolLiteral(value=True, type=BasicType(BasicTypeKind.BOOL)),
-        BoolLiteral(value=False, type=BasicType(BasicTypeKind.BOOL)),
+        BoolLiteral(value=True, type=BoolType()),
+        BoolLiteral(value=False, type=BoolType()),
         NullPtrLiteral(type=NullPtrType()),
-        IntegerLiteral(value=123, type=BasicType(BasicTypeKind.INT)),
-        IntegerLiteral(value=0o123, type=BasicType(BasicTypeKind.INT)),
-        IntegerLiteral(value=0x123, type=BasicType(BasicTypeKind.INT)),
-        IntegerLiteral(value=0b101, type=BasicType(BasicTypeKind.INT)),
-        IntegerLiteral(value=4294967296, type=BasicType(BasicTypeKind.LONGLONG)),
-        IntegerLiteral(value=123, type=BasicType(BasicTypeKind.ULONGLONG)),
-        IntegerLiteral(
-            value=18446744073709551616, type=BitIntType(IntegerLiteral(value=66))
+        IntegerLiteral(value=123, type=IntType()),
+        IntegerLiteral(value=0o123, type=IntType()),
+        IntegerLiteral(value=0x123, type=IntType()),
+        IntegerLiteral(value=0b101, type=IntType()),
+        IntegerLiteral(value=4294967296, type=LongLongType()),
+        IntegerLiteral(value=123, type=ULongLongType()),
+        IntegerLiteral(value=18446744073709551616, type=BitIntType(66)),
+        IntegerLiteral(value=18446744073709551616, type=BitIntType(65, False)),
+        ImplicitCast(
+            expr=StringLiteral(
+                value=[49, 50, 51, 230, 136, 145, 0],
+                type=ArrayType(CharType(), IntegerLiteral(value=7)),
+            )
         ),
-        IntegerLiteral(
-            value=18446744073709551616, type=BitIntType(IntegerLiteral(value=65), False)
+        ImplicitCast(
+            expr=StringLiteral(
+                value=[49, 50, 51, 230, 136, 145, 0],
+                type=ArrayType(Char8Type(), IntegerLiteral(value=7)),
+            )
         ),
-        StringLiteral(
-            value=[49, 50, 51, 230, 136, 145, 0],
-            type=ArrayType(BasicType(BasicTypeKind.CHAR), IntegerLiteral(value=7)),
+        ImplicitCast(
+            expr=StringLiteral(
+                value=[49, 50, 51, 25105, 0],
+                type=ArrayType(Char16Type(), IntegerLiteral(value=5)),
+            )
         ),
-        StringLiteral(
-            value=[49, 50, 51, 230, 136, 145, 0],
-            type=ArrayType(Char8Type(), IntegerLiteral(value=7)),
+        ImplicitCast(
+            expr=StringLiteral(
+                value=[49, 50, 51, 25105, 0],
+                type=ArrayType(Char32Type(), IntegerLiteral(value=5)),
+            )
         ),
-        StringLiteral(
-            value=[49, 50, 51, 25105, 0],
-            type=ArrayType(Char16Type(), IntegerLiteral(value=5)),
-        ),
-        StringLiteral(
-            value=[49, 50, 51, 25105, 0],
-            type=ArrayType(Char32Type(), IntegerLiteral(value=5)),
-        ),
-        StringLiteral(
-            value=[49, 50, 51, 25105, 0],
-            type=ArrayType(WCharType(), IntegerLiteral(value=5)),
+        ImplicitCast(
+            expr=StringLiteral(
+                value=[49, 50, 51, 25105, 0],
+                type=ArrayType(WCharType(), IntegerLiteral(value=5)),
+            )
         ),
         CharLiteral(value=127820, type=Char32Type()),
-        CharLiteral(value=16706, type=BasicType(BasicTypeKind.INT)),
+        CharLiteral(value=16706, type=IntType()),
         CharLiteral(value=29483, type=Char16Type()),
         CharLiteral(value=29483, type=Char32Type()),
     ):
@@ -50,6 +56,7 @@ def test_const_and_literal():
         symtab = Symtab(a.location)
         a.accept(DeclAnalyzer(symtab))
         a.accept(SymtabFiller(symtab))
+        a = a.accept(ConstEvaluater(symtab))
         a = a.accept(TypeChecker(symtab))
         a.accept(DumpVisitor())
         check_ast(a, i)
@@ -66,6 +73,7 @@ def test_array_subscript():
     symtab = Symtab(ast.location)
     ast.accept(DeclAnalyzer(symtab))
     ast.accept(SymtabFiller(symtab))
+    ast = ast.accept(ConstEvaluater(symtab))
     ast = ast.accept(TypeChecker(symtab))
 
     check_ast(
@@ -73,16 +81,14 @@ def test_array_subscript():
         ExpressionStmt(
             expr=ArraySubscript(
                 array=ImplicitCast(
-                    type=PointerType(BasicType(BasicTypeKind.INT)),
+                    type=PointerType(IntType()),
                     expr=Reference(
                         name="a",
-                        type=ArrayType(
-                            BasicType(BasicTypeKind.INT), IntegerLiteral(value=3)
-                        ),
+                        type=ArrayType(IntType(), IntegerLiteral(value=3)),
                     ),
                 ),
                 index=IntegerLiteral(value=2),
-                type=BasicType(BasicTypeKind.INT),
+                type=IntType(),
             ),
         ),
     )
@@ -91,16 +97,14 @@ def test_array_subscript():
         ExpressionStmt(
             expr=ArraySubscript(
                 index=ImplicitCast(
-                    type=PointerType(BasicType(BasicTypeKind.INT)),
+                    type=PointerType(IntType()),
                     expr=Reference(
                         name="a",
-                        type=ArrayType(
-                            BasicType(BasicTypeKind.INT), IntegerLiteral(value=3)
-                        ),
+                        type=ArrayType(IntType(), IntegerLiteral(value=3)),
                     ),
                 ),
                 array=IntegerLiteral(value=2),
-                type=BasicType(BasicTypeKind.INT),
+                type=IntType(),
             ),
         ),
     )
@@ -115,6 +119,7 @@ def test_dereference_address():
     symtab = Symtab(ast.location)
     ast.accept(DeclAnalyzer(symtab))
     ast.accept(SymtabFiller(symtab))
+    ast = ast.accept(ConstEvaluater(symtab))
     ast = ast.accept(TypeChecker(symtab))
 
     main_funcdef: FunctionDef = ast.body[1]
@@ -125,7 +130,7 @@ def test_dereference_address():
             expr=UnaryOperator(
                 op=UnaryOpKind.ADDRESS,
                 operand=Reference(name="n"),
-                type=PointerType(BasicType(BasicTypeKind.INT)),
+                type=PointerType(IntType()),
             )
         ),
     )
@@ -137,14 +142,14 @@ def test_dereference_address():
                 operand=Reference(
                     name="f",
                     type=FunctionType(
-                        [BasicType(BasicTypeKind.CHAR)],
-                        BasicType(BasicTypeKind.INT),
+                        [CharType()],
+                        IntType(),
                     ),
                 ),
                 type=PointerType(
                     FunctionType(
-                        [BasicType(BasicTypeKind.CHAR)],
-                        BasicType(BasicTypeKind.INT),
+                        [CharType()],
+                        IntType(),
                     )
                 ),
             )
@@ -159,11 +164,11 @@ def test_dereference_address():
                     op=UnaryOpKind.DEREFERENCE,
                     operand=Reference(
                         name="p",
-                        type=PointerType(BasicType(BasicTypeKind.INT)),
+                        type=PointerType(IntType()),
                     ),
-                    type=BasicType(BasicTypeKind.INT),
+                    type=IntType(),
                 ),
-                type=PointerType(BasicType(BasicTypeKind.INT)),
+                type=PointerType(IntType()),
             )
         ),
     )
@@ -178,6 +183,7 @@ def test_member_ref():
     symtab = Symtab(ast.location)
     ast.accept(DeclAnalyzer(symtab))
     ast.accept(SymtabFiller(symtab))
+    ast = ast.accept(ConstEvaluater(symtab))
     ast = ast.accept(TypeChecker(symtab))
 
     main_funcdef: FunctionDef = ast.body[0]
@@ -189,7 +195,7 @@ def test_member_ref():
         ExpressionStmt(
             expr=MemberRef(
                 member_name="x",
-                type=BasicType(BasicTypeKind.INT),
+                type=IntType(),
                 target=Reference(name="p", type=PointerType(record_type)),
                 is_arrow=True,
             )
@@ -200,7 +206,7 @@ def test_member_ref():
         ExpressionStmt(
             expr=MemberRef(
                 member_name="x",
-                type=BasicType(BasicTypeKind.INT),
+                type=IntType(),
                 target=Reference(name="s", type=record_type),
                 is_arrow=False,
             )
@@ -212,14 +218,15 @@ def test_logical_op():
     parser = get_parser("logical_op.txt")
     parser.nexttoken()
     for i in (
-        UnaryOperator(op=UnaryOpKind.NOT, type=BasicType(BasicTypeKind.INT)),
-        BinaryOperator(op=BinOpKind.AND, type=BasicType(BasicTypeKind.INT)),
-        BinaryOperator(op=BinOpKind.OR, type=BasicType(BasicTypeKind.INT)),
+        UnaryOperator(op=UnaryOpKind.NOT, type=IntType()),
+        BinaryOperator(op=BinOpKind.AND, type=IntType()),
+        BinaryOperator(op=BinOpKind.OR, type=IntType()),
     ):
-        a = parser.expression()
+        a: Node = parser.expression()
         symtab = Symtab(a.location)
         a.accept(DeclAnalyzer(symtab))
         a.accept(SymtabFiller(symtab))
+        a = a.accept(ConstEvaluater(symtab))
         a = a.accept(TypeChecker(symtab))
         a.accept(DumpVisitor())
         check_ast(a, i)

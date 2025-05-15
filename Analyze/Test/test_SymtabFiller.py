@@ -68,8 +68,8 @@ def test_decl_point_enumconst():
     y: EnumConst = symtab00.lookup("y")
 
     assert x1 is not x2
-    assert x1 is x2.value.left.symbol
-    assert x2 is y.value.left.symbol
+    assert x1 is x2.value_expr.left.symbol
+    assert x2 is y.value_expr.left.symbol
 
 
 def test_decl_point_other():

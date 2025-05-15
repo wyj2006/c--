@@ -25,38 +25,4 @@ from Basic.Symtab import (
     Parameter,
     Function,
 )
-from Basic.Type import (
-    Type,
-    BasicType,
-    BasicTypeKind,
-    BitIntType,
-    PointerType,
-    ArrayType,
-    RecordType,
-    TypedefType,
-    AtomicType,
-    TypeofType,
-    QualifiedType,
-    ArrayPtrType,
-    AutoType,
-    NullPtrType,
-    FunctionType,
-    EnumType,
-    Char16Type,
-    Char32Type,
-    Char8Type,
-    WCharType,
-    remove_qualifier,
-    integer_promotion,
-    remove_atomic,
-    is_compatible_type,
-    composite_type,
-)
 from Basic.FlagManager import FlagManager
-from Basic.TypeGroup import (
-    is_integer_type,
-    is_arithmetic_type,
-    is_scalar_type,
-    is_real_type,
-    is_real_floating_type,
-)

@@ -9,7 +9,7 @@ if TYPE_CHECKING:
         FunctionSpecifier,
         AlignSpecifier,
     )
-    from Basic.Type import FunctionType, Type, EnumType
+    from Types import FunctionType, Type, EnumType
 
 # 提供给符号表的命名空间名
 LABEL_NAMES = "label_names"
@@ -153,6 +153,10 @@ class Object(Symbol):
         self.align_specifier = align_specifier
         self.initializer: "Expr" = None
 
+    @property
+    def init_value(self):
+        return self.initializer.value
+
     def __str__(self):
         return f"{self.__class__.__name__}({self.name}, {self.type})"
 
@@ -186,19 +190,25 @@ class EnumConst(Symbol):
         self,
         name,
         enum_type: "EnumType",
-        value: "Expr",
+        value_expr: "Expr",
         attribute_specifiers=None,
     ):
         super().__init__(attribute_specifiers)
         self.name = name
         self.enum_type = enum_type
-        self.value = value
+        self.value_expr = value_expr
+
+    @property
+    def value(self):
+        return self.value_expr.value
 
     def __str__(self):
         from AST import UnParseVisitor
 
         value_str = (
-            self.value.accept(UnParseVisitor()) if self.value != None else "Auto"
+            self.value_expr.accept(UnParseVisitor())
+            if self.value_expr != None
+            else "Auto"
         )
 
         return f"{self.__class__.__name__}({self.name}, {self.enum_type}, {value_str})"

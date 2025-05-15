@@ -31,27 +31,106 @@ from AST import (
     MemberDecl,
 )
 from Basic import (
-    BasicType,
-    PointerType,
-    ArrayType,
-    FunctionType,
-    RecordType,
-    TypedefType,
-    EnumType,
-    QualifiedType,
-    AtomicType,
-    TypeofType,
-    BitIntType,
     Error,
     TAG_NAMES,
-    ArrayPtrType,
-    BasicTypeKind,
-    AutoType,
     Diagnostics,
     Symbol,
     Note,
 )
 from Analyze.Analyzer import Analyzer, block_scope, func_prototype_scope, AnalyzerFlag
+from Types import (
+    VoidType,
+    IntType,
+    BoolType,
+    CharType,
+    LongType,
+    UIntType,
+    FloatType,
+    ShortType,
+    ULongType,
+    BitIntType,
+    DoubleType,
+    UShortType,
+    LongLongType,
+    Decimal32Type,
+    Decimal64Type,
+    ULongLongType,
+    Decimal128Type,
+    LongDoubleType,
+    SCharType,
+    FloatComplexType,
+    UCharType,
+    DoubleComplexType,
+    FloatImaginaryType,
+    DoubleImaginaryType,
+    LongDoubleComplexType,
+    LongDoubleImaginaryType,
+    TypedefType,
+    TypeofType,
+    AutoType,
+    EnumType,
+    ArrayType,
+    AtomicType,
+    RecordType,
+    PointerType,
+    ArrayPtrType,
+    FunctionType,
+    QualifiedType,
+)
+
+basictype_combination = {  # 类型组合
+    None.__class__: {
+        "void": VoidType,
+        "char": CharType,
+        "short": ShortType,
+        "int": IntType,
+        "long": LongType,
+        "bool": BoolType,
+        "float": FloatType,
+        "double": DoubleType,
+        "_Decimal32": Decimal32Type,
+        "_Decimal64": Decimal64Type,
+        "_Decimal128": Decimal128Type,
+        "signed": IntType,
+        "unsigned": UIntType,
+    },
+    CharType: {
+        "signed": SCharType,
+        "unsigned": UCharType,
+    },
+    ShortType: {
+        "signed": ShortType,
+        "unsigned": UShortType,
+    },
+    IntType: {
+        "signed": IntType,
+        "unsigned": UIntType,
+        "short": ShortType,
+        "long": LongType,
+    },
+    LongType: {
+        "signed": LongType,
+        "unsigned": ULongType,
+        "long": LongLongType,
+        "double": LongDoubleType,
+    },
+    LongLongType: {
+        "signed": LongLongType,
+        "unsigned": ULongLongType,
+    },
+    FloatType: {
+        "_Complex": FloatComplexType,
+        "_Imaginary": FloatImaginaryType,
+    },
+    DoubleType: {
+        "_Complex": DoubleComplexType,
+        "_Imaginary": DoubleImaginaryType,
+    },
+    LongDoubleType: {
+        "_Complex": LongDoubleComplexType,
+        "_Imaginary": LongDoubleImaginaryType,
+    },
+}
 
 
 class DeclInfoDict(TypedDict):
@@ -295,11 +374,7 @@ class DeclAnalyzer(Analyzer):
         node.name = decl_info["name"]
         node.type = decl_info["type"]
 
-        if (
-            node.name
-            and isinstance(node.type, BasicType)
-            and node.type.kind == BasicTypeKind.VOID
-        ):
+        if node.name and isinstance(node.type, VoidType):
             raise Error("形参不能拥有 void 类型", node.location)
         if isinstance(node.type, FunctionType):
             node.type = PointerType(node.type)
@@ -314,22 +389,16 @@ class DeclAnalyzer(Analyzer):
             elif node.specifier_name == "signed":
                 decl_info["type"].signed = True
                 return
-        if decl_info["type"] != None and (
-            not isinstance(decl_info["type"], BasicType)
-            or decl_info["type"].kind not in BasicType.combination
-            or node.specifier_name not in BasicType.combination[decl_info["type"].kind]
+
+        key = decl_info["type"].__class__
+        if (
+            key not in basictype_combination
+            or node.specifier_name not in basictype_combination[key]
         ):
             raise Error(
                 f"无法结合{decl_info['type']}和{node.specifier_name}", node.location
             )
-        if decl_info["type"] != None:
-            decl_info["type"] = BasicType(
-                BasicType.combination[decl_info["type"].kind][node.specifier_name]
-            )
-        else:
-            decl_info["type"] = BasicType(
-                BasicType.combination[None][node.specifier_name]
-            )
+        decl_info["type"] = basictype_combination[key][node.specifier_name]()
 
     def visit_RecordDecl(self, node: RecordDecl, decl_info: DeclInfoDict):
         name = node.name

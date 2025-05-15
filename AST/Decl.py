@@ -1,6 +1,6 @@
 from enum import Enum
 from typing import TYPE_CHECKING, Union
-from Basic import Type, EnumType, RecordType, FunctionType
+from Types import Type, EnumType, RecordType, FunctionType
 from AST.Node import Node, AttributeSpecifier
 from AST.Stmt import Stmt, CompoundStmt
 

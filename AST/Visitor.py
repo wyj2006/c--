@@ -142,11 +142,17 @@ class UnParseVisitor(Visitor):
 
     def visit_Declaration(self, node: Declaration):
         l = []
-        for i in node.specifiers + node.declarators:
+        for i in node.specifiers:
             a = i.accept(self)
             assert a != None, i
             l.append(a)
-        return " ".join(l)
+        code = " ".join(l).strip()
+        l = []
+        for i in node.declarators:
+            a = i.accept(self)
+            assert a != None, i
+            l.append(a)
+        return code + " ".join(l)
 
     def visit_NameDeclarator(self, node: NameDeclarator):
         return node.name

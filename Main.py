@@ -1,11 +1,17 @@
 from argparse import ArgumentParser
 from AST import DumpVisitor, Visitor, Transformer
-from Analyze import DeclAnalyzer, SymtabFiller, AttrAnalyzer, TypeChecker
+from Analyze import (
+    DeclAnalyzer,
+    SymtabFiller,
+    AttrAnalyzer,
+    TypeChecker,
+    ConstEvaluater,
+)
 from Basic import Diagnostic, Diagnostics, Symtab, TokenKind, MergeReader, Token
 from Lex import Preprocessor
 from Parse import Parser, generic_syntax_error
 
-version = "0.8.0"
+version = "0.8.2"
 
 
 def main():
@@ -59,6 +65,7 @@ def main():
             AttrAnalyzer(symtab),
             DeclAnalyzer(symtab),
             SymtabFiller(symtab),
+            ConstEvaluater(symtab),
             TypeChecker(symtab),
         ):
             try:

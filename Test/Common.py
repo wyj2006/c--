@@ -6,6 +6,8 @@ from Basic import *
 from Lex import *
 from Parse import *
 from Analyze import *
+from Types import *
+from Values import *
 
 
 def check_type(actual: Type, expected: Type):
