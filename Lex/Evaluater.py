@@ -1,5 +1,5 @@
 import os
-from AST import (
+from basic import (
     Visitor,
     IntegerLiteral,
     Expr,
@@ -14,9 +14,9 @@ from AST import (
     Reference,
     Embed,
 )
-from Basic import Error, FileReader, Symtab
-from Lex.Macro import Macro
-from Lex.Preprocessor import Preprocessor
+from basic import Error, FileReader, Symtab
+from lex.macro import Macro
+from lex.preprocessor import Preprocessor
 
 
 class Evaluater(Visitor):
@@ -57,7 +57,7 @@ class Evaluater(Visitor):
         raise Error(f"{node.__class__.__name__}不应该出现在这个上下文中", node.location)
 
     def visit_IntegerLiteral(self, node: IntegerLiteral):
-        from Analyze import ConstEvaluater
+        from analyses import ConstEvaluater
 
         node.value = node.accept(ConstEvaluater(self.symtab)).value
 
@@ -100,7 +100,7 @@ class Evaluater(Visitor):
             node.value = 1
 
     def visit_HasInclude(self, node: HasInclude):
-        filepath = Preprocessor.findIncludeFile(
+        filepath = Preprocessor.find_include_file(
             node.filename,
             node.search_current_path,
             os.path.dirname(node.location[0]["filename"]),
@@ -113,11 +113,11 @@ class Evaluater(Visitor):
     def visit_HasEmbed(self, node: HasEmbed):
         support_parameters = True  # 参数列表中的参数都被编译器支持
         try:
-            Embed(parameters=node.parameters).analyzeParameters()
+            Embed(parameters=node.parameters).analyze_parameters()
         except Error:
             support_parameters = False
 
-        filepath = Preprocessor.findIncludeFile(
+        filepath = Preprocessor.find_include_file(
             node.filename,
             node.search_current_path,
             os.path.dirname(node.location[0]["filename"]),

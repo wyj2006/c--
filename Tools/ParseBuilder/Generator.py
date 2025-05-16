@@ -1,5 +1,5 @@
 import ast
-from AST import (
+from basic import (
     Grammar,
     Visitor,
     NameLeaf,
@@ -10,7 +10,7 @@ from AST import (
     NamedItem,
     Option,
 )
-from Basic import Token
+from basic import Token
 
 # TODO: 空列表被判定为匹配失败
 
@@ -27,7 +27,7 @@ class Generator(Visitor):
         module = ast.Module(
             body=[
                 ast.ImportFrom(
-                    module="Parse",
+                    module="parse",
                     names=[
                         ast.alias(name="ParserBase"),
                         ast.alias(name="memorize"),

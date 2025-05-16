@@ -2,10 +2,10 @@
 
 
 from typing import TYPE_CHECKING, Callable, TypeVar
-from Basic import Error
+from basic import Error
 
 if TYPE_CHECKING:
-    from .ParserBase import ParserBase
+    from .parser_base import ParserBase
 
 _T = TypeVar("_T")
 

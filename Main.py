@@ -1,15 +1,15 @@
 from argparse import ArgumentParser
-from AST import DumpVisitor, Visitor, Transformer
-from Analyze import (
+from basic import DumpVisitor, Transformer
+from analyses import (
     DeclAnalyzer,
     SymtabFiller,
     AttrAnalyzer,
     TypeChecker,
     ConstEvaluater,
 )
-from Basic import Diagnostic, Diagnostics, Symtab, TokenKind, MergeReader, Token
-from Lex import Preprocessor
-from Parse import Parser, generic_syntax_error
+from basic import Diagnostic, Diagnostics, Symtab, TokenKind, MergeReader, Token
+from lex import Preprocessor
+from parse import Parser, generic_syntax_error
 
 version = "0.8.2"
 

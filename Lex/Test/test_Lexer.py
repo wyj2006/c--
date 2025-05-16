@@ -5,14 +5,14 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 import pytest
 
-from Basic import TokenKind, Token, Error, MergeReader
-from Lex import Lexer
+from basic import TokenKind, Token, Error, MergeReader
+from lex import Lexer
 
 
 def examplestest(examples):
     for example in examples:
         reader = MergeReader(
-            os.path.join(os.path.dirname(__file__), "Codes", example["filename"])
+            os.path.join(os.path.dirname(__file__), "codes", example["filename"])
         )
         lexer = Lexer(reader)
         expected_exception = example.get("expected_exception", [])

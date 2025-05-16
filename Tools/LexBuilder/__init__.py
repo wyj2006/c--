@@ -3,8 +3,8 @@
 """
 
 import ast
-from AST import Letter, RegExpr
-from .State import State
+from basic import Letter, RegExpr
+from .state import State
 
 
 def generate_state(regexpr: RegExpr, followpos: dict[Letter, set[Letter]]):
@@ -113,7 +113,7 @@ def generate_code(states: list[State], class_name: str, header: str):
 
     # 生成getNewToken函数
     get_new_token_func = ast.FunctionDef(
-        name="getNewToken",
+        name="get_new_token",
         args=ast.arguments(
             posonlyargs=[],
             args=[ast.arg(arg="self")],
@@ -199,7 +199,7 @@ for i in range(start_index, back_index):
     ast.fix_missing_locations(classdef)
     module = ast.Module(
         body=[
-            ast.parse("from Lex import LexerBase").body[0],
+            ast.parse("from lex import LexerBase").body[0],
             ast.parse("from copy import deepcopy").body[0],
         ],
         type_ignores=[],

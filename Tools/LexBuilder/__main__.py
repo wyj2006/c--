@@ -1,15 +1,15 @@
 import ast
 import os
 from argparse import ArgumentParser
-from Basic import Diagnostic, Location, MergeReader, Error
-from AST import DumpVisitor, RegExpr, Letter
-from Parse import generic_syntax_error
+from basic import Diagnostic, Location, MergeReader, Error
+from basic import DumpVisitor, RegExpr, Letter
+from parse import generic_syntax_error
 
-from Tools.ParseBuilder import GrammarLexer, GrammarParser, LeftRecDetector
+from tools.ParseBuilder import GrammarLexer, GrammarParser, LeftRecDetector
 
-from .RegExprBuilder import RegExprBuilder
-from .PosCalculator import PosCalculator
-from .Simplifier import Simplifier
+from .regexpr_builder import RegExprBuilder
+from .pos_calculator import PosCalculator
+from .simplifier import Simplifier
 from . import generate_state, generate_code
 
 argparser = ArgumentParser(description=f"词法分析器生成工具")
@@ -19,17 +19,23 @@ argparser.add_argument("--dump-ast", help="输出AST", action="store_true", defa
 argparser.add_argument(
     "--dump-regexpr", help="输出正则表达式树", action="store_true", default=False
 )
+argparser.add_argument("-o", help="输出文件", default=None)
+
 args = argparser.parse_args()
 file: str = args.file
 dump_regexpr: bool = args.dump_regexpr
 dump_ast: bool = args.dump_ast
 class_name: str = args.class_name
+output_file = args.o
 
 dirname = os.path.dirname(file)
 filename, _ = os.path.splitext(os.path.basename(file))
 
 if class_name == None:
     class_name = filename.title() + "Lexer"
+
+if output_file == None:
+    output_file = os.path.join(dirname, f"gen_{class_name.lower()}.py")
 
 try:
     reader = MergeReader(file)
@@ -62,7 +68,7 @@ try:
     dirname = os.path.dirname(file)
     filename, _ = os.path.splitext(os.path.basename(file))
     with open(
-        os.path.join(dirname, f"gen_{class_name}.py"),
+        output_file,
         mode="w",
         encoding="utf-8",
     ) as file:

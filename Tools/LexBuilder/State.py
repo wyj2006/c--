@@ -1,4 +1,4 @@
-from AST import Letter
+from basic import Letter
 
 
 class State:

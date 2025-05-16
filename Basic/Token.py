@@ -1,6 +1,6 @@
 from enum import Enum
 
-from Basic.Location import Location
+from basic import Location
 
 
 class TokenKind(Enum):

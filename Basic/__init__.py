@@ -1,9 +1,8 @@
 """通用模块"""
 
-from Basic.Token import TokenKind, Token, TokenGen
-from Basic.Location import Location
-from Basic.FileReader import FileReader, MergeReader
-from Basic.Diagnostic import (
+from basic.location import Location
+from basic.token import TokenKind, Token, TokenGen
+from basic.diagnostic import (
     Diagnostic,
     Error,
     DiagnosticKind,
@@ -11,7 +10,8 @@ from Basic.Diagnostic import (
     Note,
     Warn,
 )
-from Basic.Symtab import (
+from basic.file_reader import FileReader, MergeReader
+from basic.symtab import (
     Symtab,
     Symbol,
     TAG_NAMES,
@@ -25,4 +25,7 @@ from Basic.Symtab import (
     Parameter,
     Function,
 )
-from Basic.FlagManager import FlagManager
+from basic.flag_manager import FlagManager
+
+from basic.types import *
+from basic.ast import *

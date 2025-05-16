@@ -1,15 +1,15 @@
 from typing import TYPE_CHECKING
-from Basic.Location import Location
+from basic import Location
 
 if TYPE_CHECKING:
-    from AST import (
+    from basic import (
         Expr,
         AttributeSpecifier,
         StorageClass,
         FunctionSpecifier,
         AlignSpecifier,
     )
-    from Types import FunctionType, Type, EnumType
+    from basic import FunctionType, Type, EnumType
 
 # 提供给符号表的命名空间名
 LABEL_NAMES = "label_names"
@@ -37,7 +37,7 @@ class Symtab:
 
     @property
     def attribute_names(self):
-        from AST import (
+        from basic import (
             NoReturnAttr,
             NodiscardAttr,
             DeprecatedAttr,
@@ -203,7 +203,7 @@ class EnumConst(Symbol):
         return self.value_expr.value
 
     def __str__(self):
-        from AST import UnParseVisitor
+        from basic import UnParseVisitor
 
         value_str = (
             self.value_expr.accept(UnParseVisitor())

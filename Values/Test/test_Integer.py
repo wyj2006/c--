@@ -1,4 +1,4 @@
-from Test.Common import *
+from test_common import *
 
 
 def test_init():

@@ -1,8 +1,8 @@
-from Basic import Token, TokenGen, TokenKind
-from Parse.Memory import memorize
-from Parse.Wrapper import may_update_type_symbol, may_enter_scope
+from basic import Token, TokenGen, TokenKind
+from parse.memory import memorize
+from parse.wrapper import may_update_type_symbol, may_enter_scope
 
-from .gen_CParser import Gen_CParser
+from .gen_cparser import Gen_CParser
 
 
 class Parser(Gen_CParser):

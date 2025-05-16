@@ -1,6 +1,6 @@
-from Parse import ParserBase, memorize, memorize_left_rec
-from AST import *
-from Basic import *
+from parse import ParserBase, memorize, memorize_left_rec
+from basic import *
+from basic import *
 
 def assign(a, attr, b):
     setattr(a, attr, b)

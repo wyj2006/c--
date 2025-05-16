@@ -1,7 +1,7 @@
 from copy import deepcopy
-from Basic import TokenKind, Token, Error, Location, Symbol
-from Lex.gen_Lexer import Gen_Lexer as Lexer
-from Lex.ConcatReader import ConcatReader
+from basic import TokenKind, Token, Error, Location, Symbol
+from lex.concat_reader import ConcatReader
+from lex.gen_lexer import Gen_Lexer as Lexer
 
 
 class Macro(Symbol):

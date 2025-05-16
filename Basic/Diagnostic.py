@@ -3,7 +3,7 @@ import colorama
 from typing import Union
 from colorama import Fore
 
-from Basic.Location import Location
+from basic import Location
 from enum import Enum
 
 colorama.init(autoreset=True)

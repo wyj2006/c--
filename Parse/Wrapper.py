@@ -3,10 +3,10 @@
 """
 
 from typing import TYPE_CHECKING, Callable, TypeVar
-from AST import Declaration, StorageClass, StorageClassSpecifier, NameDeclarator
+from basic import Declaration, StorageClass, StorageClassSpecifier, NameDeclarator
 
 if TYPE_CHECKING:
-    from Parse.Parser import Parser
+    from parse.parser import Parser
 
 _T = TypeVar("_T")
 

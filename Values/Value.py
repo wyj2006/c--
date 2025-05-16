@@ -1,5 +1,5 @@
 from typing import Any, Callable
-from Types import Type
+from basic import Type
 
 
 class Value:
@@ -103,7 +103,7 @@ class Value:
         return self.generic_unary_op(lambda a: ~a)
 
     def __eq__(self, other):
-        return self.generic_bin_op(other, lambda a, b: a == b)
+        return self.generic_bin_op(other, lambda a, b: a == b, lambda a, _: a)
 
     def __ne__(self, other):
         return self.generic_bin_op(other, lambda a, b: a != b, lambda a, _: a)

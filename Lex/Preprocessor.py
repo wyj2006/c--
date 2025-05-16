@@ -2,7 +2,7 @@ from contextlib import contextmanager
 import os
 import datetime
 from typing import Optional
-from Basic import (
+from basic import (
     Error,
     Location,
     Token,
@@ -12,7 +12,7 @@ from Basic import (
     Warn,
     Symtab,
 )
-from AST import (
+from basic import (
     DumpVisitor,
     LineDirecvtive,
     Embed,
@@ -25,18 +25,18 @@ from AST import (
     WarningDirecvtive,
     IfSection,
 )
-from Lex.EmbedLexer import EmbedLexer
-from Lex.Macro import Macro, MacroArg
-from Lex.PPFlag import PPFlag
+from lex.embed_lexer import EmbedLexer
+from lex.macro import Macro, MacroArg
+from lex.ppflag import PPFlag
 
-from .gen_Lexer import Gen_Lexer
+from .gen_lexer import Gen_Lexer
 
 
 class Preprocessor(Gen_Lexer):
     include_path: list[str] = []
 
     @staticmethod
-    def findIncludeFile(filename: str, search_current_path: bool, current_path="."):
+    def find_include_file(filename: str, search_current_path: bool, current_path="."):
         """查找包含文件的路径, 找不到返回None"""
         include_path = Preprocessor.include_path.copy()
         if search_current_path:
@@ -56,7 +56,7 @@ class Preprocessor(Gen_Lexer):
         self.symtab = Symtab()  # 用于存放宏
 
     @contextmanager
-    def setFlag(self, add_flags: int = 0, remove_flags: int = 0):
+    def set_flag(self, add_flags: int = 0, remove_flags: int = 0):
         _flag = self.flag.save()
         self.flag.add(add_flags)
         self.flag.remove(remove_flags)
@@ -76,7 +76,7 @@ class Preprocessor(Gen_Lexer):
             i -= 1
         return atbegineofline
 
-    def getNewToken(self) -> Token:
+    def get_new_token(self) -> Token:
         ch, location = self.reader.next()
         if ch == "/":
             ch, loc = self.reader.next()
@@ -114,7 +114,7 @@ class Preprocessor(Gen_Lexer):
             return Token(TokenKind.NEWLINE, location, "\n")
         else:
             self.reader.back()
-        token = super().getNewToken()
+        token = super().get_new_token()
         if token != None:
             if token.kind == TokenKind.HASH:
                 token.ispphash = self.check_pphash()
@@ -143,10 +143,10 @@ class Preprocessor(Gen_Lexer):
                 and token.kind == TokenKind.HASH
                 and token.ispphash
             ):
-                from Lex.PPDirectiveParser import PPDirectiveParser
+                from lex.pp_directive_parser import PPDirectiveParser
 
                 start = self.nexttk_index - 1
-                with self.setFlag(
+                with self.set_flag(
                     PPFlag.KEEP_NEWLINE
                     | PPFlag.IGNORE_PPDIRECTIVE
                     | PPFlag.TRANS_PPKEYWORD,
@@ -266,7 +266,7 @@ class Preprocessor(Gen_Lexer):
             token.tokengen = pp_directive
             self.tokens.insert(self.nexttk_index, token)
         elif isinstance(pp_directive, Include):
-            filepath = self.findIncludeFile(
+            filepath = self.find_include_file(
                 pp_directive.filename,
                 pp_directive.search_current_path,
                 os.path.dirname(self.reader.filename),
@@ -276,7 +276,7 @@ class Preprocessor(Gen_Lexer):
                     f"无法包含文件: {pp_directive.filename}", pp_directive.location
                 )
             if isinstance(pp_directive, Embed):
-                args = pp_directive.analyzeParameters()
+                args = pp_directive.analyze_parameters()
                 reader = FileReader(filepath, mode="rb")
                 pp = EmbedLexer(
                     reader,
@@ -370,7 +370,7 @@ class Preprocessor(Gen_Lexer):
         token = self.next()
         if token.kind != TokenKind.L_PAREN:  # 不存在实参
             return None
-        with self.setFlag(remove_flags=PPFlag.ALLOW_REPLACE):
+        with self.set_flag(remove_flags=PPFlag.ALLOW_REPLACE):
             token = self.next()
             args: list[MacroArg] = []
             while token.kind not in (TokenKind.R_PAREN, TokenKind.END):
@@ -395,7 +395,7 @@ class Preprocessor(Gen_Lexer):
                     token = self.next()
 
                 # 对参数进行展开
-                with self.setFlag(PPFlag.ALLOW_REPLACE):
+                with self.set_flag(PPFlag.ALLOW_REPLACE):
                     lasttk = self.curtoken()
                     self.nexttk_index = argtk_start
                     token = self.next()

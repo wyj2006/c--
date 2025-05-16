@@ -1,6 +1,6 @@
 """
-from AST import *
-from Basic import *
+from basic import *
+from basic import *
 
 def unpack_header_rule(a):
     header=""

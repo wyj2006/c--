@@ -1,5 +1,5 @@
 from typing import Any, Callable
-from Types import (
+from basic import (
     IntegerType,
     ShortType,
     UShortType,
@@ -10,7 +10,7 @@ from Types import (
     LongLongType,
     IntType,
 )
-from Values.Value import Value
+from values.value import Value
 
 
 class Integer(Value):
@@ -18,7 +18,7 @@ class Integer(Value):
 
     def __init__(self, value: int, type: IntegerType):
         super().__init__(type)
-        self._value = value
+        self._value = int(value)
         self.adjust()
 
     @property

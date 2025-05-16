@@ -1,6 +1,6 @@
 """
-from Basic import *
-from AST import *
+from basic import *
+from basic import *
 
 def reconstruct(if_group,else_groups):
     p = if_group

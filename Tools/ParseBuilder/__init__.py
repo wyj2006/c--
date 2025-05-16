@@ -5,7 +5,7 @@
 
 # TODO: PEG文法完全实现
 
-from .Generator import Generator
-from .LeftRecDetector import LeftRecDetector
-from .GrammarParser import GrammarParser
-from .GrammarLexer import GrammarLexer
+from .generator import Generator
+from .leftrec_detector import LeftRecDetector
+from .grammar_parser import GrammarParser
+from .grammar_lexer import GrammarLexer

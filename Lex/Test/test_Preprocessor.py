@@ -5,15 +5,15 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 import pytest
 
-from Basic import TokenKind, MergeReader, Error
-from Lex import Preprocessor, PPFlag
+from basic import TokenKind, MergeReader, Error
+from lex import Preprocessor, PPFlag
 
 
 def examplestest(examples, handle=None):
     for example in examples:
         print(example["filename"], "=" * 64)
         reader = MergeReader(
-            os.path.join(os.path.dirname(__file__), "Codes", example["filename"])
+            os.path.join(os.path.dirname(__file__), "codes", example["filename"])
         )
         lexer = Preprocessor(reader)
         if handle != None:
