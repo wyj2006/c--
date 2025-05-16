@@ -11,7 +11,7 @@ from basic import Diagnostic, Diagnostics, Symtab, TokenKind, MergeReader, Token
 from lex import Preprocessor
 from parse import Parser, generic_syntax_error
 
-version = "0.8.2"
+version = "0.10.0"
 
 
 def main():
