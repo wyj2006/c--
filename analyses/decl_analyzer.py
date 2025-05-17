@@ -1,5 +1,5 @@
 from typing import TypedDict
-from basic import (
+from cast import (
     Declarator,
     NameDeclarator,
     BasicTypeSpecifier,
@@ -38,7 +38,7 @@ from basic import (
     Note,
 )
 from analyses.analyzer import Analyzer, block_scope, func_prototype_scope, AnalyzerFlag
-from basic import (
+from typesystem import (
     VoidType,
     IntType,
     BoolType,

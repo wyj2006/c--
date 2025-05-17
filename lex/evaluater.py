@@ -1,5 +1,5 @@
 import os
-from basic import (
+from cast import (
     Visitor,
     IntegerLiteral,
     Expr,
@@ -15,7 +15,6 @@ from basic import (
     Embed,
 )
 from basic import Error, FileReader, Symtab
-from lex.macro import Macro
 from lex.preprocessor import Preprocessor
 
 

@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 from lex.ppflag import PPFlag
 from parse import Parser, generic_syntax_error, memorize
-from basic import (
+from cast import (
     Group,
     ElifDirecvtive,
 )

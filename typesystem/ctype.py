@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Union
 from basic import Symbol, Member, EnumConst
 
 if TYPE_CHECKING:
-    from basic import (
+    from cast import (
         Expr,
         TypeQualifier,
         AttributeSpecifier,
@@ -31,7 +31,7 @@ class Type:
         )
 
     def __str__(self):
-        from basic import SingleDeclration, UnParseVisitor
+        from cast import SingleDeclration, UnParseVisitor
 
         declaration = SingleDeclration(specifiers=[], declarator=None)
         self.genDeclaration(declaration)
@@ -49,7 +49,7 @@ class VoidType(Type):
     size = 1
 
     def genDeclaration(self, declaration):
-        from basic import BasicTypeSpecifier
+        from cast import BasicTypeSpecifier
 
         declaration.specifiers.append(BasicTypeSpecifier(specifier_name="void"))
 
@@ -58,7 +58,7 @@ class BoolType(Type):
     size = 1
 
     def genDeclaration(self, declaration):
-        from basic import BasicTypeSpecifier
+        from cast import BasicTypeSpecifier
 
         declaration.specifiers.append(BasicTypeSpecifier(specifier_name="bool"))
 
@@ -77,7 +77,7 @@ class PointerType(Type):
         self.pointee_type = pointee_type
 
     def genDeclaration(self, declaration):
-        from basic import PointerDeclarator
+        from cast import PointerDeclarator
 
         declarator = PointerDeclarator(qualifiers=[], declarator=declaration.declarator)
         declaration.declarator = declarator
@@ -117,7 +117,7 @@ class ArrayType(Type):
         )
 
     def genDeclaration(self, declaration):
-        from basic import ArrayDeclarator
+        from cast import ArrayDeclarator
 
         declarator = ArrayDeclarator(
             size=self.size_expr,
@@ -161,7 +161,7 @@ class FunctionType(Type):
         self.has_varparam = has_varparam
 
     def genDeclaration(self, declaration):
-        from basic import FunctionDeclarator, ParamDecl
+        from cast import FunctionDeclarator, ParamDecl
 
         declarator = FunctionDeclarator(
             parameters=[],
@@ -201,7 +201,7 @@ class RecordType(Type, Symbol):
         self.members: dict[str, Member] = {}
 
     def genDeclaration(self, declaration):
-        from basic import RecordDecl
+        from cast import RecordDecl
 
         declaration.specifiers.append(
             RecordDecl(struct_or_union=self.struct_or_union, name=self.name)
@@ -245,7 +245,7 @@ class EnumType(Type, Symbol):
         self.enumerators: dict[str, EnumConst] = {}
 
     def genDeclaration(self, declaration):
-        from basic import EnumDecl
+        from cast import EnumDecl
 
         declaration.specifiers.append(EnumDecl(name=self.name))
 
@@ -273,7 +273,7 @@ class AtomicType(Type):
         self.type = type
 
     def genDeclaration(self, declaration):
-        from basic import AtomicSpecifier, TypeName
+        from cast import AtomicSpecifier, TypeName
 
         type_name = TypeName(specifiers=[], declarator=None)
         self.type.genDeclaration(type_name)
@@ -304,12 +304,12 @@ class TypeofType(Type):
 
     @property
     def is_typeof_expr(self):
-        from basic import Expr
+        from cast import Expr
 
         return isinstance(self.type_or_expr, Expr)
 
     def genDeclaration(self, declaration):
-        from basic import TypeName, TypeOfSpecifier
+        from cast import TypeName, TypeOfSpecifier
 
         if isinstance(self.type_or_expr, Type):
             arg = TypeName(specifiers=[], declarator=None)
@@ -372,7 +372,7 @@ class QualifiedType(Type):
 
     def has_const(self):
         """拥有const"""
-        from basic import TypeQualifierKind
+        from cast import TypeQualifierKind
 
         return self._has_qualifier(TypeQualifierKind.CONST)
 

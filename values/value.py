@@ -1,5 +1,5 @@
 from typing import Any, Callable
-from basic import Type
+from typesystem import Type
 
 
 class Value:

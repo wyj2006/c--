@@ -3,7 +3,7 @@ from typing import Any, Union
 from .node import Node
 from .decl import TypeName, StorageClass
 from basic import Symbol, Token
-from basic import Type
+from typesystem import Type
 
 
 class Expr(Node):

@@ -1,4 +1,4 @@
-from basic import (
+from cast import (
     Transformer,
     Reference,
     StringLiteral,
@@ -21,7 +21,7 @@ from basic import (
 from basic import (
     Error,
 )
-from basic import (
+from typesystem import (
     NullPtrType,
     PointerType,
     FunctionType,

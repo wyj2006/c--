@@ -1,5 +1,5 @@
 from copy import deepcopy
-from basic import (
+from cast import (
     Visitor,
     Grammar,
     RegExpr,

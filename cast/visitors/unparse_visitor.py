@@ -1,95 +1,28 @@
 from typing import Callable
-from .expr import (
-    BinaryOperator,
-    UnaryOperator,
+from cast import (
+    Node,
     IntegerLiteral,
     FloatLiteral,
     CharLiteral,
     StringLiteral,
     Reference,
-)
-from .node import Node
-from .decl import (
     Declaration,
+    NameDeclarator,
     FunctionDeclarator,
     ArrayDeclarator,
+    TypedefSpecifier,
+    BinaryOperator,
+    UnaryOperator,
     PointerDeclarator,
-    NameDeclarator,
     BasicTypeSpecifier,
     BitIntSpecifier,
-    RecordDecl,
     EnumDecl,
-    AtomicSpecifier,
-    TypedefSpecifier,
+    RecordDecl,
     TypeQualifier,
+    AtomicSpecifier,
     TypeOfSpecifier,
 )
-from colorama import Fore
-
-
-class Visitor:
-    """遍历语法树节点"""
-
-    def generic_visit(
-        self, node: Node, callback: Callable[[Node, "Visitor"], None] = None
-    ):
-        """
-        通用访问方法
-        """
-        if callback == None:
-            callback = lambda node, visitor: node.accept(visitor)
-        for field in node._fields:
-            child = getattr(node, field, None)
-            if child == None:
-                continue
-            if isinstance(child, (list, tuple)):
-                for i in child:
-                    if i == None:
-                        continue
-                    assert isinstance(i, Node), (node, node._fields, field, child, i)
-                    callback(i, self)
-            else:
-                assert isinstance(child, Node), (node, node._fields, field, child)
-                callback(child, self)
-        return node
-
-    def visit_Node(self, node: Node):
-        return self.generic_visit(node)
-
-
-class DumpVisitor(Visitor):
-    """输出语法树"""
-
-    color_cycle = (
-        Fore.GREEN,
-        Fore.YELLOW,
-        Fore.BLUE,
-        Fore.MAGENTA,
-        Fore.CYAN,
-        Fore.WHITE,
-    )
-
-    def visit_Node(self, node: Node, indent=0):
-        color_i = 0
-        print(
-            " " * 2 * indent + self.color_cycle[color_i] + node.__class__.__name__,
-            end=" ",
-        )
-        color_i += 1
-        for i in node._attributes:
-            if isinstance(node, (UnaryOperator, BinaryOperator)) and i == "op":
-                attr = node.op.value
-            elif hasattr(node, i):
-                attr = getattr(node, i)
-            else:
-                attr = None
-            if attr != None:
-                print(self.color_cycle[color_i] + str(attr), end=" ")
-                color_i += 1
-            else:
-                print(end="")
-        print()
-        self.generic_visit(node, lambda node, _: node.accept(self, indent + 1))
+from .visitor import Visitor
 
 
 class UnParseVisitor(Visitor):

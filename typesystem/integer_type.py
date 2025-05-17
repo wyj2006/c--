@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Union
 from .ctype import Type
 
 if TYPE_CHECKING:
-    from basic import Expr
+    from cast import Expr
 
 
 class IntegerType(Type):
@@ -42,7 +42,7 @@ class ShortType(IntegerType):
     signed = True
 
     def genDeclaration(self, declaration):
-        from basic import BasicTypeSpecifier
+        from cast import BasicTypeSpecifier
 
         declaration.specifiers.append(BasicTypeSpecifier(specifier_name="short"))
 
@@ -52,7 +52,7 @@ class IntType(IntegerType):
     signed = True
 
     def genDeclaration(self, declaration):
-        from basic import BasicTypeSpecifier
+        from cast import BasicTypeSpecifier
 
         declaration.specifiers.append(BasicTypeSpecifier(specifier_name="int"))
 
@@ -62,7 +62,7 @@ class LongType(IntegerType):
     signed = True
 
     def genDeclaration(self, declaration):
-        from basic import BasicTypeSpecifier
+        from cast import BasicTypeSpecifier
 
         declaration.specifiers.append(BasicTypeSpecifier(specifier_name="long"))
 
@@ -72,7 +72,7 @@ class LongLongType(IntegerType):
     signed = True
 
     def genDeclaration(self, declaration):
-        from basic import BasicTypeSpecifier
+        from cast import BasicTypeSpecifier
 
         declaration.specifiers.append(BasicTypeSpecifier(specifier_name="long long"))
 
@@ -82,7 +82,7 @@ class UShortType(IntegerType):
     signed = False
 
     def genDeclaration(self, declaration):
-        from basic import BasicTypeSpecifier
+        from cast import BasicTypeSpecifier
 
         declaration.specifiers.append(
             BasicTypeSpecifier(specifier_name="unsigned short")
@@ -94,7 +94,7 @@ class UIntType(IntegerType):
     signed = False
 
     def genDeclaration(self, declaration):
-        from basic import BasicTypeSpecifier
+        from cast import BasicTypeSpecifier
 
         declaration.specifiers.append(BasicTypeSpecifier(specifier_name="unsigned int"))
 
@@ -104,7 +104,7 @@ class ULongType(IntegerType):
     signed = False
 
     def genDeclaration(self, declaration):
-        from basic import BasicTypeSpecifier
+        from cast import BasicTypeSpecifier
 
         declaration.specifiers.append(
             BasicTypeSpecifier(specifier_name="unsigned long")
@@ -116,7 +116,7 @@ class ULongLongType(IntegerType):
     signed = False
 
     def genDeclaration(self, declaration):
-        from basic import BasicTypeSpecifier
+        from cast import BasicTypeSpecifier
 
         declaration.specifiers.append(
             BasicTypeSpecifier(specifier_name="unsigned long long")
@@ -127,7 +127,7 @@ class BitIntType(IntegerType):
     def __init__(
         self, size: Union["Expr", int], signed: bool = True, attribute_specifiers=None
     ):
-        from basic import Expr, IntegerLiteral
+        from cast import Expr, IntegerLiteral
 
         super().__init__(attribute_specifiers)
         self.signed = signed
@@ -149,7 +149,7 @@ class BitIntType(IntegerType):
         return None
 
     def genDeclaration(self, declaration):
-        from basic import BasicTypeSpecifier, BitIntSpecifier
+        from cast import BasicTypeSpecifier, BitIntSpecifier
 
         if not self.signed:
             declaration.specifiers.append(BasicTypeSpecifier(specifier_name="unsigned"))

@@ -1,6 +1,6 @@
-from parse.memory import memorize, memorize_left_rec
-from parse.parser_base import ParserBase
-from parse.parser import Parser
+from .memory import memorize, memorize_left_rec
+from .parser_base import ParserBase
+from .parser import Parser
 
 
 def generic_syntax_error(parser: ParserBase):

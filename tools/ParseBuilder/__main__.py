@@ -3,7 +3,7 @@ import os
 
 from argparse import ArgumentParser
 from basic import Diagnostic, MergeReader
-from basic import DumpVisitor
+from cast import DumpVisitor
 from parse import generic_syntax_error
 
 from .grammar_lexer import GrammarLexer

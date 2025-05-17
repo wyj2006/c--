@@ -37,7 +37,7 @@ class Symtab:
 
     @property
     def attribute_names(self):
-        from basic import (
+        from cast import (
             NoReturnAttr,
             NodiscardAttr,
             DeprecatedAttr,

@@ -3,7 +3,7 @@ from values.bin_float import BinFloat
 from values.decimal_float import DecimalFloat
 from values.integer import Integer
 from values.value import Value
-from basic import ComplexType
+from typesystem import ComplexType
 
 
 class Complex(Value):

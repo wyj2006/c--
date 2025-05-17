@@ -2,7 +2,7 @@ import ast
 import os
 from argparse import ArgumentParser
 from basic import Diagnostic, Location, MergeReader, Error
-from basic import DumpVisitor, RegExpr, Letter
+from cast import DumpVisitor, RegExpr, Letter
 from parse import generic_syntax_error
 
 from tools.ParseBuilder import GrammarLexer, GrammarParser, LeftRecDetector

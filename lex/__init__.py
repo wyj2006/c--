@@ -1,9 +1,9 @@
 """词法分析模块"""
 
-from lex.lexer_base import LexerBase
-from lex.gen_lexer import Gen_Lexer as Lexer
-from lex.ppflag import PPFlag
-from lex.evaluater import Evaluater
-from lex.embed_lexer import EmbedLexer
-from lex.macro import Macro
-from lex.preprocessor import Preprocessor
+from .lexer_base import LexerBase
+from .gen_lexer import Gen_Lexer as Lexer
+from .ppflag import PPFlag
+from .evaluater import Evaluater
+from .embed_lexer import EmbedLexer
+from .macro import Macro
+from .preprocessor import Preprocessor

@@ -14,7 +14,7 @@ class CharType(CharacterType):
     size = 1
 
     def genDeclaration(self, declaration):
-        from basic import BasicTypeSpecifier
+        from cast import BasicTypeSpecifier
 
         declaration.specifiers.append(BasicTypeSpecifier(specifier_name="char"))
 
@@ -23,7 +23,7 @@ class SCharType(CharacterType):
     size = 1
 
     def genDeclaration(self, declaration):
-        from basic import BasicTypeSpecifier
+        from cast import BasicTypeSpecifier
 
         declaration.specifiers.append(BasicTypeSpecifier(specifier_name="signed char"))
 
@@ -32,7 +32,7 @@ class UCharType(CharacterType):
     size = 1
 
     def genDeclaration(self, declaration):
-        from basic import BasicTypeSpecifier
+        from cast import BasicTypeSpecifier
 
         declaration.specifiers.append(
             BasicTypeSpecifier(specifier_name="unsigned char")

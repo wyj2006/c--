@@ -1,5 +1,5 @@
 from values.ccomplex import Complex
-from basic import ImaginaryType
+from typesystem import ImaginaryType
 
 
 class Imaginary(Complex):

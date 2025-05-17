@@ -3,7 +3,7 @@
 """
 
 from typing import TYPE_CHECKING, Callable, TypeVar
-from basic import Declaration, StorageClass, StorageClassSpecifier, NameDeclarator
+from cast import Declaration, StorageClass, StorageClassSpecifier, NameDeclarator
 
 if TYPE_CHECKING:
     from parse.parser import Parser

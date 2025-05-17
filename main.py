@@ -1,5 +1,5 @@
 from argparse import ArgumentParser
-from basic import DumpVisitor, Transformer
+from cast import DumpVisitor, Transformer
 from analyses import (
     DeclAnalyzer,
     SymtabFiller,

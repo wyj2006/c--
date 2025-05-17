@@ -1,5 +1,5 @@
 from analyses.analyzer import Analyzer
-from basic import AttributeSpecifier, Attribute, DeprecatedAttr, NodiscardAttr
+from cast import AttributeSpecifier, Attribute, DeprecatedAttr, NodiscardAttr
 from basic import Warn, ATTRIBUTE_NAMES, Error, TokenKind
 
 

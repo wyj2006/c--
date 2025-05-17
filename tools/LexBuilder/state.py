@@ -1,4 +1,4 @@
-from basic import Letter
+from cast import Letter
 
 
 class State:

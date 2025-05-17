@@ -26,7 +26,7 @@ class FloatComplexType(ComplexType):
         super().__init__(FloatType(), FloatType(), attribute_specifiers)
 
     def genDeclaration(self, declaration):
-        from basic import BasicTypeSpecifier
+        from cast import BasicTypeSpecifier
 
         declaration.specifiers.append(
             BasicTypeSpecifier(specifier_name="float _Complex")
@@ -40,7 +40,7 @@ class DoubleComplexType(ComplexType):
         super().__init__(DoubleType(), DoubleType(), attribute_specifiers)
 
     def genDeclaration(self, declaration):
-        from basic import BasicTypeSpecifier
+        from cast import BasicTypeSpecifier
 
         declaration.specifiers.append(
             BasicTypeSpecifier(specifier_name="double _Complex")
@@ -54,7 +54,7 @@ class LongDoubleComplexType(ComplexType):
         super().__init__(LongDoubleType(), LongDoubleType(), attribute_specifiers)
 
     def genDeclaration(self, declaration):
-        from basic import BasicTypeSpecifier
+        from cast import BasicTypeSpecifier
 
         declaration.specifiers.append(
             BasicTypeSpecifier(specifier_name="long double _Complex")

@@ -1,6 +1,6 @@
 from parse import ParserBase, memorize, memorize_left_rec
 from basic import *
-from basic import *
+from cast import *
 
 def reconstruct(if_group, else_groups):
     p = if_group

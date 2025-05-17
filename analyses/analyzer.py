@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 from enum import IntEnum
 from typing import Union
-from basic import (
+from cast import (
     Visitor,
     CompoundStmt,
     IfStmt,

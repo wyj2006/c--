@@ -17,7 +17,7 @@ class FloatType(BinaryFloatType):
     size = 4
 
     def genDeclaration(self, declaration):
-        from basic import BasicTypeSpecifier
+        from cast import BasicTypeSpecifier
 
         declaration.specifiers.append(BasicTypeSpecifier(specifier_name="float"))
 
@@ -26,7 +26,7 @@ class DoubleType(BinaryFloatType):
     size = 8
 
     def genDeclaration(self, declaration):
-        from basic import BasicTypeSpecifier
+        from cast import BasicTypeSpecifier
 
         declaration.specifiers.append(BasicTypeSpecifier(specifier_name="double"))
 
@@ -35,7 +35,7 @@ class LongDoubleType(BinaryFloatType):
     size = 16
 
     def genDeclaration(self, declaration):
-        from basic import BasicTypeSpecifier
+        from cast import BasicTypeSpecifier
 
         declaration.specifiers.append(BasicTypeSpecifier(specifier_name="long double"))
 
@@ -56,7 +56,7 @@ class Decimal32Type(DecimalType):
     man_size = 24
 
     def genDeclaration(self, declaration):
-        from basic import BasicTypeSpecifier
+        from cast import BasicTypeSpecifier
 
         declaration.specifiers.append(BasicTypeSpecifier(specifier_name="Decimal32"))
 
@@ -67,7 +67,7 @@ class Decimal64Type(DecimalType):
     man_size = 53
 
     def genDeclaration(self, declaration):
-        from basic import BasicTypeSpecifier
+        from cast import BasicTypeSpecifier
 
         declaration.specifiers.append(BasicTypeSpecifier(specifier_name="Decimal64"))
 
@@ -78,6 +78,6 @@ class Decimal128Type(DecimalType):
     man_size = 112
 
     def genDeclaration(self, declaration):
-        from basic import BasicTypeSpecifier
+        from cast import BasicTypeSpecifier
 
         declaration.specifiers.append(BasicTypeSpecifier(specifier_name="Decimal128"))

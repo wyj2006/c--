@@ -1,7 +1,7 @@
 from typing import Any, Callable
 from values.value import Value
 from values.integer import Integer
-from basic import FloatType, DoubleType, LongDoubleType, BinaryFloatType
+from typesystem import FloatType, DoubleType, LongDoubleType, BinaryFloatType
 
 
 class BinFloat(Value):

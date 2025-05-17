@@ -1,6 +1,6 @@
 from parse import ParserBase, memorize, memorize_left_rec
 from basic import *
-from basic import *
+from cast import *
 
 def assign(a, attr, b):
     setattr(a, attr, b)

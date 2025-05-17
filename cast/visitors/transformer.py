@@ -1,6 +1,6 @@
 from typing import Callable
 from .visitor import Visitor
-from .node import Node
+from cast import Node
 
 
 class Transformer(Visitor):

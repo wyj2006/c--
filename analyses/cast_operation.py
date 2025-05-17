@@ -5,7 +5,7 @@ from basic import (
     Function,
     EnumConst,
 )
-from basic import (
+from cast import (
     ImplicitCast,
     Expr,
     Node,
@@ -21,7 +21,7 @@ from basic import (
     Reference,
     ArraySubscript,
 )
-from basic import (
+from typesystem import (
     Type,
     is_compatible_type,
     ArrayType,

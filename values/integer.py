@@ -1,5 +1,5 @@
 from typing import Any, Callable
-from basic import (
+from typesystem import (
     IntegerType,
     ShortType,
     UShortType,

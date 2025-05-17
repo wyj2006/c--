@@ -1,6 +1,6 @@
 from parse import ParserBase, memorize, memorize_left_rec
 from basic import *
-from basic import *
+from cast import *
 
 def unpack_header_rule(a):
     header = ''

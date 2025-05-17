@@ -1,6 +1,6 @@
 from typing import Union
 from analyses.analyzer import Analyzer, AnalyzerFlag, block_scope
-from basic import (
+from cast import (
     TypeOrVarDecl,
     ParamDecl,
     FunctionDef,
@@ -27,7 +27,7 @@ from basic import (
     Diagnostics,
     Symtab,
 )
-from basic import FunctionType, EnumType, ArrayType
+from typesystem import FunctionType, EnumType, ArrayType
 
 
 class SymtabFiller(Analyzer):

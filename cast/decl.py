@@ -1,6 +1,6 @@
 from enum import Enum
 from typing import TYPE_CHECKING, Union
-from basic import Type, EnumType, RecordType, FunctionType
+from typesystem import Type, EnumType, RecordType, FunctionType
 from .node import Node, AttributeSpecifier
 from .stmt import Stmt, CompoundStmt
 

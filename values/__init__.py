@@ -1,7 +1,7 @@
 """类型的值"""
 
-from values.value import Value
-from values.integer import (
+from .value import Value
+from .integer import (
     Integer,
     Int,
     Long,
@@ -12,5 +12,5 @@ from values.integer import (
     UShort,
     UInt,
 )
-from values.bin_float import BinFloat, Float, Double, LongDouble
-from values.decimal_float import DecimalFloat
+from .bin_float import BinFloat, Float, Double, LongDouble
+from .decimal_float import DecimalFloat

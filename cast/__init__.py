@@ -1,3 +1,5 @@
+"""语法树"""
+
 from .node import (
     Node,
     Attribute,
@@ -11,8 +13,6 @@ from .node import (
     ReproducibleAttr,
     TranslationUnit,
 )
-from .visitor import Visitor, DumpVisitor, UnParseVisitor
-from .transformer import Transformer
 from .expr import (
     Expr,
     IntegerLiteral,
@@ -132,3 +132,4 @@ from .grammar import (
     LeafItem,
 )
 from .regexpr import RegExpr, Repeat0, Letter, Choice, Concat, EmptyString
+from .visitors import *

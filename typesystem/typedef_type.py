@@ -12,7 +12,7 @@ class TypedefType(Type, Symbol):
         return f"{self.name}:{self.type}"
 
     def genDeclaration(self, declaration):
-        from basic import TypedefSpecifier
+        from cast import TypedefSpecifier
 
         declaration.specifiers.append(TypedefSpecifier(specifier_name=self.name))
 
@@ -29,34 +29,34 @@ class TypedefType(Type, Symbol):
 
 class Char8Type(TypedefType):
     def __init__(self):
-        from basic import CharType
+        from typesystem import CharType
 
         super().__init__("char8_t", CharType())
 
 
 class Char16Type(TypedefType):
     def __init__(self):
-        from basic import ShortType
+        from typesystem import ShortType
 
         super().__init__("char16_t", ShortType())
 
 
 class Char32Type(TypedefType):
     def __init__(self):
-        from basic import LongType
+        from typesystem import LongType
 
         super().__init__("char32_t", LongType())
 
 
 class WCharType(TypedefType):
     def __init__(self):
-        from basic import IntType
+        from typesystem import IntType
 
         super().__init__("wchar_t", IntType())
 
 
 class SizeType(TypedefType):
     def __init__(self):
-        from basic import ULongType
+        from typesystem import ULongType
 
         super().__init__("size_t", ULongType())

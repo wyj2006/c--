@@ -3,7 +3,7 @@
 """
 
 import ast
-from basic import Letter, RegExpr
+from cast import Letter, RegExpr
 from .state import State
 
 

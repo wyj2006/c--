@@ -2,7 +2,7 @@ from typing import Any, Callable
 from values.bin_float import BinFloat
 from values.integer import Integer
 from values.value import Value
-from basic import DecimalType
+from typesystem import DecimalType
 from decimal import Decimal
 
 

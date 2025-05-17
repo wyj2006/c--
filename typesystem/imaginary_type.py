@@ -18,7 +18,7 @@ class FloatImaginaryType(ImaginaryType):
         super().__init__(FloatType(), attribute_specifiers)
 
     def genDeclaration(self, declaration):
-        from basic import BasicTypeSpecifier
+        from cast import BasicTypeSpecifier
 
         declaration.specifiers.append(
             BasicTypeSpecifier(specifier_name="float _Imaginary")
@@ -30,7 +30,7 @@ class DoubleImaginaryType(ImaginaryType):
         super().__init__(DoubleType(), attribute_specifiers)
 
     def genDeclaration(self, declaration):
-        from basic import BasicTypeSpecifier
+        from cast import BasicTypeSpecifier
 
         declaration.specifiers.append(
             BasicTypeSpecifier(specifier_name="double _Imaginary")
@@ -42,7 +42,7 @@ class LongDoubleImaginaryType(ImaginaryType):
         super().__init__(LongDoubleType(), attribute_specifiers)
 
     def genDeclaration(self, declaration):
-        from basic import BasicTypeSpecifier
+        from cast import BasicTypeSpecifier
 
         declaration.specifiers.append(
             BasicTypeSpecifier(specifier_name="long double _Imaginary")

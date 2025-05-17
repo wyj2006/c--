@@ -2,11 +2,11 @@ import inspect
 import os
 
 from basic import *
-from basic import *
+from cast import *
 from lex import *
 from parse import *
 from analyses import *
-from basic import *
+from typesystem import *
 from values import *
 
 

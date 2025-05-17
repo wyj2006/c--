@@ -1,4 +1,4 @@
-from basic import Visitor, Concat, Choice, Letter, Repeat0, EmptyString
+from cast import Visitor, Concat, Choice, Letter, Repeat0, EmptyString
 
 
 class PosCalculator(Visitor):
