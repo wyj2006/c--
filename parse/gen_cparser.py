@@ -837,6 +837,9 @@ class Gen_CParser(ParserBase):
         if (a := self.expect(TokenKind.NULLPTR)):
             return NullPtrLiteral(location=a.location)
         self.restore(_z)
+        if (a := self.expect(TokenKind.I)):
+            return ImaginaryLiteral(location=a.location)
+        self.restore(_z)
         return None
 
     @memorize

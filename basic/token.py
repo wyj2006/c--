@@ -58,6 +58,7 @@ class TokenKind(Enum):
     _GENERIC = "_Generic"
     _IMAGINARY = "_Imaginary"
     _NORETURN = "_Noreturn"
+    I = "__I"
 
     IDENTIFIER = "标识符"
     INTCONST = "整数常量"
@@ -213,6 +214,7 @@ class Token:
         "_Generic": TokenKind._GENERIC,
         "_Imaginary": TokenKind._IMAGINARY,
         "_Noreturn": TokenKind._NORETURN,
+        "__I": TokenKind.I,
     }
     ppkeywords = {
         "define": TokenKind.DEFINE,

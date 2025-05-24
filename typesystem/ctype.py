@@ -1,3 +1,4 @@
+from collections import OrderedDict
 import ctypes
 from typing import TYPE_CHECKING, Union
 from basic import Symbol, Member, EnumConst
@@ -10,6 +11,7 @@ if TYPE_CHECKING:
         SingleDeclration,
         TypeQualifierKind,
     )
+    from typesystem import IntegerType
 
 
 class Type:
@@ -40,6 +42,7 @@ class Type:
     def genDeclaration(self, declaration: "SingleDeclration"):
         pass
 
+    @property
     def is_complete(self) -> bool:
         """是否是完整类型"""
         return True
@@ -88,8 +91,9 @@ class PointerType(Type):
             isinstance(other, PointerType) and self.pointee_type == other.pointee_type
         )
 
+    @property
     def is_complete(self):
-        return self.pointee_type.is_complete()
+        return self.pointee_type.is_complete
 
 
 class ArrayType(Type):
@@ -129,8 +133,9 @@ class ArrayType(Type):
         declaration.declarator = declarator
         self.element_type.genDeclaration(declaration)
 
+    @property
     def is_complete(self):
-        return self.element_type.is_complete() and self.size_expr != None
+        return self.element_type.is_complete and self.size_expr != None
 
     @property
     def size(self):
@@ -215,6 +220,7 @@ class RecordType(Type, Symbol):
             and self.members == other.members
         )
 
+    @property
     def is_complete(self):
         return len(self.members) > 0
 
@@ -236,13 +242,13 @@ class EnumType(Type, Symbol):
     def __init__(
         self,
         name: str,
-        underlying_type: Type = None,
+        underlying_type: "IntegerType" = None,
         attribute_specifiers: list["AttributeSpecifier"] = None,
     ):
         super().__init__(attribute_specifiers)
         self.name = name
         self.underlying_type = underlying_type
-        self.enumerators: dict[str, EnumConst] = {}
+        self.enumerators: OrderedDict[str, EnumConst] = OrderedDict()
 
     def genDeclaration(self, declaration):
         from cast import EnumDecl
@@ -257,6 +263,7 @@ class EnumType(Type, Symbol):
             and self.enumerators == other.enumerators
         )
 
+    @property
     def is_complete(self):
         return len(self.enumerators) > 0
 
@@ -283,8 +290,9 @@ class AtomicType(Type):
     def __eq__(self, other):
         return isinstance(other, AtomicType) and self.type == other.type
 
+    @property
     def is_complete(self):
-        return self.type.is_complete()
+        return self.type.is_complete
 
     @property
     def size(self):
@@ -328,12 +336,13 @@ class TypeofType(Type):
             and self.type_or_expr == other.type_or_expr
         )
 
+    @property
     def is_complete(self):
         if isinstance(self.type_or_expr, Type):
-            return self.type_or_expr.is_complete()
+            return self.type_or_expr.is_complete
         if not hasattr(self.type_or_expr, "type"):
             return False
-        return self.type_or_expr.type.is_complete()
+        return self.type_or_expr.type.is_complete
 
     @property
     def size(self):
@@ -376,8 +385,9 @@ class QualifiedType(Type):
 
         return self._has_qualifier(TypeQualifierKind.CONST)
 
+    @property
     def is_complete(self):
-        return self.type.is_complete()
+        return self.type.is_complete
 
     @property
     def size(self):
@@ -397,8 +407,9 @@ class AutoType(Type):
     def __eq__(self, other):
         return isinstance(other, AutoType) and self.type == other.type
 
+    @property
     def is_complete(self):
-        return self.type != None and self.type.is_complete()
+        return self.type != None and self.type.is_complete
 
     @property
     def size(self):

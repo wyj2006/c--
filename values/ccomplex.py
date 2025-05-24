@@ -6,6 +6,7 @@ from values.value import Value
 from typesystem import ComplexType
 
 
+# TODO: 完善(包括imaginary)
 class Complex(Value):
     def __init__(self, real, imag, type: ComplexType):
         super().__init__(type)
@@ -43,7 +44,7 @@ class Complex(Value):
         else:
             return NotImplemented
         if result_map == None:
-            result_map = lambda v, t: Complex(v, t)
+            result_map = lambda v, t: Complex(v.real, v.imag, t)
         return result_map(op(self.value, other_value), type)
 
     def generic_unary_op(

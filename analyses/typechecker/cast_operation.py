@@ -20,6 +20,8 @@ from cast import (
     CompoundLiteral,
     Reference,
     ArraySubscript,
+    Transformer,
+    InitList,
 )
 from typesystem import (
     Type,
@@ -32,10 +34,11 @@ from typesystem import (
     integer_promotion,
     QualifiedType,
     RecordType,
+    IntegerType,
 )
 
 if TYPE_CHECKING:
-    from analyses.type_checker import TypeChecker
+    from .type_checker import TypeChecker
 
 _T = TypeVar("_T")
 
@@ -77,15 +80,26 @@ def is_modifiable_lvalue(node: Expr):
     return True
 
 
-def implicit_cast(node: Expr, type: Type):
-    """将node的类型隐式转换为type, 并返回转换后的节点"""
+def implicit_cast(node: Expr, type: Type, transformer: Transformer = None):
+    """
+    将node的类型隐式转换为type, 并返回转换后的节点
+    transformer被用于InitList进行隐式转换
+    """
     if hasattr(node, "type") and is_compatible_type(node.type, type):
         return node
-    return ImplicitCast(
+    if isinstance(node, InitList):
+        node.type = type
+        return node.accept(transformer)
+    ret = ImplicitCast(
         type=type,
         expr=node,
         location=node.location,
     )
+    try:
+        ret.value = type(node.value)
+    except:
+        pass
+    return ret
 
 
 def generic_implicit_cast(func: Callable[["TypeChecker", Node], _T]):
@@ -95,12 +109,11 @@ def generic_implicit_cast(func: Callable[["TypeChecker", Node], _T]):
     """
 
     def wrapper(self: "TypeChecker", node: Node) -> _T:
-        ret = node
-        if not hasattr(node, "value"):
-            # 在ConstEvaluater中处理过了
-            self.path.append(node)
-            ret = func(self, node)
-            self.path.pop()
+        if isinstance(node, Expr) and hasattr(node, "type"):  # 已经处理过了
+            return node
+        self.path.append(node)
+        ret = func(self, node)
+        self.path.pop()
 
         if not isinstance(node, Expr):
             return ret

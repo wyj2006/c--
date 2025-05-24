@@ -1,4 +1,7 @@
-"""各种类型"""
+"""
+各种类型
+不允许直接使用抽象类(比如IntegerType, FloatingType等)
+"""
 
 from .ctype import (
     Type,

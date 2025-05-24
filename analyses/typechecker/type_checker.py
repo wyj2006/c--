@@ -1,3 +1,4 @@
+from analyses.analyzer import Analyzer
 from cast import (
     Transformer,
     Reference,
@@ -39,8 +40,7 @@ from typesystem import (
     DoubleType,
     SizeType,
 )
-from analyses.analyzer import Analyzer
-from analyses.cast_operation import (
+from .cast_operation import (
     implicit_cast,
     generic_implicit_cast,
     is_lvalue,
@@ -51,6 +51,11 @@ from analyses.cast_operation import (
 
 
 class TypeChecker(Analyzer, Transformer):
+    """
+    完成的任务:
+    1. 确定各表达式的类型, 必要时进行隐式类型转换
+    """
+
     def __init__(self, symtab):
         super().__init__(symtab)
         self.path = []  # 调用路径
@@ -63,7 +68,10 @@ class TypeChecker(Analyzer, Transformer):
     def visit_CompoundLiteral(self, node: CompoundLiteral):
         self.generic_visit(node)
         node.type = node.type_name.type
+        if not node.type.is_complete:
+            raise Error(f"{node.type}不完整", node.location)
         node.is_lvalue = True
+        node.initializer = implicit_cast(node.initializer, node.type, self)
         return node
 
     @generic_implicit_cast
@@ -89,7 +97,6 @@ class TypeChecker(Analyzer, Transformer):
     def visit_UnaryOperator(self, node: UnaryOperator):
         self.generic_visit(node)
 
-        node.is_lvalue = False
         match node.op:
             case UnaryOpKind.DEREFERENCE:
                 if not isinstance(node.operand.type, PointerType):
@@ -152,7 +159,7 @@ class TypeChecker(Analyzer, Transformer):
 
         match node.op:
             case BinOpKind.ASSIGN:
-                if not node.left.type.is_complete():
+                if not node.left.type.is_complete:
                     raise Error(f"{node.left.type}不完整", node.left.location)
                 if not is_modifiable_lvalue(node.left):
                     raise Error("无法修改", node.location)
@@ -183,10 +190,10 @@ class TypeChecker(Analyzer, Transformer):
                 if a.is_arithmetic_type and b.is_arithmetic_type:
                     pass
                 elif isinstance(a, PointerType) and b.is_integer_type:
-                    if not a.is_complete():
+                    if not a.is_complete:
                         raise Error(f"{a.pointee_type}不完整", node.left.location)
                 elif isinstance(b, PointerType) and a.is_integer_type:
-                    if not b.is_complete():
+                    if not b.is_complete:
                         raise Error(f"{b.pointee_type}不完整", node.right.location)
                 else:
                     raise Error(
@@ -202,16 +209,16 @@ class TypeChecker(Analyzer, Transformer):
                 if a.is_arithmetic_type and b.is_arithmetic_type:
                     pass
                 elif isinstance(a, PointerType) and b.is_integer_type:
-                    if not a.is_complete():
+                    if not a.is_complete:
                         raise Error(f"{a.pointee_type}不完整", node.left.location)
                 elif isinstance(a, PointerType) and isinstance(b, PointerType):
                     a = remove_qualifier(a.pointee_type)
                     b = remove_qualifier(b.pointee_type)
                     if not is_compatible_type(a, b):
                         raise Error(f"{a}和{b}不兼容", node.location)
-                    if not a.is_complete():
+                    if not a.is_complete:
                         raise Error(f"{a}不完整", node.left.location)
-                    if not b.is_complete():
+                    if not b.is_complete:
                         raise Error(f"{b}不完整", node.right.location)
                 else:
                     raise Error(
@@ -290,7 +297,7 @@ class TypeChecker(Analyzer, Transformer):
                     isinstance(node.left.type, PointerType)
                     and node.right.type.is_integer_type
                 ):
-                    if not node.left.type.is_complete():
+                    if not node.left.type.is_complete:
                         raise Error(
                             f"{node.left.type.pointee_type}不完整", node.left.location
                         )
@@ -298,7 +305,7 @@ class TypeChecker(Analyzer, Transformer):
                     isinstance(node.right.type, PointerType)
                     and node.left.type.is_integer_type
                 ):
-                    if not node.right.type.is_complete():
+                    if not node.right.type.is_complete:
                         raise Error(
                             f"{node.right.type.pointee_type}不完整", node.right.location
                         )
@@ -318,7 +325,7 @@ class TypeChecker(Analyzer, Transformer):
                     isinstance(node.left.type, PointerType)
                     and node.right.type.is_integer_type
                 ):
-                    if not node.left.type.is_complete():
+                    if not node.left.type.is_complete:
                         raise Error(
                             f"{node.left.type.pointee_type}不完整", node.left.location
                         )
@@ -329,9 +336,9 @@ class TypeChecker(Analyzer, Transformer):
                     b = remove_qualifier(node.right.type.pointee_type)
                     if not is_compatible_type(a, b):
                         raise Error(f"{a}和{b}不兼容", node.location)
-                    if not a.is_complete():
+                    if not a.is_complete:
                         raise Error(f"{a}不完整", node.left.location)
-                    if not b.is_complete():
+                    if not b.is_complete:
                         raise Error(f"{b}不完整", node.right.location)
                 else:
                     raise Error(
@@ -364,15 +371,6 @@ class TypeChecker(Analyzer, Transformer):
                 node.type = node.left.type
             case BinOpKind.COMMA:
                 node.type = node.right.type
-        return node
-
-    @generic_implicit_cast
-    def visit_TypeOrVarDecl(self, node: TypeOrVarDecl):
-        self.generic_visit(node)
-        if node.initializer != None:
-            node.initializer = implicit_cast(
-                node.initializer, remove_qualifier(node.type)
-            )
         return node
 
     @generic_implicit_cast
@@ -534,5 +532,7 @@ class TypeChecker(Analyzer, Transformer):
 
         if node.select == None:
             raise Error("无法选择", node.location)
+        if hasattr(node.select, "value"):
+            node.value = node.select.value
         node.type = node.select.type
         node.is_lvalue = node.select.is_lvalue

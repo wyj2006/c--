@@ -11,15 +11,15 @@ class Expr(Node):
 
     value: Any  # 表达式的值(如果可以在编译期计算的话)
     type: Type  # 表达式的类型
-    is_lvalue: bool  # 是否是左值
+    is_lvalue: bool = False  # 是否是左值
     _attributes = Node._attributes + ("type", "value", "is_lvalue")
 
 
 class IntegerLiteral(Expr):
     """整数字面量"""
 
-    prefix: str
-    suffix: list[str]
+    prefix: str = ""
+    suffix: list[str] = tuple()
 
     _attributes = Expr._attributes + ("prefix", "suffix")
 
@@ -47,6 +47,10 @@ class CharLiteral(Expr):
     prefix: str
 
     _attributes = Expr._attributes + ("prefix",)
+
+
+class ImaginaryLiteral(Expr):
+    """虚数单位"""
 
 
 class BoolLiteral(Expr):
@@ -236,7 +240,7 @@ class Designator(Node):
     index: Expr
 
     _attributes = Node._attributes + ("member",)
-    _fields = Node._attributes + ("index",)
+    _fields = Node._fields + ("index",)
 
 
 class Designation(Expr):

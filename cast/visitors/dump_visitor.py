@@ -1,7 +1,7 @@
 import colorama
 
 from colorama import Fore
-from cast import Node, UnaryOperator, BinaryOperator
+from cast import Node, UnaryOperator, BinaryOperator, Expr
 
 from .visitor import Visitor
 
@@ -30,13 +30,19 @@ class DumpVisitor(Visitor):
         for i in node._attributes:
             if isinstance(node, (UnaryOperator, BinaryOperator)) and i == "op":
                 attr = node.op.value
+            elif isinstance(node, Expr) and i == "is_lvalue":
+                if node.is_lvalue:
+                    attr = "is_lvalue"
+                else:
+                    attr = None
             elif hasattr(node, i):
                 attr = getattr(node, i)
             else:
                 attr = None
+
             if attr != None:
                 print(self.color_cycle[color_i] + str(attr), end=" ")
-                color_i += 1
+                color_i = (color_i + 1) % len(self.color_cycle)
             else:
                 print(end="")
         print()

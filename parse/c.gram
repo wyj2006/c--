@@ -240,6 +240,7 @@ predefined_constant:
     a="true" {BoolLiteral(value=True,location=a.location)}
     | a="false" {BoolLiteral(value=False,location=a.location)}
     | a="nullptr" {NullPtrLiteral(location=a.location)}
+    | a="__I" {ImaginaryLiteral(location=a.location)}
 
 declaration:
     a=attribute_specifier_sequence b=declaration_specifiers c=init_declarator_list d=";" {DeclStmt(attribute_specifiers=a,specifiers=b[0],specifier_attributes=b[1],declarators=c,location=d.location)}

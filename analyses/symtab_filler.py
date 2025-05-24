@@ -13,6 +13,9 @@ from cast import (
     EnumDecl,
     AlignSpecifier,
     Reference,
+    IntegerLiteral,
+    BinaryOperator,
+    BinOpKind,
 )
 from basic import (
     Object,

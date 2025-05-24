@@ -2,14 +2,14 @@ from typing import TYPE_CHECKING
 from basic import Location
 
 if TYPE_CHECKING:
-    from basic import (
+    from cast import (
         Expr,
         AttributeSpecifier,
         StorageClass,
         FunctionSpecifier,
         AlignSpecifier,
     )
-    from basic import FunctionType, Type, EnumType
+    from typesystem import FunctionType, Type, EnumType
 
 # 提供给符号表的命名空间名
 LABEL_NAMES = "label_names"
@@ -200,16 +200,16 @@ class EnumConst(Symbol):
 
     @property
     def value(self):
+        """是self.value_expr.value的简化写法"""
         return self.value_expr.value
 
     def __str__(self):
-        from basic import UnParseVisitor
+        from cast import UnParseVisitor
 
-        value_str = (
-            self.value_expr.accept(UnParseVisitor())
-            if self.value_expr != None
-            else "Auto"
-        )
+        if self.value_expr != None:
+            value_str = self.value_expr.accept(UnParseVisitor())
+        else:
+            value_str = "auto"
 
         return f"{self.__class__.__name__}({self.name}, {self.enum_type}, {value_str})"
 

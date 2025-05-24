@@ -51,24 +51,24 @@ class UnParseVisitor(Visitor):
         return code
 
     def visit_IntegerLiteral(self, node: IntegerLiteral):
-        return node.value
+        return str(node.value)
 
     def visit_FloatLiteral(self, node: FloatLiteral):
-        return node.value
+        return str(node.value)
 
     def visit_CharLiteral(self, node: CharLiteral):
-        return node.value
+        return str(node.value)
 
     def visit_StringLiteral(self, node: StringLiteral):
-        return node.value
+        return str(node.value)
 
     def visit_BinaryOperator(self, node: BinaryOperator):
         # TODO: 优先级
-        return node.left.accept(self) + node.op.value + node.right.accept(self)
+        return f"{node.left.accept(self)}{node.op.value}{node.right.accept(self)}"
 
     def visit_UnaryOperator(self, node: UnaryOperator):
         # TODO: 优先级
-        return node.op.value + node.operand.accept(self)
+        return f"{node.op.value}{node.operand.accept(self)}"
 
     def visit_Reference(self, node: Reference):
         return node.name

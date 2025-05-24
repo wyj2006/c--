@@ -38,7 +38,7 @@ class SingleDeclration(Declaration):
 class DeclStmt(Stmt, Declaration):
     """声明语句"""
 
-    _fields = Stmt._fields + Declaration._fields
+    _fields = tuple(set(Stmt._fields + Declaration._fields))
 
 
 class SpecifierOrQualifier(Node):
