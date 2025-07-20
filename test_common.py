@@ -11,7 +11,7 @@ from values import *
 
 
 def check_type(actual: Type, expected: Type):
-    assert type(actual) == type(expected)
+    assert type(actual) == type(expected) or actual == expected
     for key, val in expected.__dict__.items():
         assert hasattr(actual, key)
         attr = getattr(actual, key)

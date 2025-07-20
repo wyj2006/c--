@@ -29,8 +29,8 @@ class Complex(Value):
 
         if isinstance(other, Complex):
             other_value = other.value
-            if other.type.size > self.type.size:
-                type = self.type.size
+            if other.type.real_type.size > self.type.real_type.size:
+                type = other.type
         elif isinstance(other, DecimalFloat):
             other_value = complex(other.value)
         elif isinstance(other, BinFloat):
@@ -41,6 +41,8 @@ class Complex(Value):
             other_value = complex(other)
         elif isinstance(other, float):
             other_value = complex(other)
+        elif isinstance(other, complex):
+            other_value = other
         else:
             return NotImplemented
         if result_map == None:

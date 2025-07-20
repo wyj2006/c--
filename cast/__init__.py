@@ -38,7 +38,7 @@ from .expr import (
     BoolLiteral,
     NullPtrLiteral,
     ImplicitCast,
-    ImaginaryLiteral,
+    ImaginaryUnit,
 )
 from .stmt import (
     Stmt,

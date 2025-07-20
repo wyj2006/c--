@@ -160,6 +160,16 @@ class Object(Symbol):
     def __str__(self):
         return f"{self.__class__.__name__}({self.name}, {self.type})"
 
+    @property
+    def alignement(self):
+        if self.align_specifier != None:
+            return self.align_specifier.alignment
+        return self.type.alignment
+
+    @property
+    def size(self):
+        return self.type.size
+
 
 class Member(Object):
     """Record的成员"""

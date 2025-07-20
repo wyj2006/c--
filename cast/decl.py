@@ -197,6 +197,13 @@ class AlignSpecifier(SpecifierOrQualifier):
 
     _attributes = SpecifierOrQualifier._attributes + ("type_or_expr",)
 
+    @property
+    def alignment(self):
+        if isinstance(self.type_or_expr, Expr):
+            return self.type_or_expr.value
+        assert isinstance(self.type_or_expr, TypeName)
+        return self.type_or_expr.type.alignment
+
 
 class RecordDecl(SpecifierOrQualifier):
     struct_or_union: str

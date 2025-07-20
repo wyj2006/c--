@@ -1,12 +1,11 @@
 """
 各种类型
-不允许直接使用抽象类(比如IntegerType, FloatingType等)
 """
 
+# TODO 如何使用基类和派生类(比如IntegerType和IntType)
 from .ctype import (
     Type,
     VoidType,
-    BoolType,
     TypeofType,
     AutoType,
     EnumType,
@@ -39,6 +38,7 @@ from .integer_type import (
     BitIntType,
     IntegerType,
     LongLongType,
+    BoolType,
 )
 from .real_floating_type import (
     FloatType,
@@ -49,6 +49,7 @@ from .real_floating_type import (
     LongDoubleType,
     DecimalType,
     BinaryFloatType,
+    RealFloatingType,
 )
 from .complex_type import (
     FloatComplexType,
@@ -84,74 +85,78 @@ def integer_promotion(type: Type):
         type = type.type
     if not isinstance(type, IntegerType):
         return type
+    if type.size >= IntType.size:
+        return type
     limit = type.range
     int_limit = IntType().range
     if int_limit[0] <= limit[0] and limit[1] <= int_limit[1]:
         return IntType()
-    return UIntType
+    return UIntType()
 
 
 def is_compatible_type(a: Type, b: Type):
     """判断a和b是否是兼容类型"""
     if a == b:
         return True
-    if isinstance(a, TypedefType):
-        return is_compatible_type(a.type, b)
-    if isinstance(b, TypedefType):
-        return is_compatible_type(a, b.type)
-    if isinstance(a, QualifiedType) and isinstance(b, QualifiedType):
-        return set(a.qualifiers) == set(b.qualifiers) and is_compatible_type(
-            a.type, b.type
-        )
-    if isinstance(a, PointerType) and isinstance(b, PointerType):
-        return is_compatible_type(a.pointee_type, b.pointee_type)
-    if isinstance(a, ArrayType) and isinstance(b, ArrayType):
-        return is_compatible_type(a.element_type, b.element_type) and (
-            True
-            if (a.size_expr == None or b.size_expr == None)
-            else a.size_expr == b.size_expr
-        )
-    if isinstance(a, EnumType) and isinstance(b, EnumType):
-        if a.is_complete() and b.is_complete():
-            if len(a.enumerators) != len(b.enumerators):
-                return False
-            if not is_compatible_type(a.underlying_type, b.underlying_type):
-                return False
-            for x, y in zip(a.enumerators, b.enumerators):
-                m = a.enumerators[x]
-                n = b.enumerators[y]
-                if m.value_expr.value != n.value_expr.value:
+    match a, b:
+        case TypedefType(), _:
+            return is_compatible_type(a.type, b)
+        case _, TypedefType():
+            return is_compatible_type(a, b.type)
+        case QualifiedType(), QualifiedType():
+            return set(a.qualifiers) == set(b.qualifiers) and is_compatible_type(
+                a.type, b.type
+            )
+        case PointerType(), PointerType():
+            return is_compatible_type(a.pointee_type, b.pointee_type)
+        case ArrayType(), ArrayType():
+            return is_compatible_type(a.element_type, b.element_type) and (
+                True
+                if (a.size_expr == None or b.size_expr == None)
+                else a.size_expr.value == b.size_expr.value
+            )
+        case EnumType(), EnumType():
+            if a.is_complete and b.is_complete:
+                if len(a.enumerators) != len(b.enumerators):
                     return False
-        return True
-    if isinstance(a, RecordType) and isinstance(b, RecordType):
-        if a.is_complete() and b.is_complete():
-            if len(a.members) != len(b.members):
-                return False
-            for x, y in zip(a.members, b.members):
-                m = a.members[x]
-                n = b.members[y]
-                if a.struct_or_union == "struct" and m.name != n.name:
+                if not is_compatible_type(a.underlying_type, b.underlying_type):
                     return False
-                if m.bit_field.value != n.bit_field.value:
+                for x, y in zip(a.enumerators, b.enumerators):
+                    m = a.enumerators[x]
+                    n = b.enumerators[y]
+                    if m.value_expr.value != n.value_expr.value:
+                        return False
+            return True
+        case RecordType(), RecordType():
+            if a.is_complete and b.is_complete:
+                if len(a.members) != len(b.members):
                     return False
-                if not is_compatible_type(m.type, n.type):
-                    return False
-        return True
-    if isinstance(a, EnumType) and a.underlying_type == b:
-        return True
-    if isinstance(b, EnumType) and b.underlying_type == a:
-        return True
-    if isinstance(a, FunctionType) and isinstance(b, FunctionType):
-        return (
-            is_compatible_type(a.return_type, b.return_type)
-            and a.has_varparam == b.has_varparam
-            and a.parameters_type == b.parameters_type
-        )
+                for x, y in zip(a.members, b.members):
+                    m = a.members[x]
+                    n = b.members[y]
+                    if a.struct_or_union == "struct" and m.name != n.name:
+                        return False
+                    if m.bit_field.value != n.bit_field.value:
+                        return False
+                    if not is_compatible_type(m.type, n.type):
+                        return False
+            return True
+        case EnumType(), _ if a.underlying_type == b:
+            return True
+        case _, EnumType() if b.underlying_type == a:
+            return True
+        case FunctionType(), FunctionType():
+            return (  # TODO 完善
+                is_compatible_type(a.return_type, b.return_type)
+                and a.has_varparam == b.has_varparam
+                and a.parameters_type == b.parameters_type
+            )
     return False
 
 
 def composite_type(a: Type, b: Type) -> Type:
     """合成类型"""
+    # TODO 完善
     if isinstance(a, ArrayType) and isinstance(b, ArrayType):
         if a.size_expr == None == b.size_expr:
             return ArrayType(composite_type(a.element_type, b.element_type), None)
@@ -173,4 +178,6 @@ def composite_type(a: Type, b: Type) -> Type:
         )
     elif isinstance(a, PointerType) and isinstance(b, PointerType):
         return PointerType(composite_type(a.pointee_type, b.pointee_type))
+    if is_compatible_type(a, b):
+        return a
     raise Exception(f"无法合成{a}和{b}")

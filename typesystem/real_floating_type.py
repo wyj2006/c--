@@ -1,3 +1,4 @@
+import ctypes
 from .floating_type import FloatingType
 from .integer_type import BitIntType
 
@@ -7,14 +8,18 @@ class RealFloatingType(FloatingType):
 
 
 class BinaryFloatType(RealFloatingType):
-    def __call__(self, value):
+    def __call__(self, value=0):
         from values import BinFloat
 
         return BinFloat(value, self)
 
+    def __eq__(self, other):
+        return isinstance(other, BinaryFloatType) and self.size == other.size
+
 
 class FloatType(BinaryFloatType):
     size = 4
+    alignment = 4
 
     def genDeclaration(self, declaration):
         from cast import BasicTypeSpecifier
@@ -24,6 +29,7 @@ class FloatType(BinaryFloatType):
 
 class DoubleType(BinaryFloatType):
     size = 8
+    alignment = 8
 
     def genDeclaration(self, declaration):
         from cast import BasicTypeSpecifier
@@ -33,6 +39,7 @@ class DoubleType(BinaryFloatType):
 
 class LongDoubleType(BinaryFloatType):
     size = 16
+    alignment = ctypes.alignment(ctypes.c_longdouble)
 
     def genDeclaration(self, declaration):
         from cast import BasicTypeSpecifier
@@ -49,11 +56,19 @@ class DecimalType(RealFloatingType):
         self.exp_type = BitIntType(self.exp_size)  # 指数位
         self.man_type = BitIntType(self.man_size)  # 尾数位
 
+    def __eq__(self, other):
+        return (
+            isinstance(other, DecimalType)
+            and self.exp_size == other.exp_size
+            and self.man_size == other.man_size
+        )
+
 
 class Decimal32Type(DecimalType):
     size = 4
     exp_size = 7
     man_size = 24
+    alignment = 4
 
     def genDeclaration(self, declaration):
         from cast import BasicTypeSpecifier
@@ -65,6 +80,7 @@ class Decimal64Type(DecimalType):
     size = 8
     exp_size = 10
     man_size = 53
+    alignment = 8
 
     def genDeclaration(self, declaration):
         from cast import BasicTypeSpecifier
@@ -76,6 +92,7 @@ class Decimal128Type(DecimalType):
     size = 16
     exp_size = 15
     man_size = 112
+    alignment = 16
 
     def genDeclaration(self, declaration):
         from cast import BasicTypeSpecifier

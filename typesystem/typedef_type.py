@@ -24,7 +24,7 @@ class TypedefType(Type, Symbol):
         )
 
     def is_complete(self):
-        return self.type.is_complete()
+        return self.type.is_complete
 
     def __call__(self, value):
         return self.type(value)

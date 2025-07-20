@@ -103,19 +103,36 @@ class Value:
         return self.generic_unary_op(lambda a: ~a)
 
     def __eq__(self, other):
-        return self.generic_bin_op(other, lambda a, b: a == b, lambda a, _: a)
+        from values import Int
+
+        return self.generic_bin_op(other, lambda a, b: a == b, lambda a, _: Int(a))
 
     def __ne__(self, other):
-        return self.generic_bin_op(other, lambda a, b: a != b, lambda a, _: a)
+        from values import Int
+
+        return self.generic_bin_op(other, lambda a, b: a != b, lambda a, _: Int(a))
 
     def __lt__(self, other):
-        return self.generic_bin_op(other, lambda a, b: a < b, lambda a, _: a)
+        from values import Int
+
+        return self.generic_bin_op(other, lambda a, b: a < b, lambda a, _: Int(a))
 
     def __le__(self, other):
-        return self.generic_bin_op(other, lambda a, b: a <= b, lambda a, _: a)
+        from values import Int
+
+        return self.generic_bin_op(other, lambda a, b: a <= b, lambda a, _: Int(a))
 
     def __gt__(self, other):
-        return self.generic_bin_op(other, lambda a, b: a > b, lambda a, _: a)
+        from values import Int
+
+        return self.generic_bin_op(other, lambda a, b: a > b, lambda a, _: Int(a))
 
     def __ge__(self, other):
-        return self.generic_bin_op(other, lambda a, b: a >= b, lambda a, _: a)
+        from values import Int
+
+        return self.generic_bin_op(other, lambda a, b: a >= b, lambda a, _: Int(a))
+
+    def __not__(self):
+        from values import Int
+
+        return Int(not self)

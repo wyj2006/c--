@@ -1,0 +1,28 @@
+int main()
+{
+   struct test1{
+      char a; 
+      int b; 
+      double c; 
+      bool d; 
+   };
+   struct  test2{ 
+      char a; 
+      struct test1 bb;
+      int cc; 
+   };
+   struct test4{
+      char a; 
+      int b; 
+   }; 
+   struct test5{
+      char c; 
+      struct test4 d; 
+      double e;
+      bool f; 
+   };
+   sizeof(struct test1);
+   sizeof(struct test2);
+   sizeof(struct test4);
+   sizeof(struct test5);
+}

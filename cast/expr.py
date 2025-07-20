@@ -49,7 +49,7 @@ class CharLiteral(Expr):
     _attributes = Expr._attributes + ("prefix",)
 
 
-class ImaginaryLiteral(Expr):
+class ImaginaryUnit(Expr):
     """虚数单位"""
 
 

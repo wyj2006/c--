@@ -1,6 +1,6 @@
-from contextlib import contextmanager
 import os
 import datetime
+from contextlib import contextmanager
 from typing import Optional
 from basic import (
     Error,
@@ -136,7 +136,7 @@ class Preprocessor(Gen_Lexer):
             ):
                 self.nexttk_index -= 1
                 self.tokens.pop(self.nexttk_index)
-                self.handleDirective(token.pp_directive)
+                self.handle_directive(token.pp_directive)
                 continue
             elif (
                 not self.flag.has(PPFlag.IGNORE_PPDIRECTIVE)
@@ -161,13 +161,13 @@ class Preprocessor(Gen_Lexer):
                 self.tokens[start:end] = []
                 self.nexttk_index = start
                 # pp_directive.accept(DumpVisitor())
-                self.handleDirective(pp_directive)
+                self.handle_directive(pp_directive)
                 continue
             # 尝试进行宏替换
             elif (
                 self.flag.has(PPFlag.ALLOW_REPLACE)
                 and token.kind == TokenKind.IDENTIFIER
-                and self.replaceMacro()  # 进行了替换
+                and self.replace_macro()  # 进行了替换
             ):
                 continue
             elif (
@@ -219,7 +219,7 @@ class Preprocessor(Gen_Lexer):
                     break
             return token
 
-    def handleDirective(self, pp_directive: PPDirective):
+    def handle_directive(self, pp_directive: PPDirective):
         if isinstance(pp_directive, DefineDirective):
             name = pp_directive.name
             macro = Macro(
@@ -300,7 +300,7 @@ class Preprocessor(Gen_Lexer):
             # TODO: 支持pragma
             Warn("暂不支持#pragma", pp_directive.location)
 
-    def replaceMacro(self):
+    def replace_macro(self):
         """宏替换, 如果发生了替换就返回True, 否则返回False"""
         name = self.curtoken().text
         token = None
@@ -347,7 +347,7 @@ class Preprocessor(Gen_Lexer):
         if macro.is_object_like:
             replaced_token = macro.replace([])
         else:
-            args = self.getMacroArgs(macro)
+            args = self.get_macro_args(macro)
             if (
                 args == None
                 # 参数数量不匹配
@@ -365,7 +365,7 @@ class Preprocessor(Gen_Lexer):
         self.nexttk_index = start
         return True
 
-    def getMacroArgs(self, macro: Macro) -> Optional[list[MacroArg]]:
+    def get_macro_args(self, macro: Macro) -> Optional[list[MacroArg]]:
         """获取宏替换的实参"""
         token = self.next()
         if token.kind != TokenKind.L_PAREN:  # 不存在实参

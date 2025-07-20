@@ -47,6 +47,14 @@ class Type:
         """是否是完整类型"""
         return True
 
+    @property
+    def alignment(self) -> int:
+        return 1
+
+    @property
+    def max_member_size(self):
+        return self.size  # TODO 补全其它类
+
 
 class VoidType(Type):
     size = 1
@@ -55,15 +63,6 @@ class VoidType(Type):
         from cast import BasicTypeSpecifier
 
         declaration.specifiers.append(BasicTypeSpecifier(specifier_name="void"))
-
-
-class BoolType(Type):
-    size = 1
-
-    def genDeclaration(self, declaration):
-        from cast import BasicTypeSpecifier
-
-        declaration.specifiers.append(BasicTypeSpecifier(specifier_name="bool"))
 
 
 class PointerType(Type):
@@ -226,11 +225,26 @@ class RecordType(Type, Symbol):
 
     @property
     def size(self):
-        # TODO: 确定对齐
-        _size = 0
-        for member in self.members:
-            _size += member.type.size
-        return _size
+        if self.struct_or_union == "union":
+            size = max([member.type.size for member in self.members.values()])
+            return size  # TODO 完善
+        offset = 0
+        for member in self.members.values():
+            if offset % member.alignement != 0:
+                offset = (offset // member.alignement + 1) * member.alignement
+            offset += member.size
+        max_member_size = self.max_member_size
+        if offset % max_member_size != 0:
+            offset = (offset // max_member_size + 1) * max_member_size
+        return offset
+
+    @property
+    def alignment(self):
+        return max([member.type.alignment for member in self.members.values()])
+
+    @property
+    def max_member_size(self):
+        return max([member.type.max_member_size for member in self.members.values()])
 
 
 class EnumType(Type, Symbol):
