@@ -6,6 +6,7 @@ from analyses import (
     AttrAnalyzer,
     TypeChecker,
     ConstEvaluater,
+    StmtChecker,
 )
 from basic import Diagnostic, Diagnostics, Symtab, TokenKind, MergeReader, Token
 from lex import Preprocessor
@@ -67,6 +68,7 @@ def main():
             SymtabFiller(symtab),
             ConstEvaluater(symtab),
             TypeChecker(symtab),
+            StmtChecker(symtab),
         ):
             try:
                 if isinstance(analyzer, Transformer):
