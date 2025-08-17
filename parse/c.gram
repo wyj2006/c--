@@ -411,10 +411,28 @@ parameter_list:
 
 parameter_declaration:
     a=[attribute_specifier_sequence] b=declaration_specifiers c=declarator {ParamDecl(attribute_specifiers=option(a,[]),specifiers=b[0],specifier_attributes=b[1],declarator=c,location=BEGIN_LOCATION)}
-    | a=[attribute_specifier_sequence] b=declaration_specifiers c=[declarator] {ParamDecl(attribute_specifiers=option(a,[]),specifiers=b[0],specifier_attributes=b[1],declarator=c,location=BEGIN_LOCATION)}
+    | a=[attribute_specifier_sequence] b=declaration_specifiers c=[abstract_declarator] {ParamDecl(attribute_specifiers=option(a,[]),specifiers=b[0],specifier_attributes=b[1],declarator=c,location=BEGIN_LOCATION)}
 
 type_name:
-    a=specifier_qualifier_list b=[declarator] {TypeName(specifiers=a[0],specifier_attributes=a[1],declarator=b,location=BEGIN_LOCATION)}
+    a=specifier_qualifier_list b=[abstract_declarator] {TypeName(specifiers=a[0],specifier_attributes=a[1],declarator=b,location=BEGIN_LOCATION)}
+
+abstract_declarator:
+    a=[pointer] b=direct_abstract_declarator {concat_pointer(a,b)}
+    | pointer
+
+direct_abstract_declarator:
+    a=array_abstract_declarator b=[attribute_specifier_sequence] {assign(a,"attribute_specifiers",option(b,[]))}
+    | a=function_abstract_declarator b=[attribute_specifier_sequence] {assign(a,"attribute_specifiers",option(b,[]))}
+    | "(" a=abstract_declarator ")" {a}
+
+array_abstract_declarator:
+    a=[direct_abstract_declarator] d="[" "static" b=[type_qualifier_list] c=assignment_expression "]" {ArrayDeclarator(declarator=a,qualifiers=option(b,[]),size=c,is_star_modified=False,is_static=True,location=d.location)}
+    | a=[direct_abstract_declarator] d="[" "*" "]" {ArrayDeclarator(declarator=a,qualifiers=[],size=None,is_star_modified=True,is_static=False,location=d.location)}
+    | a=[direct_abstract_declarator] d="[" b=type_qualifier_list "static" c=assignment_expression "]" {ArrayDeclarator(declarator=a,qualifiers=b,size=c,is_star_modified=False,is_static=True,location=d.location)}
+    | a=[direct_abstract_declarator] d="[" b=[type_qualifier_list] c=[assignment_expression] "]" {ArrayDeclarator(declarator=a,qualifiers=option(b,[]),size=c,is_star_modified=False,is_static=False,location=d.location)}
+
+function_abstract_declarator:
+    a=[direct_abstract_declarator] d="(" b=[parameter_type_list] ")" {FunctionDeclarator(declarator=a,parameters=option(b,[[], False])[0],has_varparam=option(b,[[], False])[1],location=d.location,)}
 
 braced_initializer:
     a="{" b=initializer_list [","] "}" {InitList(initializers=b, location=a.location)}

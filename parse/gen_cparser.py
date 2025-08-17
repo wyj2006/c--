@@ -1350,9 +1350,6 @@ class Gen_CParser(ParserBase):
         if ((a := self.pointer()),) and (b := self.direct_declarator()):
             return concat_pointer(a, b)
         self.restore(_z)
-        if (a := self.pointer()):
-            return self.error('后面缺少声明符', a.location)
-        self.restore(_z)
         return None
 
     @memorize_left_rec
@@ -1483,7 +1480,7 @@ class Gen_CParser(ParserBase):
         if ((a := self.attribute_specifier_sequence()),) and (b := self.declaration_specifiers()) and (c := self.declarator()):
             return ParamDecl(attribute_specifiers=option(a, []), specifiers=b[0], specifier_attributes=b[1], declarator=c, location=begin_location)
         self.restore(_z)
-        if ((a := self.attribute_specifier_sequence()),) and (b := self.declaration_specifiers()) and ((c := self.declarator()),):
+        if ((a := self.attribute_specifier_sequence()),) and (b := self.declaration_specifiers()) and ((c := self.abstract_declarator()),):
             return ParamDecl(attribute_specifiers=option(a, []), specifiers=b[0], specifier_attributes=b[1], declarator=c, location=begin_location)
         self.restore(_z)
         return None
@@ -1492,8 +1489,84 @@ class Gen_CParser(ParserBase):
     def type_name(self):
         begin_location = self.curtoken().location
         _z = self.save()
-        if (a := self.specifier_qualifier_list()) and ((b := self.declarator()),):
+        if (a := self.specifier_qualifier_list()) and ((b := self.abstract_declarator()),):
             return TypeName(specifiers=a[0], specifier_attributes=a[1], declarator=b, location=begin_location)
+        self.restore(_z)
+        return None
+
+    @memorize
+    def abstract_declarator(self):
+        begin_location = self.curtoken().location
+        _z = self.save()
+        if ((a := self.pointer()),) and (b := self.direct_abstract_declarator()):
+            return concat_pointer(a, b)
+        self.restore(_z)
+        if (pointer := self.pointer()):
+            return pointer
+        self.restore(_z)
+        return None
+
+    @memorize_left_rec
+    def direct_abstract_declarator(self):
+        begin_location = self.curtoken().location
+        _z = self.save()
+        if (a := self.array_abstract_declarator()) and ((b := self.attribute_specifier_sequence()),):
+            return assign(a, 'attribute_specifiers', option(b, []))
+        self.restore(_z)
+        if (a := self.function_abstract_declarator()) and ((b := self.attribute_specifier_sequence()),):
+            return assign(a, 'attribute_specifiers', option(b, []))
+        self.restore(_z)
+        if self.expect(TokenKind.L_PAREN) and (a := self.abstract_declarator()) and self.expect(TokenKind.R_PAREN):
+            return a
+        self.restore(_z)
+        if self.expect(TokenKind.L_PAREN) and (a := self.abstract_declarator()):
+            return self.error("后面缺少')'", a.location)
+        self.restore(_z)
+        return None
+
+    def array_abstract_declarator(self):
+        begin_location = self.curtoken().location
+        _z = self.save()
+        if ((a := self.direct_abstract_declarator()),) and (d := self.expect(TokenKind.L_SQUARE)) and self.expect(TokenKind.STATIC) and ((b := self.type_qualifier_list()),) and (c := self.assignment_expression()) and self.expect(TokenKind.R_SQUARE):
+            return ArrayDeclarator(declarator=a, qualifiers=option(b, []), size=c, is_star_modified=False, is_static=True, location=d.location)
+        self.restore(_z)
+        if ((a := self.direct_abstract_declarator()),) and (d := self.expect(TokenKind.L_SQUARE)) and self.expect(TokenKind.STAR) and self.expect(TokenKind.R_SQUARE):
+            return ArrayDeclarator(declarator=a, qualifiers=[], size=None, is_star_modified=True, is_static=False, location=d.location)
+        self.restore(_z)
+        if ((a := self.direct_abstract_declarator()),) and (d := self.expect(TokenKind.L_SQUARE)) and (b := self.type_qualifier_list()) and self.expect(TokenKind.STATIC) and (c := self.assignment_expression()) and self.expect(TokenKind.R_SQUARE):
+            return ArrayDeclarator(declarator=a, qualifiers=b, size=c, is_star_modified=False, is_static=True, location=d.location)
+        self.restore(_z)
+        if ((a := self.direct_abstract_declarator()),) and (d := self.expect(TokenKind.L_SQUARE)) and ((b := self.type_qualifier_list()),) and ((c := self.assignment_expression()),) and self.expect(TokenKind.R_SQUARE):
+            return ArrayDeclarator(declarator=a, qualifiers=option(b, []), size=c, is_star_modified=False, is_static=False, location=d.location)
+        self.restore(_z)
+        if ((direct_abstract_declarator := self.direct_abstract_declarator()),) and self.expect(TokenKind.L_SQUARE) and self.expect(TokenKind.STATIC) and ((type_qualifier_list := self.type_qualifier_list()),) and (c := self.assignment_expression()):
+            return self.error("后面缺少']'", c.location)
+        self.restore(_z)
+        if ((direct_abstract_declarator := self.direct_abstract_declarator()),) and self.expect(TokenKind.L_SQUARE) and (c := self.expect(TokenKind.STAR)):
+            return self.error("后面缺少']'", c.location)
+        self.restore(_z)
+        if ((direct_abstract_declarator := self.direct_abstract_declarator()),) and self.expect(TokenKind.L_SQUARE) and (type_qualifier_list := self.type_qualifier_list()) and self.expect(TokenKind.STATIC) and (c := self.assignment_expression()):
+            return self.error("后面缺少']'", c.location)
+        self.restore(_z)
+        if ((direct_abstract_declarator := self.direct_abstract_declarator()),) and self.expect(TokenKind.L_SQUARE) and ((type_qualifier_list := self.type_qualifier_list()),) and ((assignment_expression := self.assignment_expression()),):
+            return self.error("前面缺少']'", self.curtoken().location)
+        self.restore(_z)
+        if ((direct_abstract_declarator := self.direct_abstract_declarator()),) and self.expect(TokenKind.L_SQUARE) and (type_qualifier_list := self.type_qualifier_list()) and (a := self.expect(TokenKind.STATIC)):
+            return self.error('后面缺少一个表达式', a.location)
+        self.restore(_z)
+        if ((direct_abstract_declarator := self.direct_abstract_declarator()),) and self.expect(TokenKind.L_SQUARE) and self.expect(TokenKind.STATIC) and ((type_qualifier_list := self.type_qualifier_list()),):
+            return self.error('前面期待一个表达式', self.curtoken().location)
+        self.restore(_z)
+        return None
+
+    def function_abstract_declarator(self):
+        begin_location = self.curtoken().location
+        _z = self.save()
+        if ((a := self.direct_abstract_declarator()),) and (d := self.expect(TokenKind.L_PAREN)) and ((b := self.parameter_type_list()),) and self.expect(TokenKind.R_PAREN):
+            return FunctionDeclarator(declarator=a, parameters=option(b, [[], False])[0], has_varparam=option(b, [[], False])[1], location=d.location)
+        self.restore(_z)
+        if ((direct_abstract_declarator := self.direct_abstract_declarator()),) and self.expect(TokenKind.L_PAREN) and ((b := self.parameter_type_list()),):
+            return self.error("前面缺少')'", self.curtoken().location)
         self.restore(_z)
         return None
 
@@ -1722,47 +1795,5 @@ class Gen_CParser(ParserBase):
         self.restore(_z)
         if (b := self.balanced_token()):
             return b
-        self.restore(_z)
-        return None
-
-    @memorize
-    def direct_abstract_declarator(self):
-        begin_location = self.curtoken().location
-        _z = self.save()
-        if self.expect(TokenKind.L_PAREN) and (a := self.abstract_declarator()):
-            return self.error("后面缺少')'", a.location)
-        self.restore(_z)
-        return None
-
-    @memorize
-    def array_abstract_declarator(self):
-        begin_location = self.curtoken().location
-        _z = self.save()
-        if ((direct_abstract_declarator := self.direct_abstract_declarator()),) and self.expect(TokenKind.L_SQUARE) and self.expect(TokenKind.STATIC) and ((type_qualifier_list := self.type_qualifier_list()),) and (c := self.assignment_expression()):
-            return self.error("后面缺少']'", c.location)
-        self.restore(_z)
-        if ((direct_abstract_declarator := self.direct_abstract_declarator()),) and self.expect(TokenKind.L_SQUARE) and (c := self.expect(TokenKind.STAR)):
-            return self.error("后面缺少']'", c.location)
-        self.restore(_z)
-        if ((direct_abstract_declarator := self.direct_abstract_declarator()),) and self.expect(TokenKind.L_SQUARE) and (type_qualifier_list := self.type_qualifier_list()) and self.expect(TokenKind.STATIC) and (c := self.assignment_expression()):
-            return self.error("后面缺少']'", c.location)
-        self.restore(_z)
-        if ((direct_abstract_declarator := self.direct_abstract_declarator()),) and self.expect(TokenKind.L_SQUARE) and ((type_qualifier_list := self.type_qualifier_list()),) and ((assignment_expression := self.assignment_expression()),):
-            return self.error("前面缺少']'", self.curtoken().location)
-        self.restore(_z)
-        if ((direct_abstract_declarator := self.direct_abstract_declarator()),) and self.expect(TokenKind.L_SQUARE) and (type_qualifier_list := self.type_qualifier_list()) and (a := self.expect(TokenKind.STATIC)):
-            return self.error('后面缺少一个表达式', a.location)
-        self.restore(_z)
-        if ((direct_abstract_declarator := self.direct_abstract_declarator()),) and self.expect(TokenKind.L_SQUARE) and self.expect(TokenKind.STATIC) and ((type_qualifier_list := self.type_qualifier_list()),):
-            return self.error('前面期待一个表达式', self.curtoken().location)
-        self.restore(_z)
-        return None
-
-    @memorize
-    def function_abstract_declarator(self):
-        begin_location = self.curtoken().location
-        _z = self.save()
-        if ((direct_abstract_declarator := self.direct_abstract_declarator()),) and self.expect(TokenKind.L_PAREN) and ((b := self.parameter_type_list()),):
-            return self.error("前面缺少')'", self.curtoken().location)
         self.restore(_z)
         return None

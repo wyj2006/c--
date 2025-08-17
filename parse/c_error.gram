@@ -125,9 +125,6 @@ alignment_specifier:
     C("alignas",type_name)
     | C("alignas",constant_expression)
 
-declarator:
-    a=pointer {ERROR("后面缺少声明符",a.location)}
-
 direct_declarator:
     "(" a=declarator {ERROR("后面缺少')'",a.location)}
     | a="(" {ERROR("后面缺少声明符",a.location)}

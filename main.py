@@ -5,7 +5,6 @@ from analyses import (
     SymtabFiller,
     AttrAnalyzer,
     TypeChecker,
-    ConstEvaluater,
     StmtChecker,
 )
 from basic import Diagnostic, Diagnostics, Symtab, TokenKind, MergeReader, Token
@@ -66,7 +65,6 @@ def main():
             AttrAnalyzer(symtab),
             DeclAnalyzer(symtab),
             SymtabFiller(symtab),
-            ConstEvaluater(symtab),
             TypeChecker(symtab),
             StmtChecker(symtab),
         ):

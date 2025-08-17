@@ -1,4 +1,4 @@
-from typing import Callable, TypeVar
+from typing import Callable, TypeVar, TypedDict, Generator, Union
 from analyses.analyzer import Analyzer
 from cast import (
     Transformer,
@@ -33,6 +33,7 @@ from cast import (
     TypeOfSpecifier,
     TypeQualifier,
     TypeQualifierKind,
+    Designator,
 )
 from basic import Error, Object, Function, EnumConst
 from typesystem import (
@@ -131,20 +132,6 @@ def encode_units(string: str, encoding: str):
     return value
 
 
-def get_designation_index(expr: Expr):
-    """
-    获取指派符的索引
-    没有就返回None
-    """
-    if not isinstance(expr, Designation):
-        return None
-    assert len(expr.designators) == 1  # 已经拆分过了
-    designator = expr.designators[0]
-    if hasattr(designator, "index"):
-        return designator.index.value
-    return None
-
-
 _T = TypeVar("_T")
 
 
@@ -192,8 +179,6 @@ def generic_implicit_cast(func: Callable[["TypeChecker", Node], _T]):
     """
 
     def wrapper(self: "TypeChecker", node: Node) -> _T:
-        if isinstance(node, Expr) and hasattr(node, "type"):  # 已经处理过了
-            return node
         self.path.append(node)
         ret = func(self, node)
         self.path.pop()
@@ -303,6 +288,16 @@ class TypeChecker(Analyzer, Transformer):
         if isinstance(node, InitList):
             node.type = type
             return node.accept(self)
+        elif isinstance(node, Designation):
+            node.initializer = self.implicit_cast(node.initializer, type)
+            return node
+        if (
+            isinstance(type, ArrayType)
+            and not type.is_complete
+            and isinstance(node.type, ArrayType)
+            and node.type.is_complete
+        ):
+            type.len_expr = node.type.len_expr
         ret = ImplicitCast(
             type=type,
             expr=node,
@@ -399,6 +394,7 @@ class TypeChecker(Analyzer, Transformer):
 
     @generic_implicit_cast
     def visit_Expr(self, node: Expr):
+        self.generic_visit(node)
         return node
 
     @generic_implicit_cast
@@ -995,8 +991,16 @@ class TypeChecker(Analyzer, Transformer):
         function_type: FunctionType = node.func.type.pointee_type
 
         for i, v in enumerate(function_type.parameters_type):
-            if isinstance(v, ArrayPtrType):
-                pass  # TODO: 比较数组大小
+            if isinstance(v, ArrayPtrType) and isinstance(node.args[i].type, ArrayType):
+                if not node.args[i].type.is_complete:
+                    raise Error("传入数组不完整", node.args[i].type)
+                if (
+                    v.array_type.len_expr != None
+                    and node.args[i].type.len < v.array_type.len
+                ):
+                    raise Error(
+                        f"数组大小不足{v.array_type.len}", node.args[i].location
+                    )
             node.args[i] = self.implicit_cast(node.args[i], v)
 
         if function_type.has_varparam:
@@ -1225,7 +1229,94 @@ class TypeChecker(Analyzer, Transformer):
         return node
 
     def visit_InitList(self, node: InitList):
-        # TODO 完善
+        class NodeDict(TypedDict):
+            type: Type
+            value: str | int
+            parent_type: Type
+            union_id: list[int]  # 所属的union的id
+            union_index: list[int]  # 属于union的哪一个成员之中, 与union_id一一对应
+
+        def gen_path(
+            t: Type,
+        ) -> Generator[Union[list[NodeDict], dict[int, list[NodeDict]]]]:
+            if isinstance(t, ArrayType):
+                i = 0
+                if t.len_expr == None:
+                    n = float("inf")
+                else:
+                    n = t.len_expr.value
+                while i < n:
+                    for k in gen_path(t.element_type):
+                        yield [
+                            {
+                                "type": t.element_type,
+                                "value": i,
+                                "parent_type": t,
+                                "union_id": [],
+                                "union_index": [],
+                            }
+                        ] + k
+                    i += 1
+            elif isinstance(t, RecordType):
+                for i, (name, member) in enumerate(t.members.items()):
+                    if (
+                        isinstance(member.type, ArrayType)
+                        and member.type.len_expr == None
+                    ):
+                        if i != len(t.members):
+                            raise Error(
+                                "柔性数组没有位于结构体最后", member.define_location
+                            )
+                        raise Error(
+                            "柔性数组成员不能用初始化列表初始化",
+                            member.define_location,
+                        )
+                    for k in gen_path(member.type):
+                        nodes: list[NodeDict] = [
+                            {
+                                "type": member.type,
+                                "value": name,
+                                "parent_type": t,
+                                "union_id": [],
+                                "union_index": [],
+                            }
+                        ] + k
+                        if t.struct_or_union == "union":
+                            for node in nodes:
+                                node["union_id"].append(id(t))
+                                node["union_index"].append(i)
+                        yield nodes
+            else:
+                yield []
+
+        def build_designator(
+            initializer: Expr, designators: list[NodeDict]
+        ) -> list[Designator]:
+            """
+            将gen_path生成的路径转换成Designator列表
+            initializer是用来提供位置信息的
+            """
+            a = []
+            for i in designators:
+                if isinstance(i["parent_type"], ArrayType):
+                    a.append(
+                        Designator(
+                            index=IntegerLiteral(
+                                value=i["value"], location=initializer.location
+                            ).accept(self),
+                            location=initializer.location,
+                        )
+                    )
+                elif isinstance(i["parent_type"], RecordType):
+                    a.append(
+                        Designator(
+                            member=i["value"],
+                            location=initializer.location,
+                        )
+                    )
+                # 其它类型在一开始就会被处理
+            return a
+
         if not hasattr(node, "type"):  # InitList的类型要由外部指定
             return node
         self.generic_visit(node)
@@ -1239,56 +1330,122 @@ class TypeChecker(Analyzer, Transformer):
                 )
             return node
 
-        if isinstance(node.type, ArrayType):  # 数组初始化
-            if not node.type.element_type.is_complete:
-                raise Error(f"{node.type.element_type}不完整", node.location)
-            index = -1  # 上一个元素的索引
-            max_index = 0
-            for i, initializer in enumerate(node.initializers):
-                if (designate_index := get_designation_index(initializer)) == None:
-                    index += 1
+        if not isinstance(node.type, ArrayType) and not isinstance(
+            node.type, RecordType
+        ):
+            raise Error(f"无法初始化{node.type}", node.location)
+
+        path_gen = gen_path(node.type)
+        paths: list[NodeDict] = []
+        cur = 0
+        compare_index = -1  # 获取下一个path的时候跟path的哪一个元素进行比较
+        path: NodeDict = None
+        select_union_index = {}  # 各个union被选中的成员索引
+
+        def next_path(error_msg):
+            nonlocal cur
+            while True:
+                if cur >= len(paths):
+                    try:
+                        path = next(path_gen)
+                    except StopIteration:
+                        raise Error(error_msg, init_expr.location)
+                    paths.append(path)
+                for node in paths[cur]:
+                    # 忽略那些不用于初始化的union成员
+                    for i, union_id in enumerate(node["union_id"]):
+                        if (
+                            union_id in select_union_index
+                            and node["union_index"][i] != select_union_index[union_id]
+                        ):  # 忽略
+                            break
+                    else:
+                        continue
+                    break
                 else:
-                    index = int(designate_index)
-                max_index = max(max_index, index)
-                node.initializers[i] = (
-                    self.implicit_cast(  # initializer有可能还是InitList
-                        initializer, node.type.element_type
+                    path = paths[cur]
+                    cur += 1
+                    return path
+                cur += 1
+
+        for i, init_expr in enumerate(node.initializers):
+            if not isinstance(init_expr, Designation):
+                # 如果有指派符就无法保证这次获取的是下一个path
+                # 所以下面的判断需要放在这个分支下
+                if path == None:
+                    path = next_path("超出可初始化的数量")
+                else:
+                    t = path[compare_index]
+                    while t["value"] == path[compare_index]["value"]:
+                        path = next_path("超出可初始化的数量")
+                    cur -= 1
+                if isinstance(init_expr, InitList):
+                    node.initializers[i] = self.implicit_cast(
+                        Designation(
+                            designators=build_designator(init_expr, path[:1]),
+                            initializer=init_expr,
+                            location=init_expr.location,
+                        ),
+                        path[0]["type"],
                     )
-                )
-            if not node.type.is_complete:
-                t = SizeType()
-                node.type.size_expr = IntegerLiteral(
-                    value=t(max_index + 1), type=t, location=node.location
-                )
-            return node
+                    compare_index = 0
+                else:
+                    node.initializers[i] = self.implicit_cast(
+                        Designation(
+                            designators=build_designator(init_expr, path),
+                            initializer=init_expr,
+                            location=init_expr.location,
+                        ),
+                        path[-1]["type"],
+                    )
+                    compare_index = -1
+            else:
+                # 查找符合要求的
+                cur = 0
+                k = len(init_expr.designators)
+                while True:
+                    path = next_path("索引或成员不存在")
+                    for a, b in zip(
+                        build_designator(init_expr, path[:k]),
+                        init_expr.designators,
+                    ):
+                        default_member = None
+                        default_index = Expr(value=None)
+                        if not (
+                            getattr(a, "member", default_member)
+                            == getattr(b, "member", default_member)
+                            and getattr(a, "index", default_index).value
+                            == getattr(b, "index", default_index).value
+                        ):
+                            break
+                    else:  # 找到了
+                        break
+                if isinstance(init_expr.initializer, InitList):
+                    node.initializers[i] = self.implicit_cast(
+                        node.initializers[i], path[k - 1]["type"]
+                    )
+                    compare_index = k - 1
+                else:
+                    node.initializers[i].designators = build_designator(init_expr, path)
+                    node.initializers[i] = self.implicit_cast(
+                        node.initializers[i], path[-1]["type"]
+                    )
+                    compare_index = -1
+            # 跳过union剩余的部分
+            # 保证这时候的path是init_expr.designators或它的一部分
+            for node_ in path:
+                for i, union_id in enumerate(node_["union_id"]):
+                    select_union_index[union_id] = node_["union_index"][i]
+
+        if isinstance(node.type, ArrayType) and not node.type.is_complete:
+            max_index = max(
+                [j["value"] for i in paths for j in i if j["parent_type"] == node.type]
+            )
+            node.type.len_expr = IntegerLiteral(
+                value=max_index + 1, location=node.location
+            ).accept(self)
 
         return node
-
-    @generic_implicit_cast
-    def visit_Designation(self, node: Designation):
-        self.generic_visit(node)
-
-        if len(node.designators) <= 1:  # 不处理
-            return node
-        # 拆分指派符
-        t = node.designators.pop()
-        a = InitList(
-            initializers=[
-                Designation(
-                    designators=[t], initializer=node.initializer, location=t.location
-                )
-            ],
-            location=t.location,
-        )
-        while node.designators:
-            t = node.designators.pop()
-            a = InitList(
-                initializers=[
-                    Designation(designators=[t], initializer=a, location=t.location)
-                ],
-                location=t.location,
-            )
-        return a.initializers[0]
 
     @generic_implicit_cast
     def visit_TypeOrVarDecl(self, node: TypeOrVarDecl):
@@ -1297,4 +1454,6 @@ class TypeChecker(Analyzer, Transformer):
             node.initializer = self.implicit_cast(
                 node.initializer, remove_qualifier(node.type)
             )
+        if isinstance(node.type, ArrayType) and not node.type.is_complete:
+            raise Error("无法确定数组长度", node.location)
         return node

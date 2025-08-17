@@ -33,15 +33,15 @@ def test_eval_array_size():
 
     var: Object = symtab.children[0].lookup("a")
     array_type: ArrayType = var.type
-    assert array_type.size_expr.value == 3
+    assert array_type.len_expr.value == 3
 
     var: Object = symtab.children[0].lookup("b")
     array_type: ArrayType = var.type
-    assert array_type.size_expr.value == 6
+    assert array_type.len_expr.value == 6
 
     var: Object = symtab.children[0].lookup("c")
     array_type: ArrayType = var.type
-    assert array_type.size_expr.value == 9
+    assert array_type.len_expr.value == 9
 
 
 def test_eval_const():
@@ -139,7 +139,7 @@ def test_eval_const():
                 [TypeQualifier(qualifier=TypeQualifierKind.CONST)], Char32Type()
             ),
         ),
-        BinaryOperator(type=DoubleComplexType(), value=2.2 + 3j),  # TODO
+        BinaryOperator(type=DoubleComplexType(), value=2.2 + 3j),
     ):
         a = parser.expression()
         symtab = Symtab(a.location)
@@ -372,3 +372,400 @@ def test_sizeof():
     for i, v in [(4, 24), (5, 40), (6, 8), (7, 32)]:
         sizeof_expr: UnaryOperator = main_funcdef.body.items[i].expr
         assert sizeof_expr.value == v
+
+
+def test_scale_init_list():
+    parser = get_parser("scale_init_list.txt")
+    parser.nexttoken()
+
+    ast: TranslationUnit = parser.start()
+
+    symtab = Symtab(ast.location)
+    ast.accept(DeclAnalyzer(symtab))
+    ast.accept(SymtabFiller(symtab))
+    ast = ast.accept(TypeChecker(symtab))
+
+    check_ast(
+        ast.body[0].body.items[0].declarators[0].initializer,
+        InitList(initializers=[ImplicitCast(type=FloatType(), expr=IntegerLiteral())]),
+    )
+
+
+def test_array_init_list():
+    parser = get_parser("array_init_list.txt")
+    parser.nexttoken()
+
+    ast: TranslationUnit = parser.start()
+
+    symtab = Symtab(ast.location)
+    ast.accept(DeclAnalyzer(symtab))
+    ast.accept(SymtabFiller(symtab))
+    ast = ast.accept(TypeChecker(symtab))
+
+    main_funcdef: FunctionDef = ast.body[0]
+
+    for i, v in enumerate(
+        [
+            ImplicitCast(type=ArrayType(CharType(), IntegerLiteral(value=4))),
+            InitList(
+                initializers=[
+                    Designation(
+                        designators=[Designator(index=IntegerLiteral(value=0))],
+                        initializer=IntegerLiteral(value=1),
+                    ),
+                    Designation(
+                        designators=[Designator(index=IntegerLiteral(value=1))],
+                        initializer=IntegerLiteral(value=2),
+                    ),
+                    Designation(
+                        designators=[Designator(index=IntegerLiteral(value=2))],
+                        initializer=IntegerLiteral(value=3),
+                    ),
+                ]
+            ),
+            InitList(
+                initializers=[
+                    Designation(
+                        designators=[Designator(index=IntegerLiteral(value=4))]
+                    ),
+                    Designation(
+                        designators=[Designator(index=IntegerLiteral(value=0))]
+                    ),
+                    Designation(
+                        designators=[Designator(index=IntegerLiteral(value=1))]
+                    ),
+                    Designation(
+                        designators=[Designator(index=IntegerLiteral(value=2))]
+                    ),
+                    Designation(
+                        designators=[Designator(index=IntegerLiteral(value=3))]
+                    ),
+                ]
+            ),
+            InitList(
+                initializers=[
+                    Designation(
+                        designators=[Designator(index=IntegerLiteral(value=0))],
+                        initializer=InitList(
+                            initializers=[
+                                Designation(
+                                    designators=[
+                                        Designator(index=IntegerLiteral(value=0))
+                                    ]
+                                )
+                            ]
+                        ),
+                    ),
+                    Designation(
+                        designators=[Designator(index=IntegerLiteral(value=1))],
+                        initializer=InitList(
+                            initializers=[
+                                Designation(
+                                    designators=[
+                                        Designator(index=IntegerLiteral(value=0))
+                                    ]
+                                ),
+                                Designation(
+                                    designators=[
+                                        Designator(index=IntegerLiteral(value=1))
+                                    ]
+                                ),
+                            ]
+                        ),
+                    ),
+                    Designation(
+                        designators=[Designator(index=IntegerLiteral(value=2))],
+                        initializer=InitList(
+                            initializers=[
+                                Designation(
+                                    designators=[
+                                        Designator(index=IntegerLiteral(value=2))
+                                    ]
+                                )
+                            ]
+                        ),
+                    ),
+                ]
+            ),
+            InitList(
+                initializers=[
+                    Designation(
+                        designators=[
+                            Designator(index=IntegerLiteral(value=0)),
+                            Designator(index=IntegerLiteral(value=0)),
+                        ]
+                    ),
+                    Designation(
+                        designators=[
+                            Designator(index=IntegerLiteral(value=0)),
+                            Designator(index=IntegerLiteral(value=1)),
+                        ]
+                    ),
+                    Designation(
+                        designators=[
+                            Designator(index=IntegerLiteral(value=0)),
+                            Designator(index=IntegerLiteral(value=2)),
+                        ]
+                    ),
+                    Designation(
+                        designators=[
+                            Designator(index=IntegerLiteral(value=1)),
+                            Designator(index=IntegerLiteral(value=0)),
+                        ]
+                    ),
+                    Designation(
+                        designators=[
+                            Designator(index=IntegerLiteral(value=1)),
+                            Designator(index=IntegerLiteral(value=1)),
+                        ]
+                    ),
+                    Designation(
+                        designators=[
+                            Designator(index=IntegerLiteral(value=1)),
+                            Designator(index=IntegerLiteral(value=2)),
+                        ]
+                    ),
+                    Designation(
+                        designators=[
+                            Designator(index=IntegerLiteral(value=2)),
+                            Designator(index=IntegerLiteral(value=0)),
+                        ]
+                    ),
+                    Designation(
+                        designators=[
+                            Designator(index=IntegerLiteral(value=2)),
+                            Designator(index=IntegerLiteral(value=1)),
+                        ]
+                    ),
+                    Designation(
+                        designators=[
+                            Designator(index=IntegerLiteral(value=2)),
+                            Designator(index=IntegerLiteral(value=2)),
+                        ]
+                    ),
+                ]
+            ),
+            InitList(
+                initializers=[
+                    Designation(
+                        designators=[Designator(index=IntegerLiteral(value=0))],
+                        initializer=InitList(
+                            initializers=[
+                                Designation(
+                                    designators=[
+                                        Designator(member="a"),
+                                        Designator(index=IntegerLiteral(value=0)),
+                                    ]
+                                )
+                            ]
+                        ),
+                    ),
+                    Designation(
+                        designators=[
+                            Designator(index=IntegerLiteral(value=1)),
+                            Designator(member="a"),
+                            Designator(index=IntegerLiteral(value=0)),
+                        ]
+                    ),
+                ]
+            ),
+        ]
+    ):
+        check_ast(main_funcdef.body.items[i].declarators[0].initializer, v)
+
+
+def test_record_init_list():
+    parser = get_parser("record_init_list.txt")
+    parser.nexttoken()
+
+    ast: TranslationUnit = parser.start()
+
+    symtab = Symtab(ast.location)
+    ast.accept(DeclAnalyzer(symtab))
+    ast.accept(SymtabFiller(symtab))
+    ast = ast.accept(TypeChecker(symtab))
+
+    main_funcdef: FunctionDef = ast.body[1]
+
+    for i, v in enumerate(
+        [
+            InitList(
+                initializers=[
+                    Designation(designators=[Designator(member="day")]),
+                    Designation(designators=[Designator(member="mon")]),
+                    Designation(designators=[Designator(member="year")]),
+                    Designation(designators=[Designator(member="sec")]),
+                    Designation(designators=[Designator(member="min")]),
+                    Designation(designators=[Designator(member="hour")]),
+                ]
+            ),
+            InitList(
+                initializers=[
+                    Designation(
+                        designators=[Designator(member="addr")],
+                        initializer=InitList(
+                            initializers=[
+                                Designation(designators=[Designator(member="port")])
+                            ]
+                        ),
+                    ),
+                    Designation(
+                        designators=[Designator(member="in_u")],
+                        initializer=InitList(
+                            initializers=[
+                                Designation(
+                                    designators=[Designator(member="a8")],
+                                    initializer=InitList(
+                                        initializers=[
+                                            Designation(
+                                                designators=[
+                                                    Designator(
+                                                        index=IntegerLiteral(value=0)
+                                                    )
+                                                ]
+                                            ),
+                                            Designation(
+                                                designators=[
+                                                    Designator(
+                                                        index=IntegerLiteral(value=1)
+                                                    )
+                                                ]
+                                            ),
+                                            Designation(
+                                                designators=[
+                                                    Designator(
+                                                        index=IntegerLiteral(value=2)
+                                                    )
+                                                ]
+                                            ),
+                                            Designation(
+                                                designators=[
+                                                    Designator(
+                                                        index=IntegerLiteral(value=3)
+                                                    )
+                                                ]
+                                            ),
+                                        ]
+                                    ),
+                                ),
+                            ]
+                        ),
+                    ),
+                ]
+            ),
+            InitList(
+                initializers=[
+                    Designation(
+                        designators=[
+                            Designator(member="addr"),
+                            Designator(member="port"),
+                        ]
+                    ),
+                    Designation(
+                        designators=[
+                            Designator(member="in_u"),
+                            Designator(member="a8"),
+                            Designator(index=IntegerLiteral(value=0)),
+                        ]
+                    ),
+                    Designation(
+                        designators=[
+                            Designator(member="in_u"),
+                            Designator(member="a8"),
+                            Designator(index=IntegerLiteral(value=1)),
+                        ]
+                    ),
+                    Designation(
+                        designators=[
+                            Designator(member="in_u"),
+                            Designator(member="a8"),
+                            Designator(index=IntegerLiteral(value=2)),
+                        ]
+                    ),
+                    Designation(
+                        designators=[
+                            Designator(member="in_u"),
+                            Designator(member="a8"),
+                            Designator(index=IntegerLiteral(value=3)),
+                        ]
+                    ),
+                ]
+            ),
+            InitList(
+                initializers=[
+                    Designation(
+                        designators=[
+                            Designator(member="in_u"),
+                            Designator(member="a8"),
+                            Designator(index=IntegerLiteral(value=0)),
+                        ]
+                    ),
+                    Designation(
+                        designators=[
+                            Designator(member="in_u"),
+                            Designator(member="a8"),
+                            Designator(index=IntegerLiteral(value=1)),
+                        ]
+                    ),
+                    Designation(
+                        designators=[
+                            Designator(member="in_u"),
+                            Designator(member="a8"),
+                            Designator(index=IntegerLiteral(value=2)),
+                        ]
+                    ),
+                    Designation(
+                        designators=[
+                            Designator(member="in_u"),
+                            Designator(member="a8"),
+                            Designator(index=IntegerLiteral(value=3)),
+                        ]
+                    ),
+                    Designation(
+                        designators=[
+                            Designator(member="addr"),
+                            Designator(member="port"),
+                        ]
+                    ),
+                ]
+            ),
+            InitList(
+                initializers=[
+                    Designation(
+                        designators=[
+                            Designator(member="addr"),
+                            Designator(member="port"),
+                        ]
+                    ),
+                    Designation(
+                        designators=[Designator(member="in_u")],
+                        initializer=InitList(
+                            initializers=[
+                                Designation(
+                                    designators=[
+                                        Designator(member="a8"),
+                                        Designator(index=IntegerLiteral(value=0)),
+                                    ]
+                                ),
+                                Designation(
+                                    designators=[
+                                        Designator(member="a8"),
+                                        Designator(index=IntegerLiteral(value=2)),
+                                    ]
+                                ),
+                            ]
+                        ),
+                    ),
+                ]
+            ),
+            InitList(
+                initializers=[
+                    Designation(
+                        designators=[Designator(member="x"), Designator(member="a")]
+                    ),
+                    Designation(designators=[Designator(member="y")]),
+                ]
+            ),
+        ]
+    ):
+        check_ast(main_funcdef.body.items[i].declarators[0].initializer, v)

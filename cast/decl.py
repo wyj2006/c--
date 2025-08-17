@@ -38,7 +38,7 @@ class SingleDeclration(Declaration):
 class DeclStmt(Stmt, Declaration):
     """声明语句"""
 
-    _fields = tuple(set(Stmt._fields + Declaration._fields))
+    _fields = tuple(dict.fromkeys(Stmt._fields + Declaration._fields))
 
 
 class SpecifierOrQualifier(Node):
@@ -74,6 +74,11 @@ class TypeOrVarDecl(Declarator):
     declaration: Declaration  # 相当于父节点
     storage_classes: list[StorageClass]  # 由DeclAnalyzer设置
 
+    initializer: "Expr"
+
+    _attributes = Declarator._attributes + ("name", "type", "is_typedef")
+    _fields = Declarator._fields + ("initializer",)
+
     @property
     def function_specifiers(self) -> list["FunctionSpecifier"]:
         if hasattr(self, "declaration"):
@@ -104,11 +109,6 @@ class TypeOrVarDecl(Declarator):
     @property
     def attribute_specifiers(self):
         return self.declaration.attribute_specifiers
-
-    initializer: "Expr"
-
-    _attributes = Declarator._attributes + ("name", "type", "is_typedef")
-    _fields = Declarator._fields + ("initializer",)
 
 
 class PointerDeclarator(Declarator):

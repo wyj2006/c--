@@ -405,21 +405,29 @@ class DeclAnalyzer(Analyzer):
         if not name:
             name = f"<unnamed {node.struct_or_union} at {node.location}>"
 
-        decl_info["type"] = node.type = RecordType(
-            node.struct_or_union, name, node.attribute_specifiers
-        )
+        as_define = True  # 是否以定义的方式处理
 
-        if not self.cur_symtab.addSymbol(name, node.type, TAG_NAMES):
-            old_symbol: Symbol = self.cur_symtab.lookup(name, TAG_NAMES)
-            if node.type != old_symbol:
-                raise Diagnostics(
-                    [
-                        Error(f"重定义: {name}", node.location),
-                        Note("上一个定义", old_symbol.declare_locations[0]),
-                    ]
-                )
-            node.type = decl_info["type"] = old_symbol
+        if not node.members_declaration:  # 这是声明
+            node.type = self.cur_symtab.lookup(name, TAG_NAMES)
+            if node.type != None:
+                as_define = False
 
+        if as_define:
+            node.type = RecordType(
+                node.struct_or_union, name, node.attribute_specifiers
+            )
+            if not self.cur_symtab.addSymbol(name, node.type, TAG_NAMES):
+                old_symbol: Symbol = self.cur_symtab.lookup(name, TAG_NAMES)
+                if node.type != old_symbol:
+                    raise Diagnostics(
+                        [
+                            Error(f"重定义: {name}", node.location),
+                            Note("上一个定义", old_symbol.declare_locations[0]),
+                        ]
+                    )
+                node.type = decl_info["type"] = old_symbol
+
+        decl_info["type"] = node.type
         node.type.declare_locations.append(node.location)
 
         for i in node.members_declaration:
@@ -442,21 +450,29 @@ class DeclAnalyzer(Analyzer):
             specifier.accept(self, _decl_info)
         node.underlying_type = _decl_info["type"]
 
-        node.type = decl_info["type"] = EnumType(
-            name, node.underlying_type, node.attribute_specifiers
-        )
+        as_define = True  # 同RecordDecl的as_define
 
-        if not self.cur_symtab.addSymbol(name, node.type, TAG_NAMES):
-            old_symbol: Symbol = self.cur_symtab.lookup(name, TAG_NAMES)
-            if node.type != old_symbol:
-                raise Diagnostics(
-                    [
-                        Error(f"重定义: {name}", node.location),
-                        Note("上一个定义", old_symbol.declare_locations[0]),
-                    ]
-                )
-            node.type = decl_info["type"] = old_symbol
+        if not node.enumerators:
+            node.type = self.cur_symtab.lookup(name, TAG_NAMES)
+            if node.type != None:
+                as_define = False
 
+        if as_define:
+            node.type = decl_info["type"] = EnumType(
+                name, node.underlying_type, node.attribute_specifiers
+            )
+            if not self.cur_symtab.addSymbol(name, node.type, TAG_NAMES):
+                old_symbol: Symbol = self.cur_symtab.lookup(name, TAG_NAMES)
+                if node.type != old_symbol:
+                    raise Diagnostics(
+                        [
+                            Error(f"重定义: {name}", node.location),
+                            Note("上一个定义", old_symbol.declare_locations[0]),
+                        ]
+                    )
+                node.type = decl_info["type"] = old_symbol
+
+        decl_info["type"] = node.type
         node.type.declare_locations.append(node.location)
 
         for i in node.enumerators:

@@ -112,8 +112,8 @@ def is_compatible_type(a: Type, b: Type):
         case ArrayType(), ArrayType():
             return is_compatible_type(a.element_type, b.element_type) and (
                 True
-                if (a.size_expr == None or b.size_expr == None)
-                else a.size_expr.value == b.size_expr.value
+                if (a.len_expr == None or b.len_expr == None)
+                else a.len_expr.value == b.len_expr.value
             )
         case EnumType(), EnumType():
             if a.is_complete and b.is_complete:
@@ -158,17 +158,13 @@ def composite_type(a: Type, b: Type) -> Type:
     """合成类型"""
     # TODO 完善
     if isinstance(a, ArrayType) and isinstance(b, ArrayType):
-        if a.size_expr == None == b.size_expr:
+        if a.len_expr == None == b.len_expr:
             return ArrayType(composite_type(a.element_type, b.element_type), None)
-        elif hasattr(a.size_expr, "value"):
-            return ArrayType(
-                composite_type(a.element_type, b.element_type), a.size_expr
-            )
-        elif hasattr(b.size_expr, "value"):
-            return ArrayType(
-                composite_type(a.element_type, b.element_type), b.size_expr
-            )
-        return ArrayType(composite_type(a.element_type, b.element_type), b.size_expr)
+        elif hasattr(a.len_expr, "value"):
+            return ArrayType(composite_type(a.element_type, b.element_type), a.len_expr)
+        elif hasattr(b.len_expr, "value"):
+            return ArrayType(composite_type(a.element_type, b.element_type), b.len_expr)
+        return ArrayType(composite_type(a.element_type, b.element_type), b.len_expr)
     elif isinstance(a, FunctionType) and isinstance(b, FunctionType):
         parameters_type = []
         for x, y in zip(a.parameters_type, b.parameters_type):

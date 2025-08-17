@@ -99,14 +99,14 @@ class ArrayType(Type):
     def __init__(
         self,
         element_type: Type,
-        size_expr: "Expr",
+        len_expr: "Expr",
         is_star_modified: bool = False,
         is_static: bool = False,
         attribute_specifiers: list["AttributeSpecifier"] = None,
     ):
         super().__init__(attribute_specifiers)
         self.element_type = element_type
-        self.size_expr = size_expr
+        self.len_expr = len_expr
         self.is_star_modified = is_star_modified
         self.is_static = is_static
 
@@ -114,7 +114,7 @@ class ArrayType(Type):
         return (
             isinstance(other, ArrayType)
             and self.element_type == other.element_type
-            and self.size_expr == other.size_expr
+            and self.len_expr == other.len_expr
             and self.is_star_modified == other.is_star_modified
             and self.is_static == other.is_static
         )
@@ -123,7 +123,7 @@ class ArrayType(Type):
         from cast import ArrayDeclarator
 
         declarator = ArrayDeclarator(
-            size=self.size_expr,
+            size=self.len_expr,
             is_star_modified=self.is_star_modified,
             is_static=self.is_static,
             qualifiers=[],
@@ -134,11 +134,15 @@ class ArrayType(Type):
 
     @property
     def is_complete(self):
-        return self.element_type.is_complete and self.size_expr != None
+        return self.element_type.is_complete and self.len_expr != None
+
+    @property
+    def len(self):
+        return self.len_expr.value
 
     @property
     def size(self):
-        return self.element_type.size * self.size_expr.value
+        return self.element_type.size * self.len
 
 
 class ArrayPtrType(PointerType):
