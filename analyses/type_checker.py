@@ -1125,7 +1125,9 @@ class TypeChecker(Analyzer, Transformer):
                 else:
                     if a != b:
                         try:
-                            pointee_type = composite_type(a, b)
+                            pointee_type = composite_type(
+                                a.pointee_type, b.pointee_type
+                            )
                         except Exception as e:
                             raise Error(e.args[0], node.location)
                     elif qa or qb:
