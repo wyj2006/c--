@@ -13,9 +13,7 @@ from cast import (
     EnumDecl,
     AlignSpecifier,
     Reference,
-    IntegerLiteral,
-    BinaryOperator,
-    BinOpKind,
+    FieldDecl,
 )
 from basic import (
     Object,
@@ -289,7 +287,7 @@ class SymtabFiller(Analyzer):
         symbol.define_location = node.location
         self.generic_visit(node)
 
-    def visit_RecordDecl(self, node: RecordDecl):
+    def visit_RecordDecl(self, node: RecordDecl, has_declarator=True):
         if not node.members_declaration:
             return
 
@@ -304,12 +302,26 @@ class SymtabFiller(Analyzer):
         symbol.define_location = node.location
 
         _member_names = self.cur_symtab.member_names
-        self.cur_symtab.member_names = node.type.members = {}
+        # 匿名结构体/联合, 在另一个结构体/联合中声明, 并且没有声明变量, 那么就将这个结构体/联合中声明的变量暴露到外面
+        if node.type.is_anonymous and _member_names != None and not has_declarator:
+            node.type.members = self.cur_symtab.member_names
+        else:
+            self.cur_symtab.member_names = node.type.members = {}
 
         for i in node.members_declaration:
             i.accept(self)
 
         self.cur_symtab.member_names = _member_names
+
+    def visit_FieldDecl(self, node: FieldDecl):
+        for i in node.specifiers + node.specifier_attributes:
+            if isinstance(i, RecordDecl):
+                i.accept(self, len(node.declarators) > 0)
+            else:
+                i.accept(self)
+
+        for i in node.declarators:
+            i.accept(self)
 
     def visit_Reference(self, node: Reference):
         node.symbol = self.cur_symtab.lookup(node.name)

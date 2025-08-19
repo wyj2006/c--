@@ -33,7 +33,7 @@ class Symtab:
         self.label_names = {}
         self.tag_names = {}
         self.ordinary_names = {}
-        self.member_names = {}
+        self.member_names = None
 
     @property
     def attribute_names(self):

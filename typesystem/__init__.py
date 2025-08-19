@@ -140,9 +140,7 @@ def is_compatible_type(a: Type, b: Type):
                 for x, y in zip(a.members, b.members):
                     m = a.members[x]
                     n = b.members[y]
-                    if (
-                        a.struct_or_union == "struct" and m.name != n.name
-                    ):  # 对应的成员需要以相同的顺序声明
+                    if m.name != n.name:  # 对应的成员需要以相同的顺序声明
                         return False
                     if (
                         m.bit_field.value != n.bit_field.value
@@ -171,7 +169,9 @@ def is_compatible_type(a: Type, b: Type):
 
 def composite_type(a: Type, b: Type) -> Type:
     """合成类型"""
-    if isinstance(a, ArrayType) and isinstance(b, ArrayType):
+    if a == b:
+        return a
+    elif isinstance(a, ArrayType) and isinstance(b, ArrayType):
         if a.len_expr == None == b.len_expr:  # 两者都是未知大小的数组
             return ArrayType(composite_type(a.element_type, b.element_type), None)
         elif hasattr(a.len_expr, "value"):  # a为恒定大小的数组
@@ -193,4 +193,8 @@ def composite_type(a: Type, b: Type) -> Type:
         return FunctionType(
             parameters_type, a.return_type, a.has_varparam or b.has_varparam
         )
+    elif isinstance(a, EnumType) and a.underlying_type == b:
+        return b
+    elif isinstance(b, EnumType) and b.underlying_type == a:
+        return a
     raise Exception(f"无法合成{a}和{b}")

@@ -201,11 +201,13 @@ class RecordType(Type, Symbol):
         self,
         struct_or_union: str,
         name: str,
+        is_anonymous=False,
         attribute_specifiers: list["AttributeSpecifier"] = None,
     ):
         super().__init__(attribute_specifiers)
         self.struct_or_union = struct_or_union
         self.name = name
+        self.is_anonymous = is_anonymous
         self.members: dict[str, Member] = {}
 
     def genDeclaration(self, declaration):
@@ -261,11 +263,13 @@ class EnumType(Type, Symbol):
         self,
         name: str,
         underlying_type: "IntegerType" = None,
+        is_anonymous=False,
         attribute_specifiers: list["AttributeSpecifier"] = None,
     ):
         super().__init__(attribute_specifiers)
         self.name = name
         self.underlying_type = underlying_type
+        self.is_anonymous = is_anonymous
         self.enumerators: OrderedDict[str, EnumConst] = OrderedDict()
 
     def genDeclaration(self, declaration):

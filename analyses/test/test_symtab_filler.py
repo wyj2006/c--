@@ -93,3 +93,22 @@ def test_decl_point_other():
 
     assert x1 is not x2
     assert x2.initializer.symbol is x2
+
+
+def test_anonymouse_record():
+    parser = get_parser("decl_point_other.txt")
+    parser.nexttoken()
+    ast: TranslationUnit = parser.start()
+
+    symtab = Symtab(ast.location)
+    ast.accept(DeclAnalyzer(symtab))
+
+    ast.accept(SymtabFiller(symtab))
+
+    try:
+        ast.accept(TypeChecker(symtab))
+    except Diagnostic as e:
+        # assert e.msg == "struct v没有成员k"
+        pass
+    else:
+        pytest.fail("期望产生错误, 但并没有")

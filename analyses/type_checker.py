@@ -1056,6 +1056,8 @@ class TypeChecker(Analyzer, Transformer):
             raise Error(f"{record_type}没有成员{node.member_name}", node.location)
         node.type = record_type.members[member].type
 
+        return node
+
     @generic_implicit_cast
     def visit_ConditionalOperator(self, node: ConditionalOperator):
         self.generic_visit(node)

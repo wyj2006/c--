@@ -402,7 +402,9 @@ class DeclAnalyzer(Analyzer):
 
     def visit_RecordDecl(self, node: RecordDecl, decl_info: DeclInfoDict):
         name = node.name
+        is_anonymous = False
         if not name:
+            is_anonymous = True
             name = f"<unnamed {node.struct_or_union} at {node.location}>"
 
         as_define = True  # 是否以定义的方式处理
@@ -414,7 +416,7 @@ class DeclAnalyzer(Analyzer):
 
         if as_define:
             node.type = RecordType(
-                node.struct_or_union, name, node.attribute_specifiers
+                node.struct_or_union, name, is_anonymous, node.attribute_specifiers
             )
             if not self.cur_symtab.addSymbol(name, node.type, TAG_NAMES):
                 old_symbol: Symbol = self.cur_symtab.lookup(name, TAG_NAMES)
@@ -440,7 +442,9 @@ class DeclAnalyzer(Analyzer):
 
     def visit_EnumDecl(self, node: EnumDecl, decl_info: DeclInfoDict):
         name = node.name
+        is_anonymous = False
         if not name:
+            is_anonymous = True
             name = f"<unnamed enum at {node.location}>"
 
         if node.specifiers == None:
@@ -459,7 +463,7 @@ class DeclAnalyzer(Analyzer):
 
         if as_define:
             node.type = decl_info["type"] = EnumType(
-                name, node.underlying_type, node.attribute_specifiers
+                name, node.underlying_type, is_anonymous, node.attribute_specifiers
             )
             if not self.cur_symtab.addSymbol(name, node.type, TAG_NAMES):
                 old_symbol: Symbol = self.cur_symtab.lookup(name, TAG_NAMES)
