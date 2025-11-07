@@ -1,3 +1,0 @@
-#define A(a) __VA_ARGS__
-
-A(1)

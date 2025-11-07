@@ -1,0 +1,104 @@
+// 尽量保留源文件的字符, 包括空白字符
+WHITESPACE = { " " | "\t" | "\\\n" }
+
+preprocessing_file = { SOI ~ group_part* ~ EOI }
+// 等需要解析的时候再解析
+directive_keyword  = { "if" | "ifdef" | "ifndef" | "elif" | "elifdef" | "elifndef" | "else" | "endif" | "include" | "embed" | "define" | "undef" | "line" | "error" | "warning" | "pragma" | NEWLINE }
+group_part         = { up_directives | non_directive_line | text_line }
+non_directive_line = { "#" ~ pp_tokens ~ NEWLINE }
+text_line          = { pp_tokens? ~ NEWLINE }
+// up代表未处理(unprocess)
+up_directives = { up_if_section | "#" ~ directive_keyword ~ pp_tokens? ~ NEWLINE | "#" ~ NEWLINE }
+up_if_section = { up_if_group ~ up_elif_group* ~ up_else_group? ~ up_endif_line }
+up_if_group   = {
+    "#" ~ "if" ~ pp_tokens? ~ NEWLINE ~ group_part*
+  | "#" ~ "ifdef" ~ pp_tokens? ~ NEWLINE ~ group_part*
+  | "#" ~ "ifndef" ~ pp_tokens? ~ NEWLINE ~ group_part*
+}
+up_elif_group = {
+    "#" ~ "elif" ~ pp_tokens? ~ NEWLINE ~ group_part*
+  | "#" ~ "elifdef" ~ pp_tokens? ~ NEWLINE ~ group_part*
+  | "#" ~ "elifndef" ~ pp_tokens? ~ NEWLINE ~ group_part*
+}
+up_else_group = { "#" ~ "else" ~ NEWLINE ~ group_part* }
+up_endif_line = { "#" ~ "endif" ~ NEWLINE }
+
+pp_token  = _{ !NEWLINE ~ (preprocessing_token | !WHITESPACE ~ ANY) }
+pp_tokens =  { pp_token+ }
+
+pp_parameter               = { pp_parameter_name ~ pp_parameter_clause? }
+pp_parameter_name          = { pp_prefixed_parameter | pp_standard_parameter }
+pp_standard_parameter      = { identifier }
+pp_prefixed_parameter      = { identifier ~ "::" ~ identifier }
+pp_parameter_clause        = { "(" ~ pp_balanced_token_sequence? ~ ")" }
+pp_balanced_token_sequence = { pp_balanced_token+ }
+pp_balanced_token          = {
+    "(" ~ pp_balanced_token_sequence? ~ ")"
+  | "[" ~ pp_balanced_token_sequence? ~ "]"
+  | "{" ~ pp_balanced_token_sequence? ~ "}"
+  | !(")" | "]" | "}") ~ pp_token
+}
+embed_parameter_sequence   = { pp_parameter+ }
+
+directives = {
+    if_section
+  | source_file_inclusion
+  | binary_resource_inclusion
+  | macro_define
+  | line_control
+  | error_directive
+  | warning_directive
+  | pragma_directive
+  | "#" ~ NEWLINE
+}
+
+defined_macro_expression = { "defined" ~ identifier | "defined" ~ "(" ~ identifier ~ ")" }
+// 预处理器处理时先进行宏替换再匹配
+has_include_expression = { "__has_include" ~ "(" ~ (header_name | string_literal) ~ ")" }
+has_embed_expression   = { "__has_embed" ~ "(" ~ header_name ~ embed_parameter_sequence? ~ ")" }
+constant_expression    = {
+    // 暂时先这样
+    defined_macro_expression
+  | has_include_expression
+  | has_embed_expression
+}
+
+if_section = { if_group ~ elif_group* ~ else_group? ~ endif_line }
+if_group   = {
+    "#" ~ "if" ~ constant_expression ~ NEWLINE ~ group_part*
+  | "#" ~ "ifdef" ~ identifier ~ NEWLINE ~ group_part*
+  | "#" ~ "ifndef" ~ identifier ~ NEWLINE ~ group_part*
+}
+elif_group = {
+    "#" ~ "elif" ~ constant_expression ~ NEWLINE ~ group_part*
+  | "#" ~ "elifdef" ~ identifier ~ NEWLINE ~ group_part*
+  | "#" ~ "elifndef" ~ identifier ~ NEWLINE ~ group_part*
+}
+else_group = { "#" ~ "else" ~ NEWLINE ~ group_part* }
+endif_line = { "#" ~ "endif" ~ NEWLINE }
+
+source_file_inclusion = { "#" ~ "include" ~ header_name ~ NEWLINE }
+
+binary_resource_inclusion = { "#" ~ "embed" ~ header_name ~ embed_parameter_sequence? ~ NEWLINE }
+
+macro_define        =  {
+    "#" ~ "define" ~ function_identifier ~ identifier_list ~ "," ~ varparam_symbol ~ ")" ~ replacement_list ~ NEWLINE
+  | "#" ~ "define" ~ function_identifier ~ varparam_symbol ~ ")" ~ replacement_list ~ NEWLINE
+  | "#" ~ "define" ~ function_identifier ~ identifier_list? ~ ")" ~ replacement_list ~ NEWLINE
+  | "#" ~ "define" ~ identifier ~ replacement_list ~ NEWLINE
+}
+varparam_symbol     =  { "..." }
+function_identifier = @{ identifier ~ "(" }
+identifier_list     =  { identifier ~ ("," ~ identifier)* }
+replacement_list    =  { pp_tokens? }
+macro_undef         =  { "#" ~ "undef" ~ identifier ~ NEWLINE }
+
+line_control = {
+    "#" ~ "line" ~ digit_sequence ~ !encoding_prefix ~ string_literal ~ NEWLINE
+  | "#" ~ "line" ~ digit_sequence ~ NEWLINE
+}
+
+error_directive   = { "#" ~ "error" ~ pp_tokens? ~ NEWLINE }
+warning_directive = { "#" ~ "warning" ~ pp_tokens? ~ NEWLINE }
+
+pragma_directive = { "#" ~ "pragma" ~ pp_tokens? ~ NEWLINE }

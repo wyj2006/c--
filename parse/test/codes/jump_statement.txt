@@ -1,5 +1,0 @@
-goto A;
-continue;
-break;
-return;
-return 1;

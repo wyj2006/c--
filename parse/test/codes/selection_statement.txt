@@ -1,7 +1,0 @@
-if(a)b;
-if(a)b;else c;
-switch(a){
-    case 1:goto A;
-A:
-    default:;
-}

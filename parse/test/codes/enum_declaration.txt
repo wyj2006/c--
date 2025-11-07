@@ -1,3 +1,0 @@
-enum{X,Y} a;
-enum A {X,Y};
-enum A {X=1,Y=2} a;

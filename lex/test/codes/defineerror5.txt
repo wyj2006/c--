@@ -1,2 +1,0 @@
-#define F a
-#define F b

@@ -1,0 +1,113 @@
+token               = @{
+    identifier
+  | constant
+  | string_literal
+  | punctuator
+}
+preprocessing_token = _{
+    header_name
+  | identifier
+  | pp_number
+  | character_constant
+  | string_literal
+  | punctuator
+  | universal_character_name
+}
+
+identifier          = @{ identifier_start ~ identifier_continue* }
+identifier_start    = @{
+    nondigit
+  | XID_START
+  | universal_character_name // universal character name of class XID_Start
+}
+identifier_continue = @{
+    ASCII_DIGIT
+  | nondigit
+  | XID_CONTINUE
+  | universal_character_name // universal character name of class XID_CONTINUE
+}
+nondigit            = @{ ASCII_ALPHANUMERIC | "_" }
+
+universal_character_name = @{ "\\u" ~ hex_quad | "\\U" ~ hex_quad ~ hex_quad }
+hex_quad                 = @{ ASCII_HEX_DIGIT{4} }
+
+constant = @{
+    floating_constant
+  | integer_constant
+  | character_constant
+}
+
+integer_constant           = @{
+    hexadecimal_constant ~ integer_suffix?
+  | octal_constant ~ integer_suffix?
+  | decimal_constant ~ integer_suffix?
+  | binary_constant ~ integer_suffix?
+}
+decimal_constant           = @{ ASCII_NONZERO_DIGIT ~ ("'"? ~ ASCII_DIGIT)* }
+octal_constant             = @{ "0" ~ ("'"? ~ ASCII_OCT_DIGIT)* }
+hexadecimal_constant       = @{ hexadecimal_prefix ~ hexadecimal_digit_sequence }
+hexadecimal_prefix         = @{ "0x" | "0X" }
+hexadecimal_digit_sequence = @{ ASCII_HEX_DIGIT ~ ("'"? ~ ASCII_HEX_DIGIT)* }
+binary_constant            = @{ ("0b" | "0B") ~ ASCII_BIN_DIGIT ~ ("'" ~ ASCII_BIN_DIGIT)* }
+integer_suffix             = @{
+    unsigned_suffix ~ (bit_precise_int_suffix | long_long_suffix | long_suffix)?
+  | (long_long_suffix | long_suffix | bit_precise_int_suffix) ~ unsigned_suffix?
+}
+bit_precise_int_suffix     = @{ "wb" | "WB" }
+unsigned_suffix            = @{ "u" | "U" }
+long_suffix                = @{ "l" | "L" }
+long_long_suffix           = @{ "ll" | "LL" }
+
+floating_constant               = @{
+    decimal_floating_constant
+  | hexadecimal_floating_constant
+}
+decimal_floating_constant       = @{
+    fractional_constant ~ exponent_part? ~ floating_suffix?
+  | digit_sequence ~ exponent_part ~ floating_suffix?
+}
+hexadecimal_floating_constant   = @{
+    hexadecimal_prefix ~ hexadecimal_fractional_constant ~ binary_exponent_part ~ floating_suffix?
+  | hexadecimal_prefix ~ hexadecimal_digit_sequence ~ binary_exponent_part ~ floating_suffix?
+}
+fractional_constant             = @{
+    digit_sequence? ~ "." ~ digit_sequence
+  | digit_sequence ~ "."
+}
+exponent_part                   = @{ ("e" | "E") ~ sign? ~ digit_sequence }
+sign                            = @{ "+" | "-" }
+digit_sequence                  = @{ ASCII_DIGIT ~ ("'"? ~ ASCII_DIGIT)* }
+hexadecimal_fractional_constant = @{
+    hexadecimal_digit_sequence? ~ "." ~ hexadecimal_digit_sequence
+  | hexadecimal_digit_sequence ~ "."
+}
+binary_exponent_part            = @{ ("p" | "P") ~ sign? ~ digit_sequence }
+floating_suffix                 = @{ "f" | "l" | "F" | "L" | "df" | "dd" | "dl" | "DF" | "DD" | "DL" }
+
+character_constant          = @{
+    encoding_prefix? ~ "'" ~ c_char+ ~ "'"
+}
+encoding_prefix             = @{ "u8" | "U" | "u" | "L" }
+c_char                      = @{ escape_sequence | !("'" | "\\" | NEWLINE) ~ ANY }
+escape_sequence             = @{
+    simple_escape_sequence
+  | octal_escape_sequence
+  | hexadecimal_escape_sequence
+  | universal_character_name
+}
+simple_escape_sequence      = @{ "\\" ~ ("'" | "\"" | "?" | "\\" | "a" | "b" | "f" | "n" | "r" | "t" | "v") }
+octal_escape_sequence       = @{ "\\" ~ ASCII_OCT_DIGIT{1, 3} }
+hexadecimal_escape_sequence = @{ "\\x" ~ ASCII_HEX_DIGIT+ }
+
+string_literal = @{ encoding_prefix? ~ "\"" ~ s_char* ~ "\"" }
+s_char         = @{ escape_sequence | !("\"" | "\\" | NEWLINE) ~ ANY }
+
+punctuator = @{ "%:%:" | "..." | "<<=" | ">>=" | "->" | "++" | "--" | "<<" | ">>" | "<=" | ">=" | "==" | "!=" | "&&" | "||" | "::" | "*=" | "/=" | "%=" | "+=" | "-=" | "&=" | "^=" | "|=" | "##" | "<:" | ":>" | "<%" | "%>" | "%:" | "[" | "]" | "(" | ")" | "{" | "}" | "." | "&" | "*" | "+" | "-" | "~" | "!" | "/" | "%" | "<" | ">" | "^" | "|" | "?" | ":" | ";" | "=" | "," | "#" }
+
+header_name = @{ "<" ~ h_char+ ~ ">" | "\"" ~ q_char+ ~ "\"" }
+h_char      = @{ !(">" | NEWLINE) ~ ANY }
+q_char      = @{ !("\"" | NEWLINE) ~ ANY }
+
+pp_number = @{ (ASCII_DIGIT | "." ~ ASCII_DIGIT) ~ (identifier_continue | "'" ~ ASCII_DIGIT | "'" ~ nondigit | ("e" | "E" | "p" | "P") ~ sign | ".")* }
+
+COMMENT = @{ "//" ~ (!(NEWLINE | EOI) ~ ANY)* ~ NEWLINE? | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }

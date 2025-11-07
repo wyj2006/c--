@@ -1,6 +1,0 @@
-int main()
-{
-    struct {int x;} s, *p = &s;
-    p->x;
-    s.x;
-}

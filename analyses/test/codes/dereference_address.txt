@@ -1,9 +1,0 @@
-int f(char c) { return c;}
-int main(void)
-{
-    int *p;
-    int n;
-    &n;
-    &f;
-    &*p;
-}
