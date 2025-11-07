@@ -55,7 +55,7 @@ impl Preprocessor {
                 }
                 Rule::text_line => {
                     result += &PlaceMarker::vec_tostring(
-                        self.replace_macro(PlaceMarker::vec_from(&rule))?,
+                        self.replace_macro(PlaceMarker::vec_from(&rule), &mut Vec::new())?,
                     );
                     //每个text_line后面都有一个换行符
                     //只是不在rule中
@@ -81,7 +81,9 @@ impl Preprocessor {
             }
         }
         if input == "" {
-            input = PlaceMarker::vec_tostring(self.replace_macro(PlaceMarker::vec_from(&rule))?);
+            input = PlaceMarker::vec_tostring(
+                self.replace_macro(PlaceMarker::vec_from(&rule), &mut Vec::new())?,
+            );
         }
         let rules = Preprocessor::parse(Rule::directives, &input)?;
         let mut result = String::new();
@@ -106,6 +108,7 @@ impl Preprocessor {
     pub fn process_macro_define(&mut self, rule: &Pair<Rule>) -> Result<String, Error<Rule>> {
         let mut object_like = true;
         let mut name = String::new();
+        let mut name_span = rule.as_span();
         let mut parameters = Vec::new();
         let mut has_varparam = false;
         let mut replace_list = Vec::new();
@@ -113,6 +116,7 @@ impl Preprocessor {
             match rule.as_rule() {
                 Rule::identifier => {
                     name = rule.as_str().to_string();
+                    name_span = rule.as_span();
                 }
                 Rule::function_identifier => {
                     object_like = false;
@@ -126,7 +130,6 @@ impl Preprocessor {
                     }
                 }
                 Rule::replacement_list => {
-                    //TODO 处理与__VA_ARGS__和__VA_OPT__和#和##有关的错误或者让PlaceMarker带上位置信息
                     replace_list = PlaceMarker::vec_from(&rule);
                 }
                 Rule::varparam_symbol => {
@@ -150,7 +153,7 @@ impl Preprocessor {
                 replace_list,
             };
         }
-        if let Some(pre_macro) = self.find_macro(&name) {
+        if let Some(pre_macro) = self.find_macro(&name, name_span) {
             if pre_macro != cmacro {
                 return Err(Error::new_from_span(
                     ErrorVariant::CustomError {
