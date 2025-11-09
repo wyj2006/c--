@@ -1,3 +1,4 @@
+mod diagnostic;
 mod preprocessor;
 
 use preprocessor::Preprocessor;
@@ -10,7 +11,7 @@ fn main() {
     let result = match preprocessor.process() {
         Ok(t) => t,
         Err(e) => {
-            println!("{}", e);
+            println!("error:\n{}", e);
             return;
         }
     };

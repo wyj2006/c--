@@ -77,6 +77,17 @@ impl PlaceMarker {
                 Rule::pp_tokens => {
                     final_rule_got = true;
                 }
+                Rule::up_directives => {
+                    final_rule_got = true;
+                    let span = final_rule.as_span();
+                    placemarkers.push(PlaceMarker::Text(
+                        "#".to_string(),
+                        false,
+                        PlaceMarkerSpan::new_from_span(
+                            Span::new(span.get_input(), span.start(), span.start()).unwrap(),
+                        ),
+                    ));
+                }
                 _ => {
                     return Vec::new();
                 }

@@ -3,6 +3,7 @@ pub mod macro_replace;
 #[cfg(test)]
 pub mod tests;
 
+use crate::diagnostic::warning;
 use cmacro::{Macro, PlaceMarker};
 use pest::Parser;
 use pest::error::{Error, ErrorVariant};
@@ -17,6 +18,7 @@ pub struct Preprocessor {
     pub file_path: String,
     pub file_content: String,
     pub user_macro: HashMap<String, Macro>,
+    pub line_offset: isize,
 }
 
 impl Preprocessor {
@@ -25,6 +27,7 @@ impl Preprocessor {
             file_path,
             file_content,
             user_macro: HashMap::new(),
+            line_offset: 0,
         }
     }
 
@@ -50,15 +53,12 @@ impl Preprocessor {
             match rule.as_rule() {
                 Rule::up_directives => {
                     result += &self.process_directive(&rule)?;
-                    //预处理指令后也有一个换行符
-                    result += "\n";
                 }
                 Rule::text_line => {
                     result += &PlaceMarker::vec_tostring(
                         self.replace_macro(PlaceMarker::vec_from(&rule), &mut Vec::new())?,
                     );
-                    //每个text_line后面都有一个换行符
-                    //只是不在rule中
+                    //每个text_line后面都有一个换行符, 只是不在rule中
                     result += "\n";
                 }
                 _ => {}
@@ -71,9 +71,9 @@ impl Preprocessor {
         let mut input = String::new();
         if let Rule::up_directives = rule.as_rule() {
             for pair in rule.clone().into_inner() {
-                //只有define和undef不允许替换后再处理
+                //不允许替换后再处理的指令
                 if let Rule::directive_keyword = pair.as_rule()
-                    && (pair.as_str() == "define" || pair.as_str() == "undef")
+                    && !(vec!["include", "embed", "line"].contains(&pair.as_str()))
                 {
                     input = rule.as_str().to_string();
                     break;
@@ -83,7 +83,7 @@ impl Preprocessor {
         if input == "" {
             input = PlaceMarker::vec_tostring(
                 self.replace_macro(PlaceMarker::vec_from(&rule), &mut Vec::new())?,
-            );
+            ) + "\n";
         }
         let rules = Preprocessor::parse(Rule::directives, &input)?;
         let mut result = String::new();
@@ -96,6 +96,15 @@ impl Preprocessor {
                         }
                         Rule::macro_undef => {
                             result += &self.process_macro_undef(&rule)?;
+                        }
+                        Rule::warning_directive => {
+                            result += &self.process_warning(&rule)?;
+                        }
+                        Rule::error_directive => {
+                            result += &self.process_error(&rule)?;
+                        }
+                        Rule::line_control => {
+                            result += &self.process_line_control(&rule)?;
                         }
                         _ => {}
                     }
@@ -165,7 +174,7 @@ impl Preprocessor {
         } else {
             self.user_macro.insert(name, cmacro);
         }
-        Ok(String::new())
+        Ok("\n".to_string())
     }
 
     pub fn process_macro_undef(&mut self, rule: &Pair<Rule>) -> Result<String, Error<Rule>> {
@@ -177,6 +186,50 @@ impl Preprocessor {
             }
         }
         self.user_macro.remove(&name);
-        Ok(String::new())
+        Ok("\n".to_string())
+    }
+
+    pub fn process_warning(&mut self, rule: &Pair<Rule>) -> Result<String, Error<Rule>> {
+        let mut message = String::new();
+        for rule in rule.clone().into_inner() {
+            match rule.as_rule() {
+                Rule::pp_tokens => message = rule.as_str().to_string(),
+                _ => {}
+            }
+        }
+        warning::<Rule>(message, rule.as_span(), &self.file_path);
+        Ok("\n".to_string())
+    }
+
+    pub fn process_error(&mut self, rule: &Pair<Rule>) -> Result<String, Error<Rule>> {
+        let mut message = String::new();
+        for rule in rule.clone().into_inner() {
+            match rule.as_rule() {
+                Rule::pp_tokens => message = rule.as_str().to_string(),
+                _ => {}
+            }
+        }
+        Err(
+            Error::new_from_span(ErrorVariant::CustomError { message }, rule.as_span())
+                .with_path(&self.file_path),
+        )
+    }
+
+    pub fn process_line_control(&mut self, rule: &Pair<Rule>) -> Result<String, Error<Rule>> {
+        for rule in rule.clone().into_inner() {
+            match rule.as_rule() {
+                Rule::digit_sequence => {
+                    self.line_offset = rule.as_str().parse::<isize>().unwrap()
+                        - rule.as_span().start_pos().line_col().0 as isize
+                        - 1
+                }
+                Rule::string_literal => {
+                    //TODO 正确解析字符串
+                    self.file_path = rule.as_str()[1..rule.as_str().len() - 1].to_string();
+                }
+                _ => {}
+            }
+        }
+        Ok("\n".to_string())
     }
 }

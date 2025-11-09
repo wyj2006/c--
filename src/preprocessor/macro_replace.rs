@@ -46,7 +46,10 @@ impl Preprocessor {
             "__LINE__" => Some(Macro::Object {
                 name: "__LINE__".to_string(),
                 replace_list: vec![PlaceMarker::Text(
-                    format!("{}", span.start_pos().line_col().0),
+                    format!(
+                        "{}",
+                        span.start_pos().line_col().0 as isize + self.line_offset
+                    ),
                     false,
                     PlaceMarkerSpan::new_from_span(span),
                 )],
