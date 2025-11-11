@@ -10,6 +10,8 @@ use pest::error::{Error, ErrorVariant};
 use pest::iterators::Pair;
 use pest_derive::Parser;
 use std::collections::HashMap;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 #[derive(Parser)]
 #[grammar = "src/grammar/lexer.pest"]
@@ -19,6 +21,7 @@ pub struct Preprocessor {
     pub file_content: String,
     pub user_macro: HashMap<String, Macro>,
     pub line_offset: isize,
+    pub include_path: Vec<String>,
 }
 
 impl Preprocessor {
@@ -28,6 +31,7 @@ impl Preprocessor {
             file_content,
             user_macro: HashMap::new(),
             line_offset: 0,
+            include_path: Vec::new(),
         }
     }
 
@@ -56,7 +60,7 @@ impl Preprocessor {
                 }
                 Rule::text_line => {
                     result += &PlaceMarker::vec_tostring(
-                        self.replace_macro(PlaceMarker::vec_from(&rule), &mut Vec::new())?,
+                        self.replace_macro(PlaceMarker::vec_from(&rule, false), &mut Vec::new())?,
                     );
                     //每个text_line后面都有一个换行符, 只是不在rule中
                     result += "\n";
@@ -82,7 +86,7 @@ impl Preprocessor {
         }
         if input == "" {
             input = PlaceMarker::vec_tostring(
-                self.replace_macro(PlaceMarker::vec_from(&rule), &mut Vec::new())?,
+                self.replace_macro(PlaceMarker::vec_from(&rule, false), &mut Vec::new())?,
             ) + "\n";
         }
         let rules = Preprocessor::parse(Rule::directives, &input)?;
@@ -105,6 +109,9 @@ impl Preprocessor {
                         }
                         Rule::line_control => {
                             result += &self.process_line_control(&rule)?;
+                        }
+                        Rule::source_file_inclusion => {
+                            result += &self.process_source_file_inclusion(&rule)?;
                         }
                         _ => {}
                     }
@@ -139,7 +146,7 @@ impl Preprocessor {
                     }
                 }
                 Rule::replacement_list => {
-                    replace_list = PlaceMarker::vec_from(&rule);
+                    replace_list = PlaceMarker::vec_from(&rule, false);
                 }
                 Rule::varparam_symbol => {
                     has_varparam = true;
@@ -226,6 +233,58 @@ impl Preprocessor {
                 Rule::string_literal => {
                     //TODO 正确解析字符串
                     self.file_path = rule.as_str()[1..rule.as_str().len() - 1].to_string();
+                }
+                _ => {}
+            }
+        }
+        Ok("\n".to_string())
+    }
+
+    pub fn process_source_file_inclusion(
+        &mut self,
+        rule: &Pair<Rule>,
+    ) -> Result<String, Error<Rule>> {
+        for rule in rule.clone().into_inner() {
+            match rule.as_rule() {
+                Rule::header_name => {
+                    let file_name = rule.as_str();
+                    let mut search_path = self
+                        .include_path
+                        .iter()
+                        .map(|x| PathBuf::from(x))
+                        .collect::<Vec<PathBuf>>();
+                    if file_name.starts_with('"') {
+                        if let Some(t) = Path::new(&self.file_path).parent() {
+                            search_path.push(PathBuf::from(t));
+                        }
+                    }
+                    let file_name = &file_name[1..file_name.len() - 1].to_string(); //去掉前后的<>或"
+                    for path in search_path {
+                        let file_path = path.join(&file_name);
+                        let file_content = match fs::read_to_string(&file_path) {
+                            Ok(t) => t,
+                            Err(e) => {
+                                return Err(Error::new_from_span(
+                                    ErrorVariant::CustomError {
+                                        message: format!(
+                                            "Cannot include file '{}': {}",
+                                            file_name, e
+                                        ),
+                                    },
+                                    rule.as_span(),
+                                ));
+                            }
+                        };
+                        let mut preprocessor = Preprocessor::new(
+                            file_path.to_string_lossy().to_string(),
+                            file_content,
+                        );
+                        let result = match preprocessor.process() {
+                            Ok(t) => t,
+                            Err(e) => return Err(e),
+                        };
+                        return Ok(result + "\n");
+                    }
                 }
                 _ => {}
             }

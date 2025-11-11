@@ -47,79 +47,58 @@ pub enum PlaceMarker {
 }
 
 impl PlaceMarker {
-    pub fn vec_from(rule: &Pair<Rule>) -> Vec<PlaceMarker> {
+    ///transform_hashhash: 是否将'##'转换成Contactor
+    pub fn vec_from(rule: &Pair<Rule>, transform_hashhash: bool) -> Vec<PlaceMarker> {
         let mut placemarkers: Vec<PlaceMarker> = Vec::new();
-        let mut final_rule = rule.clone();
-        let mut final_rule_got = false;
-        let mut transform_hashhash = false; //是否将'##'转换成Contactor
-        //根据实际情况找到需要转换的rule
-        while !final_rule_got {
-            match final_rule.as_rule() {
-                Rule::replacement_list => {
-                    transform_hashhash = true;
-                    final_rule = match final_rule.into_inner().next() {
-                        Some(t) => t, //pp_tokens
-                        None => {
-                            //空的替换列表
-                            return Vec::new();
-                        }
-                    };
-                }
-                Rule::text_line => {
-                    final_rule = match final_rule.into_inner().next() {
-                        Some(t) => t, //pp_tokens
-                        None => {
-                            //空行
-                            return Vec::new();
-                        }
-                    };
-                }
-                Rule::pp_tokens => {
-                    final_rule_got = true;
-                }
-                Rule::up_directives => {
-                    final_rule_got = true;
-                    let span = final_rule.as_span();
-                    placemarkers.push(PlaceMarker::Text(
-                        "#".to_string(),
-                        false,
-                        PlaceMarkerSpan::new_from_span(
-                            Span::new(span.get_input(), span.start(), span.start()).unwrap(),
-                        ),
-                    ));
-                }
-                _ => {
-                    return Vec::new();
+        let rule = rule.clone();
+        match rule.as_rule() {
+            Rule::replacement_list => {
+                for rule in rule.into_inner() {
+                    placemarkers.extend(PlaceMarker::vec_from(&rule, true));
                 }
             }
-        }
-        for rule in final_rule.into_inner() {
-            match rule.as_rule() {
-                Rule::punctuator if rule.as_str() == "##" && transform_hashhash => {
-                    placemarkers.push(PlaceMarker::Contactor(PlaceMarkerSpan::new_from_span(
-                        rule.as_span(),
-                    )));
+            Rule::text_line | Rule::pp_tokens => {
+                for rule in rule.into_inner() {
+                    placemarkers.extend(PlaceMarker::vec_from(&rule, transform_hashhash));
                 }
-                Rule::identifier => {
-                    placemarkers.push(PlaceMarker::Identifier(
-                        rule.as_str().to_string(),
-                        PlaceMarkerSpan::new_from_span(rule.as_span()),
-                    ));
+            }
+            Rule::up_directives => {
+                let span = rule.as_span();
+                placemarkers.push(PlaceMarker::Text(
+                    "#".to_string(),
+                    false,
+                    PlaceMarkerSpan::new_from_span(
+                        Span::new(span.get_input(), span.start(), span.start()).unwrap(),
+                    ),
+                ));
+                for rule in rule.into_inner() {
+                    placemarkers.extend(PlaceMarker::vec_from(&rule, transform_hashhash));
                 }
-                Rule::WHITESPACE => {
-                    placemarkers.push(PlaceMarker::Text(
-                        rule.as_str().to_string(),
-                        true,
-                        PlaceMarkerSpan::new_from_span(rule.as_span()),
-                    ));
-                }
-                _ => {
-                    placemarkers.push(PlaceMarker::Text(
-                        rule.as_str().to_string(),
-                        false,
-                        PlaceMarkerSpan::new_from_span(rule.as_span()),
-                    ));
-                }
+            }
+            Rule::punctuator if rule.as_str() == "##" && transform_hashhash => {
+                placemarkers.push(PlaceMarker::Contactor(PlaceMarkerSpan::new_from_span(
+                    rule.as_span(),
+                )));
+            }
+            Rule::identifier => {
+                placemarkers.push(PlaceMarker::Identifier(
+                    rule.as_str().to_string(),
+                    PlaceMarkerSpan::new_from_span(rule.as_span()),
+                ));
+            }
+            Rule::WHITESPACE => {
+                placemarkers.push(PlaceMarker::Text(
+                    rule.as_str().to_string(),
+                    true,
+                    PlaceMarkerSpan::new_from_span(rule.as_span()),
+                ));
+            }
+            _ => {
+                placemarkers.push(PlaceMarker::Text(
+                    rule.as_str().to_string(),
+                    false,
+                    PlaceMarkerSpan::new_from_span(rule.as_span()),
+                ));
             }
         }
         placemarkers
