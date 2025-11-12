@@ -3,9 +3,9 @@ WHITESPACE = { " " | "\t" | "\\\n" }
 
 preprocessing_file = { SOI ~ group_part* ~ EOI }
 // 等需要解析的时候再解析
-directive_keyword  = { "if" | "ifdef" | "ifndef" | "elif" | "elifdef" | "elifndef" | "else" | "endif" | "include" | "embed" | "define" | "undef" | "line" | "error" | "warning" | "pragma" | NEWLINE }
-group_part         = { up_directives | non_directive_line | text_line }
-non_directive_line = { "#" ~ pp_tokens ~ NEWLINE }
+directive_keyword  = { "if" | "ifdef" | "ifndef" | "include" | "embed" | "define" | "undef" | "line" | "error" | "warning" | "pragma" | NEWLINE }
+group_part         = { up_directives | non_directive_line | !"#" ~ text_line }
+non_directive_line = { "#" ~ !("elif" | "elifdef" | "elifndef" | "else" | "endif") ~ pp_tokens ~ NEWLINE }
 text_line          = { pp_tokens? ~ NEWLINE }
 // up代表未处理(unprocess)
 up_directives = { up_if_section | "#" ~ directive_keyword ~ pp_tokens? ~ NEWLINE | "#" ~ NEWLINE }
@@ -52,21 +52,16 @@ directives = {
   | "#" ~ NEWLINE
 }
 
-defined_macro_expression = { "defined" ~ identifier | "defined" ~ "(" ~ identifier ~ ")" }
-// 预处理器处理时先进行宏替换再匹配
-has_include_expression = { "__has_include" ~ "(" ~ (header_name | string_literal) ~ ")" }
-has_embed_expression   = { "__has_embed" ~ "(" ~ header_name ~ embed_parameter_sequence? ~ ")" }
-
 if_section = { if_group ~ elif_group* ~ else_group? ~ endif_line }
 if_group   = {
     "#" ~ "if" ~ constant_expression ~ NEWLINE ~ group_part*
-  | "#" ~ "ifdef" ~ identifier ~ NEWLINE ~ group_part*
-  | "#" ~ "ifndef" ~ identifier ~ NEWLINE ~ group_part*
+  | "#" ~ "ifdef" ~ #ifdef = identifier ~ NEWLINE ~ group_part*
+  | "#" ~ "ifndef" ~ #ifndef = identifier ~ NEWLINE ~ group_part*
 }
 elif_group = {
     "#" ~ "elif" ~ constant_expression ~ NEWLINE ~ group_part*
-  | "#" ~ "elifdef" ~ identifier ~ NEWLINE ~ group_part*
-  | "#" ~ "elifndef" ~ identifier ~ NEWLINE ~ group_part*
+  | "#" ~ "elifdef" ~ #ifdef = identifier ~ NEWLINE ~ group_part*
+  | "#" ~ "elifndef" ~ #ifndef = identifier ~ NEWLINE ~ group_part*
 }
 else_group = { "#" ~ "else" ~ NEWLINE ~ group_part* }
 endif_line = { "#" ~ "endif" ~ NEWLINE }
@@ -97,38 +92,45 @@ warning_directive = { "#" ~ "warning" ~ pp_tokens? ~ NEWLINE }
 
 pragma_directive = { "#" ~ "pragma" ~ pp_tokens? ~ NEWLINE }
 
-// constant_expression =  { expression ~ "?" ~ constant_expression ~ ":" ~ constant_expression | expression }
-constant_expression =  { prefix? ~ primary ~ (infix ~ prefix? ~ primary)* }
-primary             = _{
+defined_macro_expression = { "defined" ~ identifier | "defined" ~ "(" ~ identifier ~ ")" }
+// 预处理器处理时先进行宏替换再匹配
+has_include_expression =  { "__has_include" ~ "(" ~ (header_name | string_literal) ~ ")" }
+has_embed_expression   =  { "__has_embed" ~ "(" ~ (header_name | string_literal) ~ embed_parameter_sequence? ~ ")" }
+has_c_attribute        =  { "__has_c_attribute" ~ "(" ~ pp_tokens ~ ")" }
+constant_expression    =  { expression ~ "?" ~ constant_expression ~ ":" ~ constant_expression | expression }
+expression             =  { prefix? ~ primary ~ (infix ~ prefix? ~ primary)* }
+primary                = _{
     defined_macro_expression
   | has_include_expression
   | has_embed_expression
+  | has_c_attribute
   | identifier
   | integer_constant
   | character_constant
+  | predefined_constant
   | "(" ~ constant_expression ~ ")"
 }
-prefix              = _{ positve | negative | bit_not | not }
-positve             =  { "+" }
-negative            =  { "-" }
-bit_not             =  { "~" }
-not                 =  { "!" }
-infix               = _{ add | sub | mul | div | mod | lshift | rshift | lt | le | gt | ge | eq | neq | bit_and | bit_xor | bit_or | and | or }
-add                 =  { "+" }
-sub                 =  { "-" }
-mul                 =  { "*" }
-div                 =  { "/" }
-mod                 =  { "%" }
-lshift              =  { "<<" }
-rshift              =  { ">>" }
-lt                  =  { "<" }
-le                  =  { "<=" }
-gt                  =  { ">" }
-ge                  =  { ">=" }
-eq                  =  { "==" }
-neq                 =  { "!=" }
-bit_and             =  { "&" }
-bit_xor             =  { "^" }
-bit_or              =  { "|" }
-and                 =  { "&&" }
-or                  =  { "||" }
+prefix                 = _{ positve | negative | bit_not | not }
+positve                =  { "+" }
+negative               =  { "-" }
+bit_not                =  { "~" }
+not                    =  { "!" }
+infix                  = _{ add | sub | mul | div | mod | lshift | rshift | lt | le | gt | ge | eq | neq | bit_and | bit_xor | bit_or | and | or }
+add                    =  { "+" }
+sub                    =  { "-" }
+mul                    =  { "*" }
+div                    =  { "/" }
+mod                    =  { "%" }
+lshift                 =  { "<<" }
+rshift                 =  { ">>" }
+lt                     =  { "<" }
+le                     =  { "<=" }
+gt                     =  { ">" }
+ge                     =  { ">=" }
+eq                     =  { "==" }
+neq                    =  { "!=" }
+bit_and                =  { "&" }
+bit_xor                =  { "^" }
+bit_or                 =  { "|" }
+and                    =  { "&&" }
+or                     =  { "||" }

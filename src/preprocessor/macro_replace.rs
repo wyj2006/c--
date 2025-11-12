@@ -5,6 +5,10 @@ use chrono::{Datelike, Local};
 use pest::Span;
 use pest::error::{Error, ErrorVariant};
 
+pub static STDC_EMBED_NOT_FOUND: isize = 0;
+pub static STDC_EMBED_FOUND: isize = 1;
+pub static STDC_EMBED_EMPTY: isize = 2;
+
 impl Preprocessor {
     ///查找宏, 包括预定义的和用户定义的
     pub fn find_macro(&self, macro_name: &String, span: Span) -> Option<Macro> {
@@ -54,14 +58,20 @@ impl Preprocessor {
                     PlaceMarkerSpan::new_from_span(span),
                 )],
             }),
-            "__STDC__"
-            | "__STDC_EMBED_FOUND__"
-            | "__STDC_HOSTED__"
-            | "__STDC_UTF_16__"
-            | "__STDC_UTF_32__" => Some(Macro::Object {
-                name: macro_name.clone(),
+            "__STDC__" | "__STDC_HOSTED__" | "__STDC_UTF_16__" | "__STDC_UTF_32__" => {
+                Some(Macro::Object {
+                    name: macro_name.clone(),
+                    replace_list: vec![PlaceMarker::Text(
+                        format!("1"),
+                        false,
+                        PlaceMarkerSpan::new_from_span(span),
+                    )],
+                })
+            }
+            "__STDC_EMBED_FOUND__" => Some(Macro::Object {
+                name: "__STDC_EMBED_FOUND__".to_string(),
                 replace_list: vec![PlaceMarker::Text(
-                    format!("1"),
+                    STDC_EMBED_FOUND.to_string(),
                     false,
                     PlaceMarkerSpan::new_from_span(span),
                 )],
@@ -69,7 +79,7 @@ impl Preprocessor {
             "__STDC_EMBED_NOT_FOUND__" => Some(Macro::Object {
                 name: "__STDC_EMBED_NOT_FOUND__".to_string(),
                 replace_list: vec![PlaceMarker::Text(
-                    format!("0"),
+                    STDC_EMBED_NOT_FOUND.to_string(),
                     false,
                     PlaceMarkerSpan::new_from_span(span),
                 )],
@@ -77,7 +87,7 @@ impl Preprocessor {
             "__STDC_EMBED_EMPTY__" => Some(Macro::Object {
                 name: "__STDC_EMBED_EMPTY__".to_string(),
                 replace_list: vec![PlaceMarker::Text(
-                    format!("2"),
+                    STDC_EMBED_EMPTY.to_string(),
                     false,
                     PlaceMarkerSpan::new_from_span(span),
                 )],

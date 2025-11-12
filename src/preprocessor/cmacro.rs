@@ -57,20 +57,7 @@ impl PlaceMarker {
                     placemarkers.extend(PlaceMarker::vec_from(&rule, true));
                 }
             }
-            Rule::text_line | Rule::pp_tokens => {
-                for rule in rule.into_inner() {
-                    placemarkers.extend(PlaceMarker::vec_from(&rule, transform_hashhash));
-                }
-            }
-            Rule::up_directives => {
-                let span = rule.as_span();
-                placemarkers.push(PlaceMarker::Text(
-                    "#".to_string(),
-                    false,
-                    PlaceMarkerSpan::new_from_span(
-                        Span::new(span.get_input(), span.start(), span.start()).unwrap(),
-                    ),
-                ));
+            Rule::text_line | Rule::pp_tokens | Rule::up_directives => {
                 for rule in rule.into_inner() {
                     placemarkers.extend(PlaceMarker::vec_from(&rule, transform_hashhash));
                 }

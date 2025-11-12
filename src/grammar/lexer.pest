@@ -35,7 +35,10 @@ constant = @{
     floating_constant
   | integer_constant
   | character_constant
+  | predefined_constant
 }
+
+predefined_constant = { "true" | "false" | "nullptr" }
 
 integer_constant           = @{
     hexadecimal_constant ~ integer_suffix?

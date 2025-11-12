@@ -14,7 +14,7 @@ pub fn embed_without_parameter() {
 pub fn embed_with_limit() {
     let mut preprocessor = Preprocessor::new(
         "src/preprocessor/tests/embed.string".to_string(),
-        "#embed \"embed.txt\" limit(1+1)\n".to_string(),
+        "#embed \"embed.txt\" limit(1?1+1:1)\n".to_string(),
     );
     let result = preprocessor.process().unwrap();
     assert_eq!(result, "48,49\n");

@@ -1,5 +1,7 @@
 pub mod cmacro;
+pub mod expressions;
 pub mod macro_replace;
+pub mod pragma;
 #[cfg(test)]
 pub mod tests;
 
@@ -7,39 +9,14 @@ use crate::diagnostic::warning;
 use cmacro::{Macro, PlaceMarker};
 use pest::Parser;
 use pest::error::{Error, ErrorVariant};
-use pest::iterators::{Pair, Pairs};
-use pest::pratt_parser::{Assoc, Op, PrattParser};
+use pest::iterators::Pair;
 use pest_derive::Parser;
 use std::cmp::min;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
-use std::sync::LazyLock;
 use std::{fs, usize};
-
-static PRATT_PARSER: LazyLock<PrattParser<Rule>> = LazyLock::new(|| {
-    PrattParser::new()
-        .op(Op::infix(Rule::or, Assoc::Left))
-        .op(Op::infix(Rule::and, Assoc::Left))
-        .op(Op::infix(Rule::bit_or, Assoc::Left))
-        .op(Op::infix(Rule::bit_xor, Assoc::Left))
-        .op(Op::infix(Rule::bit_and, Assoc::Left))
-        .op(Op::infix(Rule::eq, Assoc::Left) | Op::infix(Rule::neq, Assoc::Left))
-        .op(Op::infix(Rule::lt, Assoc::Left)
-            | Op::infix(Rule::le, Assoc::Left)
-            | Op::infix(Rule::gt, Assoc::Left)
-            | Op::infix(Rule::ge, Assoc::Left))
-        .op(Op::infix(Rule::lshift, Assoc::Left) | Op::infix(Rule::rshift, Assoc::Left))
-        .op(Op::infix(Rule::add, Assoc::Left) | Op::infix(Rule::sub, Assoc::Left))
-        .op(Op::infix(Rule::mul, Assoc::Left)
-            | Op::infix(Rule::div, Assoc::Left)
-            | Op::infix(Rule::r#mod, Assoc::Left))
-        .op(Op::prefix(Rule::positve)
-            | Op::prefix(Rule::negative)
-            | Op::prefix(Rule::bit_not)
-            | Op::prefix(Rule::not))
-});
 
 #[derive(Parser)]
 #[grammar = "src/grammar/lexer.pest"]
@@ -93,6 +70,13 @@ impl Preprocessor {
                     //每个text_line后面都有一个换行符, 只是不在rule中
                     result += "\n";
                 }
+                Rule::non_directive_line => {
+                    warning::<Rule>(
+                        format!("Unkown preprocessing directive: {}", rule.as_str()),
+                        rule.as_span(),
+                        &self.file_path,
+                    );
+                }
                 _ => {}
             }
         }
@@ -109,13 +93,18 @@ impl Preprocessor {
                 {
                     input = rule.as_str().to_string();
                     break;
+                } else if let Rule::up_if_section = pair.as_rule() {
+                    input = rule.as_str().to_string();
+                    break;
                 }
             }
         }
         if input == "" {
-            input = PlaceMarker::vec_tostring(
-                self.replace_macro(PlaceMarker::vec_from(&rule, false), &mut Vec::new())?,
-            ) + "\n";
+            input = "#".to_string()//'#'不是一个Rule
+                + &PlaceMarker::vec_tostring(
+                    self.replace_macro(PlaceMarker::vec_from(&rule, false), &mut Vec::new())?,
+                )
+                + "\n";
         }
         let rules = Preprocessor::parse(Rule::directives, &input)?;
         let mut result = String::new();
@@ -143,6 +132,12 @@ impl Preprocessor {
                         }
                         Rule::binary_resource_inclusion => {
                             result += &self.process_binary_resource_inclusion(&rule)?;
+                        }
+                        Rule::if_section => {
+                            result += &self.process_if_section(&rule)?;
+                        }
+                        Rule::pragma_directive => {
+                            result += &self.process_pragma(&rule)?;
                         }
                         _ => {}
                     }
@@ -451,10 +446,12 @@ impl Preprocessor {
                     }
                     match param_name {
                         "limit" | "__limit__" => {
-                            limit = self.process_constant_expression(&Preprocessor::parse(
-                                Rule::constant_expression,
-                                param_clause,
-                            )?)? as usize;
+                            limit = self.process_constant_expression(
+                                &Preprocessor::parse(Rule::constant_expression, param_clause)?
+                                    .into_iter()
+                                    .next()
+                                    .unwrap(),
+                            )? as usize;
                         }
                         "prefix" | "__prefix__" => {
                             prefix = param_clause;
@@ -486,83 +483,76 @@ impl Preprocessor {
         ))
     }
 
-    ///计算constant_expression的值
-    pub fn process_constant_expression(
-        &mut self,
-        rules: &Pairs<Rule>,
-    ) -> Result<isize, Error<Rule>> {
-        PRATT_PARSER
-            .map_primary(|primary| match primary.as_rule() {
-                Rule::integer_constant => match primary.as_str().parse() {
-                    Ok(t) => Ok(t),
-                    Err(e) => Err(Error::new_from_span(
-                        ErrorVariant::CustomError {
-                            message: format!("invalid integer '{}': {}", primary.as_str(), e),
-                        },
-                        primary.as_span(),
-                    )),
-                },
-                //TODO 正确处理字符
-                Rule::character_constant => Ok(0),
-                Rule::constant_expression => {
-                    self.process_constant_expression(&primary.into_inner())
+    pub fn process_if_section(&mut self, rule: &Pair<Rule>) -> Result<String, Error<Rule>> {
+        for rule in rule.clone().into_inner() {
+            match rule.as_rule() {
+                Rule::if_group | Rule::elif_group => {
+                    let mut tag = "";
+                    let mut is_true = false;
+
+                    let mut condition = 0;
+                    let mut macro_name = String::new();
+                    let mut macro_span = rule.as_span();
+                    let mut group = None;
+                    for rule in rule.clone().into_inner() {
+                        match rule.as_rule() {
+                            Rule::constant_expression => {
+                                condition = self.process_constant_expression(&rule)?;
+                                tag = "if";
+                            }
+                            Rule::group_part => group = Some(rule),
+                            Rule::identifier => {
+                                macro_name = rule.as_str().to_string();
+                                macro_span = rule.as_span();
+                                match rule.as_node_tag().unwrap_or("") {
+                                    "ifdef" => tag = "ifdef",
+                                    "ifndef" => tag = "ifndef",
+                                    _ => {}
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    match tag {
+                        "if" => is_true = condition != 0,
+                        "ifdef" => {
+                            if let Some(_) = self.find_macro(&macro_name, macro_span) {
+                                is_true = true;
+                            }
+                        }
+                        "ifndef" => {
+                            if let None = self.find_macro(&macro_name, macro_span) {
+                                is_true = true;
+                            }
+                        }
+                        _ => {}
+                    }
+
+                    if is_true {
+                        let mut result = "\n".to_string();
+                        if let Some(group) = group {
+                            result += &self.process_group(&group)?;
+                        }
+                        return Ok(result);
+                    }
                 }
-                Rule::identifier => Ok(0),
-                Rule::defined_macro_expression => Err(Error::new_from_span(
-                    ErrorVariant::CustomError {
-                        message: format!("defined shall not appear within the constant expression"),
-                    },
-                    primary.as_span(),
-                )),
-                //TODO
-                Rule::has_include_expression => Ok(0),
-                Rule::has_embed_expression => Ok(0),
-                _ => unreachable!(),
-            })
-            .map_prefix(|op, rhs| {
-                let rhs_value = match rhs {
-                    Ok(t) => t,
-                    Err(e) => return Err(e),
-                };
-                match op.as_rule() {
-                    Rule::positve => Ok(rhs_value),
-                    Rule::negative => Ok(-rhs_value),
-                    Rule::bit_not => Ok(!rhs_value),
-                    Rule::not => Ok((rhs_value == 0) as isize),
-                    _ => unreachable!(),
+                Rule::else_group => {
+                    let mut group = None;
+                    for rule in rule.clone().into_inner() {
+                        match rule.as_rule() {
+                            Rule::group_part => group = Some(rule),
+                            _ => {}
+                        }
+                    }
+                    let mut result = "\n".to_string();
+                    if let Some(group) = group {
+                        result += &self.process_group(&group)?;
+                    }
+                    return Ok(result);
                 }
-            })
-            .map_infix(|lhs, op, rhs| {
-                let lhs_value = match lhs {
-                    Ok(t) => t,
-                    Err(e) => return Err(e),
-                };
-                let rhs_value = match rhs {
-                    Ok(t) => t,
-                    Err(e) => return Err(e),
-                };
-                match op.as_rule() {
-                    Rule::or => Ok((lhs_value != 0 || rhs_value != 0) as isize),
-                    Rule::and => Ok((lhs_value != 0 && rhs_value != 0) as isize),
-                    Rule::bit_or => Ok(lhs_value | rhs_value),
-                    Rule::bit_xor => Ok(lhs_value ^ rhs_value),
-                    Rule::bit_and => Ok(lhs_value & rhs_value),
-                    Rule::eq => Ok((lhs_value == rhs_value) as isize),
-                    Rule::neq => Ok((lhs_value != rhs_value) as isize),
-                    Rule::lt => Ok((lhs_value < rhs_value) as isize),
-                    Rule::le => Ok((lhs_value <= rhs_value) as isize),
-                    Rule::gt => Ok((lhs_value > rhs_value) as isize),
-                    Rule::ge => Ok((lhs_value >= rhs_value) as isize),
-                    Rule::rshift => Ok(lhs_value >> rhs_value),
-                    Rule::lshift => Ok(lhs_value << rhs_value),
-                    Rule::add => Ok(lhs_value + rhs_value),
-                    Rule::sub => Ok(lhs_value - rhs_value),
-                    Rule::mul => Ok(lhs_value * rhs_value),
-                    Rule::div => Ok(lhs_value / rhs_value),
-                    Rule::r#mod => Ok(lhs_value % rhs_value),
-                    _ => unreachable!(),
-                }
-            })
-            .parse(rules.clone())
+                _ => {}
+            }
+        }
+        Ok("\n".to_string())
     }
 }
