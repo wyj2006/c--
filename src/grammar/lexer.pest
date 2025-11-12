@@ -26,7 +26,7 @@ identifier_continue = @{
   | XID_CONTINUE
   | universal_character_name // universal character name of class XID_CONTINUE
 }
-nondigit            = @{ ASCII_ALPHANUMERIC | "_" }
+nondigit            = @{ ASCII_ALPHA | "_" }
 
 universal_character_name = @{ "\\u" ~ hex_quad | "\\U" ~ hex_quad ~ hex_quad }
 hex_quad                 = @{ ASCII_HEX_DIGIT{4} }

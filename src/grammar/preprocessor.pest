@@ -56,12 +56,6 @@ defined_macro_expression = { "defined" ~ identifier | "defined" ~ "(" ~ identifi
 // 预处理器处理时先进行宏替换再匹配
 has_include_expression = { "__has_include" ~ "(" ~ (header_name | string_literal) ~ ")" }
 has_embed_expression   = { "__has_embed" ~ "(" ~ header_name ~ embed_parameter_sequence? ~ ")" }
-constant_expression    = {
-    // 暂时先这样
-    defined_macro_expression
-  | has_include_expression
-  | has_embed_expression
-}
 
 if_section = { if_group ~ elif_group* ~ else_group? ~ endif_line }
 if_group   = {
@@ -102,3 +96,39 @@ error_directive   = { "#" ~ "error" ~ pp_tokens? ~ NEWLINE }
 warning_directive = { "#" ~ "warning" ~ pp_tokens? ~ NEWLINE }
 
 pragma_directive = { "#" ~ "pragma" ~ pp_tokens? ~ NEWLINE }
+
+// constant_expression =  { expression ~ "?" ~ constant_expression ~ ":" ~ constant_expression | expression }
+constant_expression =  { prefix? ~ primary ~ (infix ~ prefix? ~ primary)* }
+primary             = _{
+    defined_macro_expression
+  | has_include_expression
+  | has_embed_expression
+  | identifier
+  | integer_constant
+  | character_constant
+  | "(" ~ constant_expression ~ ")"
+}
+prefix              = _{ positve | negative | bit_not | not }
+positve             =  { "+" }
+negative            =  { "-" }
+bit_not             =  { "~" }
+not                 =  { "!" }
+infix               = _{ add | sub | mul | div | mod | lshift | rshift | lt | le | gt | ge | eq | neq | bit_and | bit_xor | bit_or | and | or }
+add                 =  { "+" }
+sub                 =  { "-" }
+mul                 =  { "*" }
+div                 =  { "/" }
+mod                 =  { "%" }
+lshift              =  { "<<" }
+rshift              =  { ">>" }
+lt                  =  { "<" }
+le                  =  { "<=" }
+gt                  =  { ">" }
+ge                  =  { ">=" }
+eq                  =  { "==" }
+neq                 =  { "!=" }
+bit_and             =  { "&" }
+bit_xor             =  { "^" }
+bit_or              =  { "|" }
+and                 =  { "&&" }
+or                  =  { "||" }
