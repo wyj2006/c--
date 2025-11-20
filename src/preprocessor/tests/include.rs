@@ -21,3 +21,16 @@ pub fn include_after_replace() {
     let result = preprocessor.process().unwrap();
     assert_eq!(result, "\n\n\n\n\nchar p[] = \"x ## y\";\n\n");
 }
+
+#[test]
+pub fn include_use_macro() {
+    let mut preprocessor = Preprocessor::new(
+        "src/preprocessor/tests/include.string".to_string(),
+        "#include \"include.txt\"\nchar p[] = join(x, y);\n",
+    );
+    let result = preprocessor.process().unwrap();
+    assert_eq!(
+        result,
+        "\n\n\n\nchar p[] = \"x ## y\";\n\nchar p[] = \"x ## y\";\n"
+    );
+}

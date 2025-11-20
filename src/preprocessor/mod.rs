@@ -317,13 +317,16 @@ impl<'a> Preprocessor<'a> {
                         };
                         let mut preprocessor = Preprocessor::new(
                             file_path.to_string_lossy().to_string(),
-                            &file_content,
+                            Box::leak(file_content.into_boxed_str()),
                         );
-                        //TODO 共享macro
+                        //让preprocessor可以用自己的macro
+                        preprocessor.user_macro.extend(self.user_macro.clone());
                         let result = match preprocessor.process() {
                             Ok(t) => t,
                             Err(e) => return Err(e),
                         };
+                        //补充新定义的macro
+                        self.user_macro.extend(preprocessor.user_macro);
                         return Ok(result + "\n");
                     }
                     return Err(Error::new_from_span(
