@@ -32,20 +32,20 @@ static PRATT_PARSER: LazyLock<PrattParser<Rule>> = LazyLock::new(|| {
             | Op::prefix(Rule::not))
 });
 
-impl Preprocessor {
+impl Preprocessor<'_> {
     ///计算constant_expression的值
-    pub fn process_constant_expression(&mut self, rule: &Pair<Rule>) -> Result<isize, Error<Rule>> {
+    pub fn process_constant_expression(&mut self, rule: Pair<Rule>) -> Result<isize, Error<Rule>> {
         let mut condition = 0;
         let mut true_value = None;
         let mut false_value = None;
-        for rule in rule.clone().into_inner() {
+        for rule in rule.into_inner() {
             match rule.as_rule() {
-                Rule::expression => condition = self.process_expression(&rule.into_inner())?,
+                Rule::expression => condition = self.process_expression(rule.into_inner())?,
                 Rule::constant_expression => {
                     if let None = true_value {
-                        true_value = Some(self.process_constant_expression(&rule)?);
+                        true_value = Some(self.process_constant_expression(rule)?);
                     } else {
-                        false_value = Some(self.process_constant_expression(&rule)?);
+                        false_value = Some(self.process_constant_expression(rule)?);
                     }
                 }
                 _ => {}
@@ -65,7 +65,7 @@ impl Preprocessor {
     }
 
     ///计算expression的值
-    pub fn process_expression(&mut self, rules: &Pairs<Rule>) -> Result<isize, Error<Rule>> {
+    pub fn process_expression(&mut self, rules: Pairs<Rule>) -> Result<isize, Error<Rule>> {
         PRATT_PARSER
             .map_primary(|primary| match primary.as_rule() {
                 Rule::integer_constant => match primary.as_str().parse() {
@@ -79,7 +79,7 @@ impl Preprocessor {
                 },
                 //TODO 正确处理字符
                 Rule::character_constant => Ok(0),
-                Rule::constant_expression => self.process_constant_expression(&primary),
+                Rule::constant_expression => self.process_constant_expression(primary),
                 Rule::identifier => Ok(0),
                 Rule::defined_macro_expression => {
                     let mut macro_name = String::new();
@@ -93,7 +93,7 @@ impl Preprocessor {
                             _ => {}
                         }
                     }
-                    if let Some(_) = self.find_macro(&macro_name, macro_span) {
+                    if let Some(_) = self.find_macro(&macro_name, &macro_span) {
                         Ok(1)
                     } else {
                         Ok(0)
@@ -123,7 +123,7 @@ impl Preprocessor {
                             //TODO 正确处理字符串
                             Rule::string_literal => header_name = Some(rule.as_str()),
                             Rule::embed_parameter_sequence => {
-                                if let Err(_) = self.process_embed_parameters(&rule) {
+                                if let Err(_) = self.process_embed_parameters(rule) {
                                     return Ok(STDC_EMBED_NOT_FOUND);
                                 }
                             }
@@ -198,6 +198,6 @@ impl Preprocessor {
                     _ => unreachable!(),
                 }
             })
-            .parse(rules.clone())
+            .parse(rules)
     }
 }

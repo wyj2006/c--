@@ -6,8 +6,8 @@ use std::fs;
 
 fn main() {
     let file_path = "test.txt".to_string();
-    let mut preprocessor =
-        Preprocessor::new(file_path.clone(), fs::read_to_string(&file_path).unwrap());
+    let file_content = fs::read_to_string(&file_path).unwrap();
+    let mut preprocessor = Preprocessor::new(file_path.clone(), &file_content);
     let result = match preprocessor.process() {
         Ok(t) => t,
         Err(e) => {

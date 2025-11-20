@@ -11,8 +11,7 @@ pub fn condition_without_if() {
 #else
 3
 #endif
-"
-        .to_string(),
+",
     );
     let result = preprocessor.process().unwrap();
     assert_eq!(result, "\n3\n");
@@ -29,8 +28,7 @@ pub fn condition_with_if() {
 #else
 3
 #endif
-"
-        .to_string(),
+",
     );
     let result = preprocessor.process().unwrap();
     assert_eq!(result, "\n2\n");
@@ -47,8 +45,7 @@ pub fn nested_condition() {
 3
 #endif
 #endif
-"
-        .to_string(),
+",
     );
     let result = preprocessor.process().unwrap();
     assert_eq!(result, "\n\n2\n");

@@ -8,8 +8,7 @@ pub fn macro_example_6_10_5_1_1() {
 #define G(Q) 42
 #define F(R, X, ...) __VA_OPT__(G R X) )
 int x = F(LPAREN(), 0, <:-);
-"
-        .to_string(),
+",
     );
     let result = preprocessor.process().unwrap();
     assert_eq!(result, "\n\n\nint x = 42 ;\n");
@@ -31,8 +30,7 @@ G(a, )
 G(a)
 SDEF(foo);
 SDEF(bar, 1, 2);
-"
-        .to_string(),
+",
     );
     let result = preprocessor.process().unwrap();
     assert_eq!(
@@ -60,8 +58,7 @@ pub fn macro_example_6_10_5_1_2_2() {
         "#define H1(X, ...) X __VA_OPT__(##) __VA_ARGS__
 #define H2(X, Y, ...) __VA_OPT__(X ## Y,) __VA_ARGS__
 H2(a, b, c, d)
-"
-        .to_string(),
+",
     );
     let result = preprocessor.process().unwrap();
     assert_eq!(
@@ -81,8 +78,7 @@ pub fn macro_example_6_10_5_1_2_3() {
 H3(, 0)
 #define H4(X, ...) __VA_OPT__(a X ## X) ## b
 H4(, 1)
-"
-        .to_string(),
+",
     );
     let result = preprocessor.process().unwrap();
     assert_eq!(
@@ -103,8 +99,7 @@ pub fn macro_example_6_10_5_1_2_4() {
 #define H5B(X) a ## X ## b
 #define H5C(X) H5B(X)
 H5C(H5A())
-"
-        .to_string(),
+",
     );
     let result = preprocessor.process().unwrap();
     assert_eq!(
@@ -126,8 +121,7 @@ pub fn macro_example_6_10_5_3() {
 #define in_between(a) mkstr(a)
 #define join(c, d) in_between(c hash_hash d)
 char p[] = join(x, y);
-"
-        .to_string(),
+",
     );
     let result = preprocessor.process().unwrap();
     assert_eq!(result, "\n\n\n\nchar p[] = \"x ## y\";\n");

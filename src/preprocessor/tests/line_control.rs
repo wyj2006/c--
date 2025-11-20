@@ -7,8 +7,7 @@ pub fn line_control() {
         "#line 3
 __LINE__
 __LINE__
-"
-        .to_string(),
+",
     );
     let result = preprocessor.process().unwrap();
     assert_eq!(result, "\n3\n4\n");
@@ -20,8 +19,7 @@ pub fn line_control_with_file() {
         "<string>".to_string(),
         "#line 3 \"string2\"
 __LINE__ __FILE__
-"
-        .to_string(),
+",
     );
     let result = preprocessor.process().unwrap();
     assert_eq!(result, "\n3 \"string2\"\n");

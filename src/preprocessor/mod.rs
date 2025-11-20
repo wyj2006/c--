@@ -21,16 +21,16 @@ use std::{fs, usize};
 #[derive(Parser)]
 #[grammar = "src/grammar/lexer.pest"]
 #[grammar = "src/grammar/preprocessor.pest"]
-pub struct Preprocessor {
+pub struct Preprocessor<'a> {
     pub file_path: String,
-    pub file_content: String,
-    pub user_macro: HashMap<String, Macro>,
+    pub file_content: &'a str,
+    pub user_macro: HashMap<String, Macro<'a>>,
     pub line_offset: isize,
     pub include_path: Vec<String>,
 }
 
-impl Preprocessor {
-    pub fn new(file_path: String, file_content: String) -> Preprocessor {
+impl<'a> Preprocessor<'a> {
+    pub fn new(file_path: String, file_content: &'a str) -> Preprocessor<'a> {
         Preprocessor {
             file_path,
             file_content,
@@ -41,14 +41,13 @@ impl Preprocessor {
     }
 
     pub fn process(&mut self) -> Result<String, Error<Rule>> {
-        let input = self.file_content.clone();
-        let rules = Preprocessor::parse(Rule::preprocessing_file, &input)?;
+        let rules = Preprocessor::parse(Rule::preprocessing_file, self.file_content)?;
         let mut result = String::new();
         for rule in rules {
             if let Rule::preprocessing_file = rule.as_rule() {
                 for rule in rule.into_inner() {
                     if let Rule::group_part = rule.as_rule() {
-                        result += &self.process_group(&rule)?;
+                        result += &self.process_group(rule)?;
                     }
                 }
             }
@@ -56,16 +55,16 @@ impl Preprocessor {
         Ok(result)
     }
 
-    fn process_group(&mut self, rule: &Pair<Rule>) -> Result<String, Error<Rule>> {
+    fn process_group(&mut self, rule: Pair<'a, Rule>) -> Result<String, Error<Rule>> {
         let mut result = String::new();
-        for rule in rule.clone().into_inner() {
+        for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::up_directives => {
-                    result += &self.process_directive(&rule)?;
+                    result += &self.process_directive(rule)?;
                 }
                 Rule::text_line => {
                     result += &PlaceMarker::vec_tostring(
-                        self.replace_macro(PlaceMarker::vec_from(&rule, false), &mut Vec::new())?,
+                        self.replace_macro(PlaceMarker::vec_from(rule, false), &mut Vec::new())?,
                     );
                     //每个text_line后面都有一个换行符, 只是不在rule中
                     result += "\n";
@@ -83,7 +82,7 @@ impl Preprocessor {
         Ok(result)
     }
 
-    fn process_directive(&mut self, rule: &Pair<Rule>) -> Result<String, Error<Rule>> {
+    fn process_directive(&mut self, rule: Pair<'a, Rule>) -> Result<String, Error<Rule>> {
         let mut input = String::new();
         if let Rule::up_directives = rule.as_rule() {
             for pair in rule.clone().into_inner() {
@@ -102,42 +101,42 @@ impl Preprocessor {
         if input == "" {
             input = "#".to_string()//'#'不是一个Rule
                 + &PlaceMarker::vec_tostring(
-                    self.replace_macro(PlaceMarker::vec_from(&rule, false), &mut Vec::new())?,
+                    self.replace_macro(PlaceMarker::vec_from(rule, false), &mut Vec::new())?,
                 )
                 + "\n";
         }
-        let rules = Preprocessor::parse(Rule::directives, &input)?;
+        let rules = Preprocessor::parse(Rule::directives, Box::leak(input.into_boxed_str()))?;
         let mut result = String::new();
         for rule in rules {
             if let Rule::directives = rule.as_rule() {
                 for rule in rule.into_inner() {
                     match rule.as_rule() {
                         Rule::macro_define => {
-                            result += &self.process_macro_define(&rule)?;
+                            result += &self.process_macro_define(rule)?;
                         }
                         Rule::macro_undef => {
-                            result += &self.process_macro_undef(&rule)?;
+                            result += &self.process_macro_undef(rule)?;
                         }
                         Rule::warning_directive => {
-                            result += &self.process_warning(&rule)?;
+                            result += &self.process_warning(rule)?;
                         }
                         Rule::error_directive => {
-                            result += &self.process_error(&rule)?;
+                            result += &self.process_error(rule)?;
                         }
                         Rule::line_control => {
-                            result += &self.process_line_control(&rule)?;
+                            result += &self.process_line_control(rule)?;
                         }
                         Rule::source_file_inclusion => {
-                            result += &self.process_source_file_inclusion(&rule)?;
+                            result += &self.process_source_file_inclusion(rule)?;
                         }
                         Rule::binary_resource_inclusion => {
-                            result += &self.process_binary_resource_inclusion(&rule)?;
+                            result += &self.process_binary_resource_inclusion(rule)?;
                         }
                         Rule::if_section => {
-                            result += &self.process_if_section(&rule)?;
+                            result += &self.process_if_section(rule)?;
                         }
                         Rule::pragma_directive => {
-                            result += &self.process_pragma(&rule)?;
+                            result += &self.process_pragma(rule)?;
                         }
                         _ => {}
                     }
@@ -147,14 +146,18 @@ impl Preprocessor {
         Ok(result)
     }
 
-    pub fn process_macro_define(&mut self, rule: &Pair<Rule>) -> Result<String, Error<Rule>> {
+    pub fn process_macro_define<'b>(
+        &mut self,
+        rule: Pair<'a, Rule>,
+    ) -> Result<String, Error<Rule>> {
         let mut object_like = true;
         let mut name = String::new();
         let mut name_span = rule.as_span();
         let mut parameters = Vec::new();
         let mut has_varparam = false;
         let mut replace_list = Vec::new();
-        for rule in rule.clone().into_inner() {
+        let span = rule.as_span();
+        for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::identifier => {
                     name = rule.as_str().to_string();
@@ -172,7 +175,7 @@ impl Preprocessor {
                     }
                 }
                 Rule::replacement_list => {
-                    replace_list = PlaceMarker::vec_from(&rule, false);
+                    replace_list = PlaceMarker::vec_from(rule, false);
                 }
                 Rule::varparam_symbol => {
                     has_varparam = true;
@@ -195,13 +198,13 @@ impl Preprocessor {
                 replace_list,
             };
         }
-        if let Some(pre_macro) = self.find_macro(&name, name_span) {
+        if let Some(pre_macro) = self.find_macro(&name, &name_span) {
             if pre_macro != cmacro {
                 return Err(Error::new_from_span(
                     ErrorVariant::CustomError {
                         message: format!("macro '{}' redefined", name),
                     },
-                    rule.as_span(),
+                    span,
                 ));
             }
         } else {
@@ -210,9 +213,9 @@ impl Preprocessor {
         Ok("\n".to_string())
     }
 
-    pub fn process_macro_undef(&mut self, rule: &Pair<Rule>) -> Result<String, Error<Rule>> {
+    pub fn process_macro_undef(&mut self, rule: Pair<Rule>) -> Result<String, Error<Rule>> {
         let mut name = String::new();
-        for rule in rule.clone().into_inner() {
+        for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::identifier => name = rule.as_str().to_string(),
                 _ => {}
@@ -222,34 +225,36 @@ impl Preprocessor {
         Ok("\n".to_string())
     }
 
-    pub fn process_warning(&mut self, rule: &Pair<Rule>) -> Result<String, Error<Rule>> {
+    pub fn process_warning(&mut self, rule: Pair<Rule>) -> Result<String, Error<Rule>> {
         let mut message = String::new();
-        for rule in rule.clone().into_inner() {
+        let span = rule.as_span();
+        for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::pp_tokens => message = rule.as_str().to_string(),
                 _ => {}
             }
         }
-        warning::<Rule>(message, rule.as_span(), &self.file_path);
+        warning::<Rule>(message, span, &self.file_path);
         Ok("\n".to_string())
     }
 
-    pub fn process_error(&mut self, rule: &Pair<Rule>) -> Result<String, Error<Rule>> {
+    pub fn process_error(&mut self, rule: Pair<Rule>) -> Result<String, Error<Rule>> {
         let mut message = String::new();
-        for rule in rule.clone().into_inner() {
+        let span = rule.as_span();
+        for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::pp_tokens => message = rule.as_str().to_string(),
                 _ => {}
             }
         }
         Err(
-            Error::new_from_span(ErrorVariant::CustomError { message }, rule.as_span())
+            Error::new_from_span(ErrorVariant::CustomError { message }, span)
                 .with_path(&self.file_path),
         )
     }
 
-    pub fn process_line_control(&mut self, rule: &Pair<Rule>) -> Result<String, Error<Rule>> {
-        for rule in rule.clone().into_inner() {
+    pub fn process_line_control(&mut self, rule: Pair<Rule>) -> Result<String, Error<Rule>> {
+        for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::digit_sequence => {
                     self.line_offset = rule.as_str().parse::<isize>().unwrap()
@@ -290,9 +295,9 @@ impl Preprocessor {
 
     pub fn process_source_file_inclusion(
         &mut self,
-        rule: &Pair<Rule>,
+        rule: Pair<Rule>,
     ) -> Result<String, Error<Rule>> {
-        for rule in rule.clone().into_inner() {
+        for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::header_name => {
                     for file_path in self.get_possible_filepath(rule.as_str()) {
@@ -312,8 +317,9 @@ impl Preprocessor {
                         };
                         let mut preprocessor = Preprocessor::new(
                             file_path.to_string_lossy().to_string(),
-                            file_content,
+                            &file_content,
                         );
+                        //TODO 共享macro
                         let result = match preprocessor.process() {
                             Ok(t) => t,
                             Err(e) => return Err(e),
@@ -338,21 +344,22 @@ impl Preprocessor {
 
     pub fn process_binary_resource_inclusion(
         &mut self,
-        rule: &Pair<Rule>,
+        rule: Pair<Rule>,
     ) -> Result<String, Error<Rule>> {
         let mut header_name = "";
         let mut limit = usize::MAX;
         let mut prefix = String::new();
         let mut suffix = String::new();
         let mut if_empty = String::new();
+        let span = rule.as_span();
 
-        for rule in rule.clone().into_inner() {
+        for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::header_name => {
                     header_name = rule.as_str();
                 }
                 Rule::embed_parameter_sequence => {
-                    (limit, prefix, suffix, if_empty) = self.process_embed_parameters(&rule)?;
+                    (limit, prefix, suffix, if_empty) = self.process_embed_parameters(rule)?;
                 }
                 _ => {}
             }
@@ -367,7 +374,7 @@ impl Preprocessor {
                         ErrorVariant::CustomError {
                             message: format!("Error occurred when opening: {}", e),
                         },
-                        rule.as_span(),
+                        span,
                     ));
                 }
             };
@@ -381,7 +388,7 @@ impl Preprocessor {
                             ErrorVariant::CustomError {
                                 message: format!("Error occurred when reading: {}", e),
                             },
-                            rule.as_span(),
+                            span,
                         ));
                     }
                 };
@@ -414,25 +421,26 @@ impl Preprocessor {
                     header_name[1..header_name.len() - 1].to_string()
                 ),
             },
-            rule.as_span(),
+            span,
         ))
     }
 
     pub fn process_embed_parameters(
         &mut self,
-        rule: &Pair<Rule>,
+        rule: Pair<Rule>,
     ) -> Result<(usize, String, String, String), Error<Rule>> {
         let mut limit = usize::MAX;
         let mut prefix = "";
         let mut suffix = "";
         let mut if_empty = "";
 
-        for rule in rule.clone().into_inner() {
+        for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::pp_parameter => {
                     let mut param_name = "";
                     let mut param_clause = "";
-                    for rule in rule.clone().into_inner() {
+                    let span = rule.as_span();
+                    for rule in rule.into_inner() {
                         match rule.as_rule() {
                             Rule::pp_parameter_name => {
                                 param_name = rule.as_str();
@@ -447,7 +455,7 @@ impl Preprocessor {
                     match param_name {
                         "limit" | "__limit__" => {
                             limit = self.process_constant_expression(
-                                &Preprocessor::parse(Rule::constant_expression, param_clause)?
+                                Preprocessor::parse(Rule::constant_expression, param_clause)?
                                     .into_iter()
                                     .next()
                                     .unwrap(),
@@ -465,7 +473,7 @@ impl Preprocessor {
                         _ => {
                             warning::<Rule>(
                                 format!("Unkown parameter: {}", param_name),
-                                rule.as_span(),
+                                span,
                                 &self.file_path,
                             );
                         }
@@ -483,8 +491,8 @@ impl Preprocessor {
         ))
     }
 
-    pub fn process_if_section(&mut self, rule: &Pair<Rule>) -> Result<String, Error<Rule>> {
-        for rule in rule.clone().into_inner() {
+    pub fn process_if_section(&mut self, rule: Pair<'a, Rule>) -> Result<String, Error<Rule>> {
+        for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::if_group | Rule::elif_group => {
                     let mut tag = "";
@@ -494,10 +502,10 @@ impl Preprocessor {
                     let mut macro_name = String::new();
                     let mut macro_span = rule.as_span();
                     let mut group = None;
-                    for rule in rule.clone().into_inner() {
+                    for rule in rule.into_inner() {
                         match rule.as_rule() {
                             Rule::constant_expression => {
-                                condition = self.process_constant_expression(&rule)?;
+                                condition = self.process_constant_expression(rule)?;
                                 tag = "if";
                             }
                             Rule::group_part => group = Some(rule),
@@ -516,12 +524,12 @@ impl Preprocessor {
                     match tag {
                         "if" => is_true = condition != 0,
                         "ifdef" => {
-                            if let Some(_) = self.find_macro(&macro_name, macro_span) {
+                            if let Some(_) = self.find_macro(&macro_name, &macro_span) {
                                 is_true = true;
                             }
                         }
                         "ifndef" => {
-                            if let None = self.find_macro(&macro_name, macro_span) {
+                            if let None = self.find_macro(&macro_name, &macro_span) {
                                 is_true = true;
                             }
                         }
@@ -531,14 +539,14 @@ impl Preprocessor {
                     if is_true {
                         let mut result = "\n".to_string();
                         if let Some(group) = group {
-                            result += &self.process_group(&group)?;
+                            result += &self.process_group(group)?;
                         }
                         return Ok(result);
                     }
                 }
                 Rule::else_group => {
                     let mut group = None;
-                    for rule in rule.clone().into_inner() {
+                    for rule in rule.into_inner() {
                         match rule.as_rule() {
                             Rule::group_part => group = Some(rule),
                             _ => {}
@@ -546,7 +554,7 @@ impl Preprocessor {
                     }
                     let mut result = "\n".to_string();
                     if let Some(group) = group {
-                        result += &self.process_group(&group)?;
+                        result += &self.process_group(group)?;
                     }
                     return Ok(result);
                 }

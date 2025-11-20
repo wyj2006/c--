@@ -3,9 +3,9 @@ use super::{Preprocessor, Rule};
 use pest::error::Error;
 use pest::iterators::Pair;
 
-impl Preprocessor {
-    pub fn process_pragma(&mut self, rule: &Pair<Rule>) -> Result<String, Error<Rule>> {
-        for rule in rule.clone().into_inner() {
+impl Preprocessor<'_> {
+    pub fn process_pragma(&mut self, rule: Pair<Rule>) -> Result<String, Error<Rule>> {
+        for rule in rule.into_inner() {
             if let Rule::pp_tokens = rule.as_rule() {
                 //TODO 具体处理这些指令
                 match rule
