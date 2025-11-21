@@ -4,7 +4,7 @@ use crate::*;
 pub fn macro_example_6_10_5_1_1() {
     let mut preprocessor = Preprocessor::new(
         "<string>".to_string(),
-        "#define LPAREN() (
+        " # define LPAREN() (
 #define G(Q) 42
 #define F(R, X, ...) __VA_OPT__(G R X) )
 int x = F(LPAREN(), 0, <:-);

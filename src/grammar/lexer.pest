@@ -1,5 +1,6 @@
 token               = @{
-    identifier
+    keyword
+  | identifier
   | constant
   | string_literal
   | punctuator
@@ -14,7 +15,8 @@ preprocessing_token = _{
   | universal_character_name
 }
 
-identifier          = @{ identifier_start ~ identifier_continue* }
+keyword = @{ "alignas" | "alignof" | "auto" | "bool" | "break" | "case" | "char" | "const" | "constexpr" | "continue" | "default" | "do" | "double" | "else" | "enum" | "extern" | "false" | "float" | "for" | "goto" | "if" | "inline" | "int" | "long" | "nullptr" | "register" | "restrict" | "return" | "short" | "signed" | "sizeof" | "static" | "static_assert" | "struct" | "switch" | "thread_local" | "true" | "typedef" | "typeof" | "typeof_unqual" | "union" | "unsigned" | "void" | "volatile" | "while" | "_Atomic" | "_BitInt" | "_Complex" | "_Decimal128" | "_Decimal32" | "_Decimal64" | "_Generic" | "_Imaginary" | "_Noreturn" }
+
 identifier_start    = @{
     nondigit
   | XID_START
