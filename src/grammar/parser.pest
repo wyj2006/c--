@@ -13,7 +13,7 @@ sizeof           =  { "sizeof" }
 prefix_increment =  { "++" }
 prefix_decrement =  { "--" }
 
-infix   = _{ add | sub | mul | div | mod | lshift | rshift | lt | le | gt | ge | eq | neq | bit_and | bit_xor | bit_or | and | or }
+infix   = _{ add | sub | mul | div | mod | lshift | rshift | lt | le | gt | ge | eq | neq | and | or | bit_and | bit_xor | bit_or }
 add     =  { "+" }
 sub     =  { "-" }
 mul     =  { "*" }
@@ -72,24 +72,23 @@ expression = { assignment_expression ~ (comma ~ assignment_expression)* }
 
 constant_expression = { conditional_expression }
 
-declaration            = {
+declaration            =  {
     attribute_specifier_sequence ~ declaration_specifiers ~ init_declarator_list ~ ";"
   | declaration_specifiers ~ init_declarator_list? ~ ";"
   | static_assert_declaration
   | attribute_declaration
 }
-declaration_specifiers = {
-    declaration_specifier ~ declaration_specifiers
-  | declaration_specifier ~ attribute_specifier_sequence?
+declaration_specifiers =  {
+    declaration_specifier ~ (!attribute_specifier_sequence ~ declaration_specifier)* ~ attribute_specifier_sequence?
 }
-declaration_specifier  = {
+declaration_specifier  = _{
     storage_class_specifier
   | type_specifier_qualifier
   | function_specifier
 }
-init_declarator_list   = { init_declarator ~ ("," ~ init_declarator)* }
-init_declarator        = { declarator ~ "=" ~ initializer | declarator }
-attribute_declaration  = { attribute_specifier_sequence ~ ";" }
+init_declarator_list   = _{ init_declarator ~ ("," ~ init_declarator)* }
+init_declarator        = _{ declarator ~ "=" ~ initializer | declarator }
+attribute_declaration  =  { attribute_specifier_sequence ~ ";" }
 
 storage_class_specifier = {
     "auto"
@@ -124,40 +123,39 @@ type_specifier = {
   | typedef_name
 }
 
-struct_or_union_specifier = {
+struct_or_union_specifier =  {
     ("struct" | "union") ~ attribute_specifier_sequence? ~ identifier? ~ "{" ~ member_declaration+ ~ "}"
   | ("struct" | "union") ~ attribute_specifier_sequence? ~ identifier
 }
-member_declaration        = {
+member_declaration        =  {
     attribute_specifier_sequence? ~ specifier_qualifier_list ~ member_declarator_list?
   | static_assert_declaration
 }
-specifier_qualifier_list  = {
-    type_specifier_qualifier ~ specifier_qualifier_list
-  | type_specifier_qualifier ~ attribute_specifier_sequence?
+specifier_qualifier_list  =  {
+    type_specifier_qualifier ~ (!attribute_specifier_sequence ~ type_specifier_qualifier)* ~ attribute_specifier_sequence?
 }
-type_specifier_qualifier  = {
+type_specifier_qualifier  = _{
     type_qualifier
   | alignment_specifier
   | type_specifier
 }
-member_declarator_list    = {
+member_declarator_list    = _{
     member_declarator ~ ("," ~ member_declarator)*
 }
-member_declarator         = {
+member_declarator         =  {
     declarator? ~ ":" ~ constant_expression
   | declarator
 }
 
-enum_specifier      = {
+enum_specifier      =  {
     "enum" ~ attribute_specifier_sequence? ~ identifier? ~ enum_type_specifier? ~ "{" ~ enumerator_list ~ ","? ~ "}"
   | "enum" ~ identifier ~ enum_type_specifier?
 }
-enumerator_list     = { enumerator ~ ("," ~ enumerator)* }
-enumerator          = {
+enumerator_list     = _{ enumerator ~ ("," ~ enumerator)* }
+enumerator          =  {
     identifier ~ attribute_specifier_sequence? ~ ("=" ~ constant_expression)?
 }
-enum_type_specifier = { ":" ~ specifier_qualifier_list }
+enum_type_specifier = _{ ":" ~ specifier_qualifier_list }
 
 atomic_type_specifier = { "_Atomic" ~ "(" ~ type_name ~ ")" }
 
@@ -179,31 +177,32 @@ function_specifier = {
 
 alignment_specifier = { "alignas" ~ "(" ~ (constant_expression | type_name) ~ ")" }
 
-declarator            = { pointer? ~ direct_declarator }
-direct_declarator     = {
-    (identifier ~ attribute_specifier_sequence? | "(" ~ declarator ~ ")") ~ ((array_declarator | function_declarator) ~ attribute_specifier_sequence?)*
+declarator            =  { pointer* ~ direct_declarator }
+direct_declarator     = _{
+    (name_declarator | "(" ~ declarator ~ ")") ~ (array_declarator | function_declarator)*
 }
-array_declarator      = {
-    "[" ~ "static" ~ type_qualifier_list? ~ assignment_expression ~ "]"
-  | "[" ~ type_qualifier_list ~ "static" ~ assignment_expression ~ "]"
-  | "[" ~ type_qualifier_list? ~ "*" ~ "]"
-  | "[" ~ type_qualifier_list? ~ assignment_expression? ~ "]"
+name_declarator       =  { identifier ~ attribute_specifier_sequence? }
+array_declarator      =  {
+    "[" ~ "static" ~ type_qualifier_list? ~ assignment_expression ~ "]" ~ attribute_specifier_sequence?
+  | "[" ~ type_qualifier_list ~ "static" ~ assignment_expression ~ "]" ~ attribute_specifier_sequence?
+  | "[" ~ type_qualifier_list? ~ "*" ~ "]" ~ attribute_specifier_sequence?
+  | "[" ~ type_qualifier_list? ~ assignment_expression? ~ "]" ~ attribute_specifier_sequence?
 }
-function_declarator   = { "(" ~ parameter_type_list? ~ ")" }
-pointer               = { "*" ~ attribute_specifier_sequence? ~ type_qualifier_list? ~ pointer? }
-type_qualifier_list   = { type_qualifier+ }
-parameter_type_list   = {
+function_declarator   =  { "(" ~ parameter_type_list? ~ ")" ~ attribute_specifier_sequence? }
+pointer               =  { "*" ~ attribute_specifier_sequence? ~ type_qualifier_list? }
+type_qualifier_list   =  { type_qualifier+ }
+parameter_type_list   = _{
     parameter_list ~ "," ~ "..."
   | parameter_list
   | "..."
 }
-parameter_list        = { parameter_declaration ~ ("," ~ parameter_declaration)* }
-parameter_declaration = {
+parameter_list        = _{ parameter_declaration ~ ("," ~ parameter_declaration)* }
+parameter_declaration =  {
     attribute_specifier_sequence? ~ declaration_specifiers ~ (declarator | abstract_declarator?)
 }
 
 type_name                    = { specifier_qualifier_list ~ abstract_declarator? }
-abstract_declarator          = { pointer? ~ direct_abstract_declarator | pointer }
+abstract_declarator          = { pointer* ~ direct_abstract_declarator | pointer+ }
 direct_abstract_declarator   = {
     // 保证direct_abstract_declarator不为空
     "(" ~ abstract_declarator ~ ")" ~ ((array_abstract_declarator | function_abstract_declarator) ~ attribute_specifier_sequence?)*
@@ -218,52 +217,52 @@ array_abstract_declarator    = {
 function_abstract_declarator = { "(" ~ parameter_type_list? ~ ")" }
 
 // 造成二义性的一种情况是identifier既可以匹配typedef_name, 也可以参与匹配direct_declarator
-// 当可以参与匹配direct_declarator时, 这个identifier后面跟的就是'('或'['或';'
-typedef_name = { !(identifier ~ ("(" | "[" | ";")) ~ identifier }
+// 当可以参与匹配direct_declarator时, 这个identifier后面跟的就是下面列出来的字符
+typedef_name = { !(identifier ~ ("(" | "[" | ";" | ")" | "," | "=")) ~ identifier }
 
-braced_initializer = { "{" ~ (initializer_list ~ ","?)? ~ "}" }
-initializer        = { braced_initializer | assignment_expression }
-initializer_list   = { designation? ~ initializer ~ ("," ~ designation? ~ initializer)* }
-designation        = { designator+ ~ "=" }
-designator         = {
+braced_initializer =  { "{" ~ (initializer_list ~ ","?)? ~ "}" }
+initializer        =  { braced_initializer | assignment_expression }
+initializer_list   = _{ designation? ~ initializer ~ ("," ~ designation? ~ initializer)* }
+designation        =  { designator+ ~ "=" }
+designator         = _{
     "[" ~ constant_expression ~ "]"
   | "." ~ identifier
 }
 
 static_assert_declaration = { "static_assert" ~ "(" ~ constant_expression ~ ("," ~ string_literal)? ~ ")" ~ ";" }
 
-attribute_specifier_sequence = { attribute_specifier+ }
-attribute_specifier          = { "[" ~ "[" ~ attribute_list ~ "]" ~ "]" }
-attribute_list               = { attribute? ~ ("," ~ attribute?)* }
-attribute                    = { attribute_token ~ attribute_argument_clause? }
-attribute_token              = { attribute_prefixed_token | standard_attribute }
-standard_attribute           = { identifier }
-attribute_prefixed_token     = { attribute_prefix ~ "::" ~ identifier }
-attribute_prefix             = { identifier }
-attribute_argument_clause    = { "(" ~ balanced_token_sequence? ~ ")" }
-balanced_token_sequence      = { balanced_token+ }
-balanced_token               = {
+attribute_specifier_sequence =  { attribute_specifier+ }
+attribute_specifier          = _{ "[" ~ "[" ~ attribute_list ~ "]" ~ "]" }
+attribute_list               = _{ attribute? ~ ("," ~ attribute?)* }
+attribute                    =  { attribute_token ~ attribute_argument_clause? }
+attribute_token              =  { attribute_prefixed_token | standard_attribute }
+standard_attribute           = _{ identifier }
+attribute_prefixed_token     = _{ attribute_prefix ~ "::" ~ identifier }
+attribute_prefix             =  { identifier }
+attribute_argument_clause    =  { "(" ~ balanced_token_sequence? ~ ")" }
+balanced_token_sequence      =  { balanced_token+ }
+balanced_token               =  {
     "(" ~ balanced_token_sequence? ~ ")"
   | "[" ~ balanced_token_sequence? ~ "]"
   | "{" ~ balanced_token_sequence? ~ "}"
   | !(")" | "]" | "}") ~ token
 }
 
-statement           = {
+statement           =  {
     labeled_statement
   | unlabeled_statement
 }
-unlabeled_statement = {
+unlabeled_statement =  {
     expression_statement
   | attribute_specifier_sequence? ~ primary_block
   | attribute_specifier_sequence? ~ jump_statement
 }
-primary_block       = {
+primary_block       = _{
     compound_statement
   | selection_statement
   | iteration_statement
 }
-secondary_block     = { statement }
+secondary_block     = _{ statement }
 
 label             = {
     attribute_specifier_sequence? ~ identifier ~ ":"
@@ -272,15 +271,15 @@ label             = {
 }
 labeled_statement = { label ~ statement }
 
-compound_statement = { "{" ~ block_item* ~ "}" }
-block_item         = {
+compound_statement =  { "{" ~ block_item* ~ "}" }
+block_item         = _{
     // expression和declaration的二义性将在语义分析中解决
     declaration
   | unlabeled_statement
   | label
 }
 
-expression_statement = {
+expression_statement = _{
     attribute_specifier_sequence ~ expression ~ ";"
   | expression? ~ ";"
 }
@@ -304,11 +303,11 @@ jump_statement = {
   | "return" ~ expression? ~ ";"
 }
 
-translation_unit     = { SOI ~ external_declaration* ~ EOI }
-external_declaration = {
+translation_unit     =  { SOI ~ external_declaration* ~ EOI }
+external_declaration = _{
     function_definition
   | declaration
 }
 
-function_definition = { attribute_specifier_sequence? ~ declaration_specifiers ~ declarator ~ function_body }
-function_body       = { compound_statement }
+function_definition =  { attribute_specifier_sequence? ~ declaration_specifiers ~ declarator ~ function_body }
+function_body       = _{ compound_statement }

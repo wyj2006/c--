@@ -33,7 +33,7 @@ nondigit            = @{ ASCII_ALPHA | "_" }
 universal_character_name = @{ "\\u" ~ hex_quad | "\\U" ~ hex_quad ~ hex_quad }
 hex_quad                 = @{ ASCII_HEX_DIGIT{4} }
 
-constant = @{
+constant = {
     floating_constant
   | integer_constant
   | character_constant

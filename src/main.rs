@@ -1,11 +1,11 @@
 mod ast;
+mod ctype;
 mod diagnostic;
 mod parser;
 mod preprocessor;
 
+use ast::printer::Print;
 use parser::CParser;
-use parser::Rule;
-use pest::Parser;
 use preprocessor::Preprocessor;
 use std::fs;
 
@@ -21,8 +21,13 @@ fn main() {
         }
     };
     println!("{result}");
-    match CParser::parse(Rule::translation_unit, result.as_str()) {
-        Ok(t) => println!("{}", t.to_json()),
-        Err(e) => println!("{e}"),
-    }
+    let parser = CParser::new(&file_content);
+    let ast = match parser.parse_to_ast() {
+        Ok(t) => t,
+        Err(e) => {
+            println!("error:\n{}", e);
+            return;
+        }
+    };
+    ast.print();
 }

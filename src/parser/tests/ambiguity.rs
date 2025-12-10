@@ -1,4 +1,5 @@
-use crate::*;
+use crate::parser::*;
+use pest::Parser;
 
 #[test]
 pub fn typedef_name() {
