@@ -1,0 +1,4 @@
+#include<stdio.ext>
+
+int _main():
+    _printf("Hello,World")
