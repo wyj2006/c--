@@ -703,94 +703,107 @@ impl<'a> CParser<'a> {
         let mut parameter_decls = Vec::new();
         for rule in rule.into_inner() {
             match rule.as_rule() {
-                Rule::name_declarator => {
-                    for rule in rule.into_inner() {
+                Rule::direct_declarator | Rule::direct_abstract_declarator => {
+                    for rule in rule.into_inner().rev() {
                         match rule.as_rule() {
-                            Rule::identifier => name = rule.as_str().to_string(),
-                            Rule::attribute_specifier_sequence => {
-                                attributes.extend(self.parse_attribute_specifier_sequence(rule)?);
+                            Rule::name_declarator => {
+                                for rule in rule.into_inner() {
+                                    match rule.as_rule() {
+                                        Rule::identifier => name = rule.as_str().to_string(),
+                                        Rule::attribute_specifier_sequence => {
+                                            attributes.extend(
+                                                self.parse_attribute_specifier_sequence(rule)?,
+                                            );
+                                        }
+                                        _ => unreachable!(),
+                                    }
+                                }
                             }
-                            _ => unreachable!(),
-                        }
-                    }
-                }
-                Rule::declarator | Rule::abstract_declarator => child_declarator = Some(rule),
-                Rule::function_declarator | Rule::function_abstract_declarator => {
-                    let span = rule.as_span();
-                    let mut attributes = Vec::new();
-                    let has_varparam = rule.as_str().contains("...");
-                    let mut parameters_type = Vec::new();
-                    for rule in rule.into_inner() {
-                        match rule.as_rule() {
-                            Rule::parameter_declaration => {
-                                //因为不能返回函数类型, 所以这里不会冲突
-                                parameter_decls.extend(self.parse_parameter_declaration(rule)?)
+                            Rule::declarator | Rule::abstract_declarator => {
+                                child_declarator = Some(rule)
                             }
-                            Rule::attribute_specifier_sequence => {
-                                attributes.extend(self.parse_attribute_specifier_sequence(rule)?);
+                            Rule::function_declarator | Rule::function_abstract_declarator => {
+                                let span = rule.as_span();
+                                let mut attributes = Vec::new();
+                                let has_varparam = rule.as_str().contains("...");
+                                let mut parameters_type = Vec::new();
+                                for rule in rule.into_inner() {
+                                    match rule.as_rule() {
+                                        Rule::parameter_declaration => {
+                                            //因为不能返回函数类型, 所以这里不会冲突
+                                            parameter_decls
+                                                .extend(self.parse_parameter_declaration(rule)?)
+                                        }
+                                        Rule::attribute_specifier_sequence => {
+                                            attributes.extend(
+                                                self.parse_attribute_specifier_sequence(rule)?,
+                                            );
+                                        }
+                                        _ => unreachable!(),
+                                    }
+                                }
+                                for decl in &parameter_decls {
+                                    if let DeclarationKind::Parameter = &decl.borrow().kind {
+                                        parameters_type.push(decl.borrow().r#type.clone());
+                                    }
+                                }
+                                final_type = Type {
+                                    span,
+                                    attributes,
+                                    kind: TypeKind::Function {
+                                        return_type: Rc::new(RefCell::new(final_type)),
+                                        parameters_type,
+                                        has_varparam,
+                                    },
+                                }
                             }
-                            _ => unreachable!(),
-                        }
-                    }
-                    for decl in &parameter_decls {
-                        if let DeclarationKind::Parameter = &decl.borrow().kind {
-                            parameters_type.push(decl.borrow().r#type.clone());
-                        }
-                    }
-                    final_type = Type {
-                        span,
-                        attributes,
-                        kind: TypeKind::Function {
-                            return_type: Rc::new(RefCell::new(final_type)),
-                            parameters_type,
-                            has_varparam,
-                        },
-                    }
-                }
-                Rule::array_declarator | Rule::array_abstract_declarator => {
-                    let span = rule.as_span();
-                    let mut attributes = Vec::new();
-                    let has_static = rule.as_str().contains("static");
-                    let has_star = rule.as_str().contains("*"); //TODO 正确的判断方法
-                    let mut len_expr = None;
-                    let mut type_quals = Vec::new();
+                            Rule::array_declarator | Rule::array_abstract_declarator => {
+                                let span = rule.as_span();
+                                let mut attributes = Vec::new();
+                                let has_static = rule.as_str().contains("static");
+                                let has_star = rule.as_str().contains("*"); //TODO 正确的判断方法
+                                let mut len_expr = None;
+                                let mut type_quals = Vec::new();
 
-                    for rule in rule.into_inner() {
-                        match rule.as_rule() {
-                            Rule::type_qualifier_list => {
-                                type_quals.extend(self.parse_type_qualifier_list(rule)?)
-                            }
-                            Rule::assignment_expression => {
-                                len_expr = Some(self.parse_assignment_expression(rule)?)
-                            }
-                            Rule::attribute_specifier_sequence => {
-                                attributes.extend(self.parse_attribute_specifier_sequence(rule)?)
+                                for rule in rule.into_inner() {
+                                    match rule.as_rule() {
+                                        Rule::type_qualifier_list => {
+                                            type_quals.extend(self.parse_type_qualifier_list(rule)?)
+                                        }
+                                        Rule::assignment_expression => {
+                                            len_expr = Some(self.parse_assignment_expression(rule)?)
+                                        }
+                                        Rule::attribute_specifier_sequence => attributes
+                                            .extend(self.parse_attribute_specifier_sequence(rule)?),
+                                        _ => unreachable!(),
+                                    }
+                                }
+
+                                final_type = Type {
+                                    span,
+                                    attributes: Vec::new(),
+                                    kind: TypeKind::Array {
+                                        has_static,
+                                        has_star,
+                                        element_type: Rc::new(RefCell::new(final_type)),
+                                        len_expr,
+                                    },
+                                };
+                                if type_quals.len() > 0 {
+                                    final_type = Type {
+                                        span,
+                                        attributes: Vec::new(),
+                                        kind: TypeKind::Qualified {
+                                            qualifiers: type_quals,
+                                            r#type: Rc::new(RefCell::new(final_type)),
+                                        },
+                                    };
+                                }
+                                final_type.attributes = attributes;
                             }
                             _ => unreachable!(),
                         }
                     }
-
-                    final_type = Type {
-                        span,
-                        attributes: Vec::new(),
-                        kind: TypeKind::Array {
-                            has_static,
-                            has_star,
-                            element_type: Rc::new(RefCell::new(final_type)),
-                            len_expr,
-                        },
-                    };
-                    if type_quals.len() > 0 {
-                        final_type = Type {
-                            span,
-                            attributes: Vec::new(),
-                            kind: TypeKind::Qualified {
-                                qualifiers: type_quals,
-                                r#type: Rc::new(RefCell::new(final_type)),
-                            },
-                        };
-                    }
-                    final_type.attributes = attributes;
                 }
                 Rule::pointer => {
                     let span = rule.as_span();

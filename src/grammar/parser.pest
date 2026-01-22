@@ -178,7 +178,7 @@ function_specifier = {
 alignment_specifier = { "alignas" ~ "(" ~ (constant_expression | type_name) ~ ")" }
 
 declarator            =  { pointer* ~ direct_declarator }
-direct_declarator     = _{
+direct_declarator     =  {
     (name_declarator | "(" ~ declarator ~ ")") ~ (array_declarator | function_declarator)*
 }
 name_declarator       =  { identifier ~ attribute_specifier_sequence? }

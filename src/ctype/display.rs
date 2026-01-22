@@ -76,7 +76,7 @@ impl Type<'_> {
                 }
                 parent
                     .postfix
-                    .insert(0, format!("({})", parameters_string.join(",")));
+                    .push(format!("({})", parameters_string.join(",")));
                 parent = return_type.borrow().to_typestring(parent);
             }
             TypeKind::Qualified { qualifiers, r#type } => {
@@ -180,6 +180,7 @@ impl Type<'_> {
         }
 
         if self.is_array() {
+            println!("{self:?}");
             let mut quals = &Vec::new();
             let insider;
             let has_static;
@@ -218,25 +219,22 @@ impl Type<'_> {
                 unreachable!()
             };
 
-            parent.postfix.insert(
-                0,
-                format!(
-                    "[{}{}{}{}]",
-                    if has_static { "static" } else { "" },
-                    quals
-                        .iter()
-                        .map(|x| x.to_string())
-                        .collect::<Vec<String>>()
-                        .join(" "),
-                    if has_star { "*" } else { "" },
-                    if let Some(_) = len_expr {
-                        //TODO
-                        todo!()
-                    } else {
-                        "".to_string()
-                    }
-                ),
-            );
+            parent.postfix.push(format!(
+                "[{}{}{}{}]",
+                if has_static { "static" } else { "" },
+                quals
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<String>>()
+                    .join(" "),
+                if has_star { "*" } else { "" },
+                if let Some(_) = len_expr {
+                    //TODO
+                    "".to_string()
+                } else {
+                    "".to_string()
+                }
+            ));
 
             parent = element_type.borrow().to_typestring(parent);
         }
