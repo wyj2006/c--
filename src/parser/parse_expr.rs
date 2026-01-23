@@ -272,6 +272,7 @@ impl<'a> CParser<'a> {
                                 }
                             }
                             ExprKind::MemberAccess {
+                                target: operand?,
                                 through_pointer,
                                 name,
                             }

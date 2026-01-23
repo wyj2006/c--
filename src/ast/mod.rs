@@ -59,3 +59,35 @@ pub enum InitializerKind<'a> {
     Braced(Vec<Rc<RefCell<Initializer<'a>>>>),
     Expr(Rc<RefCell<Expr<'a>>>),
 }
+
+impl Initializer<'_> {
+    pub fn unparse(&self) -> String {
+        format!(
+            "{}{}",
+            if self.designation.len() > 0 {
+                let mut s = String::new();
+                for designation in &self.designation {
+                    match &designation.kind {
+                        DesignationKind::MemberAccess(name) => s += format!(".{name}").as_str(),
+                        DesignationKind::Subscript(index) => {
+                            s += format!("[{}]", index.borrow().unparse()).as_str()
+                        }
+                    }
+                }
+                s + "="
+            } else {
+                "".to_string()
+            },
+            match &self.kind {
+                InitializerKind::Expr(expr) => expr.borrow().unparse(),
+                InitializerKind::Braced(initializers) => format!("{{{}}}", {
+                    let mut t = vec![];
+                    for initializer in initializers {
+                        t.push(initializer.borrow().unparse());
+                    }
+                    t.join(", ")
+                }),
+            }
+        )
+    }
+}

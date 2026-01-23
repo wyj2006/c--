@@ -183,11 +183,13 @@ direct_declarator     =  {
 }
 name_declarator       =  { identifier ~ attribute_specifier_sequence? }
 array_declarator      =  {
-    "[" ~ "static" ~ type_qualifier_list? ~ assignment_expression ~ "]" ~ attribute_specifier_sequence?
-  | "[" ~ type_qualifier_list ~ "static" ~ assignment_expression ~ "]" ~ attribute_specifier_sequence?
-  | "[" ~ type_qualifier_list? ~ "*" ~ "]" ~ attribute_specifier_sequence?
+    "[" ~ static ~ type_qualifier_list? ~ assignment_expression ~ "]" ~ attribute_specifier_sequence?
+  | "[" ~ type_qualifier_list ~ static ~ assignment_expression ~ "]" ~ attribute_specifier_sequence?
+  | "[" ~ type_qualifier_list? ~ star ~ "]" ~ attribute_specifier_sequence?
   | "[" ~ type_qualifier_list? ~ assignment_expression? ~ "]" ~ attribute_specifier_sequence?
 }
+static                =  { "static" }
+star                  =  { "*" }
 function_declarator   =  { "(" ~ parameter_type_list? ~ ")" ~ attribute_specifier_sequence? }
 pointer               =  { "*" ~ attribute_specifier_sequence? ~ type_qualifier_list? }
 type_qualifier_list   =  { type_qualifier+ }
@@ -209,10 +211,10 @@ direct_abstract_declarator   = {
   | ((array_abstract_declarator | function_abstract_declarator) ~ attribute_specifier_sequence?)+
 }
 array_abstract_declarator    = {
-    "[" ~ "static" ~ type_qualifier_list? ~ assignment_expression ~ "]"
-  | "[" ~ type_qualifier_list ~ "static" ~ assignment_expression ~ "]"
+    "[" ~ static ~ type_qualifier_list? ~ assignment_expression ~ "]"
+  | "[" ~ type_qualifier_list ~ static ~ assignment_expression ~ "]"
   | "[" ~ type_qualifier_list? ~ assignment_expression? ~ "]"
-  | "[" ~ "*" ~ "]"
+  | "[" ~ star ~ "]"
 }
 function_abstract_declarator = { "(" ~ parameter_type_list? ~ ")" }
 

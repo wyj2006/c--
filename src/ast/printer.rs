@@ -299,7 +299,7 @@ impl Print for Expr<'_> {
                     storage_classes,
                     r#type,
                     ..
-                } => &format!("CompoundLiteral {:?} {}", storage_classes, r#type.borrow()),
+                } => &format!("CompoundLiteral {storage_classes:?} {}", r#type.borrow()),
                 ExprKind::False => "False",
                 ExprKind::Float {
                     base,
@@ -312,6 +312,7 @@ impl Print for Expr<'_> {
                     type_suffix,
                 } => &format!("Integer {base} {raw_value} {type_suffix:?}"),
                 ExprKind::MemberAccess {
+                    target: _,
                     through_pointer,
                     name,
                 } => &format!(
@@ -373,6 +374,9 @@ impl Print for Expr<'_> {
             }
             ExprKind::UnaryOp { operand, .. } => {
                 lines.extend(operand.print_line(indent));
+            }
+            ExprKind::MemberAccess { target, .. } => {
+                lines.extend(target.print_line(indent));
             }
             _ => {}
         }

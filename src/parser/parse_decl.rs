@@ -760,8 +760,8 @@ impl<'a> CParser<'a> {
                             Rule::array_declarator | Rule::array_abstract_declarator => {
                                 let span = rule.as_span();
                                 let mut attributes = Vec::new();
-                                let has_static = rule.as_str().contains("static");
-                                let has_star = rule.as_str().contains("*"); //TODO 正确的判断方法
+                                let mut has_static = false;
+                                let mut has_star = false;
                                 let mut len_expr = None;
                                 let mut type_quals = Vec::new();
 
@@ -775,6 +775,8 @@ impl<'a> CParser<'a> {
                                         }
                                         Rule::attribute_specifier_sequence => attributes
                                             .extend(self.parse_attribute_specifier_sequence(rule)?),
+                                        Rule::star => has_star = true,
+                                        Rule::r#static => has_static = true,
                                         _ => unreachable!(),
                                     }
                                 }

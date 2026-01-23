@@ -97,9 +97,8 @@ impl Type<'_> {
                 parent.prefix.push(format!(
                     "typeof{}({}{})",
                     if *unqual { "_unqual" } else { "" },
-                    if let Some(_) = expr {
-                        //TODO
-                        todo!()
+                    if let Some(expr) = expr {
+                        expr.borrow().unparse()
                     } else {
                         "".to_string()
                     },
@@ -180,7 +179,6 @@ impl Type<'_> {
         }
 
         if self.is_array() {
-            println!("{self:?}");
             let mut quals = &Vec::new();
             let insider;
             let has_static;
@@ -228,9 +226,8 @@ impl Type<'_> {
                     .collect::<Vec<String>>()
                     .join(" "),
                 if has_star { "*" } else { "" },
-                if let Some(_) = len_expr {
-                    //TODO
-                    "".to_string()
+                if let Some(len_expr) = len_expr {
+                    len_expr.borrow().unparse()
                 } else {
                     "".to_string()
                 }
