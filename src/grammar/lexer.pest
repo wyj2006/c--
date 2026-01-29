@@ -64,8 +64,8 @@ long_suffix                = @{ "l" | "L" }
 long_long_suffix           = @{ "ll" | "LL" }
 
 floating_constant               = @{
-    decimal_floating_constant
-  | hexadecimal_floating_constant
+    hexadecimal_floating_constant
+  | decimal_floating_constant
 }
 decimal_floating_constant       = @{
     fractional_constant ~ exponent_part? ~ floating_suffix?
@@ -89,12 +89,12 @@ hexadecimal_fractional_constant = @{
 binary_exponent_part            = @{ ("p" | "P") ~ sign? ~ digit_sequence }
 floating_suffix                 = @{ "f" | "l" | "F" | "L" | "df" | "dd" | "dl" | "DF" | "DD" | "DL" }
 
-character_constant          = @{
+character_constant          = ${
     encoding_prefix? ~ "'" ~ c_char+ ~ "'"
 }
 encoding_prefix             = @{ "u8" | "U" | "u" | "L" }
-c_char                      = @{ escape_sequence | !("'" | "\\" | NEWLINE) ~ ANY }
-escape_sequence             = @{
+c_char                      = ${ escape_sequence | !("'" | "\\" | NEWLINE) ~ ANY }
+escape_sequence             =  {
     simple_escape_sequence
   | octal_escape_sequence
   | hexadecimal_escape_sequence
@@ -104,8 +104,8 @@ simple_escape_sequence      = @{ "\\" ~ ("'" | "\"" | "?" | "\\" | "a" | "b" | "
 octal_escape_sequence       = @{ "\\" ~ ASCII_OCT_DIGIT{1, 3} }
 hexadecimal_escape_sequence = @{ "\\x" ~ ASCII_HEX_DIGIT+ }
 
-string_literal = @{ encoding_prefix? ~ "\"" ~ s_char* ~ "\"" }
-s_char         = @{ escape_sequence | !("\"" | "\\" | NEWLINE) ~ ANY }
+string_literal = ${ encoding_prefix? ~ "\"" ~ s_char* ~ "\"" }
+s_char         = ${ escape_sequence | !("\"" | "\\" | NEWLINE) ~ ANY }
 
 punctuator = @{ "%:%:" | "..." | "<<=" | ">>=" | "->" | "++" | "--" | "<<" | ">>" | "<=" | ">=" | "==" | "!=" | "&&" | "||" | "::" | "*=" | "/=" | "%=" | "+=" | "-=" | "&=" | "^=" | "|=" | "##" | "<:" | ":>" | "<%" | "%>" | "%:" | "[" | "]" | "(" | ")" | "{" | "}" | "." | "&" | "*" | "+" | "-" | "~" | "!" | "/" | "%" | "<" | ">" | "^" | "|" | "?" | ":" | ";" | "=" | "," | "#" }
 
@@ -114,5 +114,3 @@ h_char      = @{ !(">" | NEWLINE) ~ ANY }
 q_char      = @{ !("\"" | NEWLINE) ~ ANY }
 
 pp_number = @{ (ASCII_DIGIT | "." ~ ASCII_DIGIT) ~ (identifier_continue | "'" ~ ASCII_DIGIT | "'" ~ nondigit | ("e" | "E" | "p" | "P") ~ sign | ".")* }
-
-COMMENT = @{ "//" ~ (!(NEWLINE | EOI) ~ ANY)* ~ NEWLINE? | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }

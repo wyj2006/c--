@@ -1,5 +1,6 @@
 WHITESPACE = _{ " " | "\t" | NEWLINE }
 identifier = @{ !keyword ~ identifier_start ~ identifier_continue* }
+COMMENT    = _{ "//" ~ (!(NEWLINE | EOI) ~ ANY)* ~ NEWLINE? | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 
 prefix           = _{ positve | negative | bit_not | not | dereference | addressof | prefix_increment | prefix_decrement | cast | sizeof }
 positve          =  { "+" }
@@ -44,13 +45,13 @@ postfix_decrement =  { "--" }
 primary = {
     compound_literal
   | generic_selection
-  | identifier
   | constant
   | string_literal
+  | identifier
   | "(" ~ expression ~ ")"
 }
 
-generic_selection   = { "_Generic" ~ "(" ~ assignment_expression ~ ("," ~ generic_association)+ }
+generic_selection   = { "_Generic" ~ "(" ~ assignment_expression ~ ("," ~ generic_association)+ ~ ")" }
 generic_association = { (type_name | "default") ~ ":" ~ assignment_expression }
 
 compound_literal = { "(" ~ storage_class_specifier* ~ type_name ~ ")" ~ braced_initializer }
@@ -128,7 +129,7 @@ struct_or_union_specifier =  {
   | ("struct" | "union") ~ attribute_specifier_sequence? ~ identifier
 }
 member_declaration        =  {
-    attribute_specifier_sequence? ~ specifier_qualifier_list ~ member_declarator_list?
+    attribute_specifier_sequence? ~ specifier_qualifier_list ~ member_declarator_list? ~ ";"
   | static_assert_declaration
 }
 specifier_qualifier_list  =  {
@@ -220,7 +221,7 @@ function_abstract_declarator = { "(" ~ parameter_type_list? ~ ")" }
 
 // 造成二义性的一种情况是identifier既可以匹配typedef_name, 也可以参与匹配direct_declarator
 // 当可以参与匹配direct_declarator时, 这个identifier后面跟的就是下面列出来的字符
-typedef_name = { !(identifier ~ ("(" | "[" | ";" | ")" | "," | "=")) ~ identifier }
+typedef_name = { !(identifier ~ ("(" | "[" | ";" | ")" | "," | "=" | ":")) ~ identifier }
 
 braced_initializer =  { "{" ~ (initializer_list ~ ","?)? ~ "}" }
 initializer        =  { braced_initializer | assignment_expression }

@@ -1,13 +1,16 @@
 use super::{CParser, Rule};
-use crate::ast::expr::{BinOpKind, EncodePrefix, Expr, ExprKind, GenericAssoc, UnaryOpKind};
+use crate::{
+    ast::expr::{BinOpKind, EncodePrefix, Expr, ExprKind, GenericAssoc, UnaryOpKind},
+    ctype::{Type, TypeKind},
+};
 use pest::{
     error::Error,
     iterators::Pair,
     pratt_parser::{Assoc, Op, PrattParser},
 };
 use std::cell::RefCell;
-use std::rc::Rc;
 use std::sync::LazyLock;
+use std::{char, rc::Rc};
 
 static PRATT_PARSER: LazyLock<PrattParser<Rule>> = LazyLock::new(|| {
     PrattParser::new()
@@ -88,8 +91,8 @@ impl<'a> CParser<'a> {
         let left = left.unwrap();
         let right = right.unwrap();
         Ok(Rc::new(RefCell::new(Expr {
-            span,
             kind: ExprKind::BinOp { op, left, right },
+            ..Expr::new(span)
         })))
     }
 
@@ -105,12 +108,13 @@ impl<'a> CParser<'a> {
                     let right = self.parse_assignment_expression(rule)?;
                     if let Some(left) = expr {
                         expr = Some(Rc::new(RefCell::new(Expr {
-                            span,
                             kind: ExprKind::BinOp {
                                 op: BinOpKind::Comma,
                                 left,
                                 right,
                             },
+                            is_lvalue: false,
+                            ..Expr::new(span)
                         })));
                     } else {
                         expr = Some(right);
@@ -150,12 +154,12 @@ impl<'a> CParser<'a> {
             Ok(exprs.pop().unwrap())
         } else {
             Ok(Rc::new(RefCell::new(Expr {
-                span,
                 kind: ExprKind::Conditional {
                     condition: exprs.pop().unwrap(),
                     true_expr: exprs.pop().unwrap(),
                     false_expr: exprs.pop().unwrap(),
                 },
+                ..Expr::new(span)
             })))
         }
     }
@@ -174,8 +178,8 @@ impl<'a> CParser<'a> {
                 }
             }
             return Ok(Rc::new(RefCell::new(Expr {
-                span,
                 kind: ExprKind::SizeOf(r#type.unwrap()),
+                ..Expr::new(span)
             })));
         }
         if rule.as_str().starts_with("alignof") {
@@ -188,30 +192,21 @@ impl<'a> CParser<'a> {
                 }
             }
             return Ok(Rc::new(RefCell::new(Expr {
-                span,
                 kind: ExprKind::Alignof(r#type.unwrap()),
+                ..Expr::new(span)
             })));
         }
 
         PRATT_PARSER
             .map_primary(|rule| self.parse_primary(rule))
             .map_prefix(|rule, operand| {
+                let span = rule.as_span();
                 Ok(Rc::new(RefCell::new(Expr {
-                    span: rule.as_span(),
                     kind: match rule.as_rule() {
-                        Rule::cast => {
-                            let mut r#type = None;
-                            for rule in rule.into_inner() {
-                                match rule.as_rule() {
-                                    Rule::type_name => r#type = Some(self.parse_type_name(rule)?),
-                                    _ => unreachable!(),
-                                }
-                            }
-                            ExprKind::Cast {
-                                r#type: r#type.unwrap(),
-                                target: operand?,
-                            }
-                        }
+                        Rule::cast => ExprKind::Cast {
+                            is_implicit: false,
+                            target: operand?,
+                        },
                         _ => ExprKind::UnaryOp {
                             op: match rule.as_rule() {
                                 Rule::positve => UnaryOpKind::Positive,
@@ -228,11 +223,27 @@ impl<'a> CParser<'a> {
                             operand: operand?,
                         },
                     },
+                    r#type: {
+                        let span = rule.as_span();
+                        let mut r#type = None;
+                        for rule in rule.into_inner() {
+                            match rule.as_rule() {
+                                Rule::type_name => r#type = Some(self.parse_type_name(rule)?),
+                                _ => {}
+                            }
+                        }
+                        r#type.unwrap_or(Rc::new(RefCell::new(Type {
+                            span,
+                            attributes: vec![],
+                            kind: TypeKind::Error,
+                        })))
+                    },
+                    ..Expr::new(span)
                 })))
             })
             .map_postfix(|operand, rule| {
+                let span = rule.as_span();
                 Ok(Rc::new(RefCell::new(Expr {
-                    span: rule.as_span(),
                     kind: match rule.as_rule() {
                         Rule::subscript => {
                             let mut expr = None;
@@ -263,7 +274,7 @@ impl<'a> CParser<'a> {
                             }
                         }
                         Rule::member_access => {
-                            let through_pointer = rule.as_str().starts_with("->");
+                            let is_arrow = rule.as_str().starts_with("->");
                             let mut name = String::new();
                             for rule in rule.into_inner() {
                                 match rule.as_rule() {
@@ -273,7 +284,7 @@ impl<'a> CParser<'a> {
                             }
                             ExprKind::MemberAccess {
                                 target: operand?,
-                                through_pointer,
+                                is_arrow,
                                 name,
                             }
                         }
@@ -286,6 +297,7 @@ impl<'a> CParser<'a> {
                             operand: operand?,
                         },
                     },
+                    ..Expr::new(span)
                 })))
             })
             .parse(rule.into_inner())
@@ -302,7 +314,6 @@ impl<'a> CParser<'a> {
             })
             .map_infix(|left, rule, right| {
                 Ok(Rc::new(RefCell::new(Expr {
-                    span: rule.as_span(),
                     kind: ExprKind::BinOp {
                         op: match rule.as_rule() {
                             Rule::add => BinOpKind::Add,
@@ -328,6 +339,7 @@ impl<'a> CParser<'a> {
                         left: left?,
                         right: right?,
                     },
+                    ..Expr::new(rule.as_span())
                 })))
             })
             .parse(rule.into_inner())
@@ -343,8 +355,8 @@ impl<'a> CParser<'a> {
                 Rule::generic_selection => return self.parse_generic_selection(rule),
                 Rule::identifier => {
                     return Ok(Rc::new(RefCell::new(Expr {
-                        span: rule.as_span(),
                         kind: ExprKind::Name(rule.as_str().to_string()),
+                        ..Expr::new(rule.as_span())
                     })));
                 }
                 Rule::constant => return self.parse_constant(rule),
@@ -377,12 +389,12 @@ impl<'a> CParser<'a> {
             }
         }
         Ok(Rc::new(RefCell::new(Expr {
-            span,
             kind: ExprKind::CompoundLiteral {
                 storage_classes,
-                r#type: r#type.unwrap(),
                 initializer: initializer.unwrap(),
             },
+            r#type: r#type.unwrap(),
+            ..Expr::new(span)
         })))
     }
 
@@ -401,11 +413,11 @@ impl<'a> CParser<'a> {
             }
         }
         Ok(Rc::new(RefCell::new(Expr {
-            span,
             kind: ExprKind::GenericSelection {
                 control_expr: expr.unwrap(),
                 assocs,
             },
+            ..Expr::new(span)
         })))
     }
 
@@ -426,6 +438,7 @@ impl<'a> CParser<'a> {
         }
         Ok(Rc::new(RefCell::new(GenericAssoc {
             span,
+            is_selected: false,
             r#type,
             expr: expr.unwrap(),
         })))
@@ -452,25 +465,42 @@ impl<'a> CParser<'a> {
         rule: Pair<'a, Rule>,
     ) -> Result<Rc<RefCell<Expr<'a>>>, Error<Rule>> {
         let mut base = 10;
-        let mut raw_value = rule.as_str().to_string();
+        let mut digits = rule.as_str().to_string();
         let mut type_suffix = Vec::new();
-        if raw_value.starts_with("0x") || raw_value.starts_with("0X") {
+        let mut exp_base = 10;
+        let mut exponent = "0".to_string();
+        if digits.starts_with("0x") || digits.starts_with("0X") {
             base = 16;
-            raw_value = raw_value[2..].to_string();
+            digits = digits[2..].to_string();
         }
         for suffix in FLOAT_SUFFIX {
-            while raw_value.ends_with(suffix) {
+            while digits.ends_with(suffix) {
                 type_suffix.push(suffix.to_string().to_lowercase());
-                raw_value = raw_value[..raw_value.len() - suffix.len()].to_string();
+                digits = digits[..digits.len() - suffix.len()].to_string();
             }
         }
+        let mut digits = digits.to_lowercase();
+
+        if digits.contains("p") {
+            exp_base = 2;
+            let i = digits.find("p").unwrap();
+            exponent = digits[i + 1..].to_string();
+            digits = digits[..i].to_string();
+        } else if digits.contains("e") {
+            let i = digits.find("e").unwrap();
+            exponent = digits[i + 1..].to_string();
+            digits = digits[..i].to_string();
+        }
+
         Ok(Rc::new(RefCell::new(Expr {
-            span: rule.as_span(),
             kind: ExprKind::Float {
                 base,
-                raw_value,
+                digits,
+                exp_base,
+                exponent,
                 type_suffix,
             },
+            ..Expr::new(rule.as_span())
         })))
     }
 
@@ -479,55 +509,32 @@ impl<'a> CParser<'a> {
         rule: Pair<'a, Rule>,
     ) -> Result<Rc<RefCell<Expr<'a>>>, Error<Rule>> {
         let mut base = 10;
-        let mut raw_value = rule.as_str().to_string();
+        let mut text = rule.as_str().to_string();
         let mut type_suffix = Vec::new();
-        if raw_value.starts_with("0x") || raw_value.starts_with("0X") {
+        if text.starts_with("0x") || text.starts_with("0X") {
             base = 16;
-            raw_value = raw_value[2..].to_string();
-        } else if raw_value.starts_with("0b") || raw_value.starts_with("0B") {
+            text = text[2..].to_string();
+        } else if text.starts_with("0b") || text.starts_with("0B") {
             base = 2;
-            raw_value = raw_value[2..].to_string();
-        } else if raw_value.starts_with("0") {
+            text = text[2..].to_string();
+        } else if text.starts_with("0") {
             base = 8;
-            raw_value = raw_value[1..].to_string();
+            text = text[1..].to_string();
         }
         for suffix in INTEGER_SUFFIX {
-            while raw_value.ends_with(suffix) {
+            while text.ends_with(suffix) {
                 type_suffix.push(suffix.to_string().to_lowercase());
-                raw_value = raw_value[..raw_value.len() - suffix.len()].to_string();
+                text = text[..text.len() - suffix.len()].to_string();
             }
         }
+
         Ok(Rc::new(RefCell::new(Expr {
-            span: rule.as_span(),
             kind: ExprKind::Integer {
                 base,
-                raw_value,
+                text,
                 type_suffix,
             },
-        })))
-    }
-
-    pub fn parse_character_constant(
-        &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Expr<'a>>>, Error<Rule>> {
-        let str = rule.as_str();
-        Ok(Rc::new(RefCell::new(Expr {
-            span: rule.as_span(),
-            kind: ExprKind::Char {
-                prefix: if str.starts_with("u8") {
-                    EncodePrefix::UTF8
-                } else if str.starts_with("u") {
-                    EncodePrefix::UTF16
-                } else if str.starts_with("U") {
-                    EncodePrefix::UTF32
-                } else if str.starts_with("L") {
-                    EncodePrefix::Wide
-                } else {
-                    EncodePrefix::Default
-                },
-                raw_value: str.to_string(),
-            },
+            ..Expr::new(rule.as_span())
         })))
     }
 
@@ -536,37 +543,114 @@ impl<'a> CParser<'a> {
         rule: Pair<'a, Rule>,
     ) -> Result<Rc<RefCell<Expr<'a>>>, Error<Rule>> {
         Ok(Rc::new(RefCell::new(Expr {
-            span: rule.as_span(),
             kind: match rule.as_str() {
                 "true" => ExprKind::True,
                 "false" => ExprKind::False,
                 "nullptr" => ExprKind::Nullptr,
                 _ => unreachable!(),
             },
+            ..Expr::new(rule.as_span())
         })))
+    }
+
+    pub fn parse_character_constant(
+        &self,
+        rule: Pair<'a, Rule>,
+    ) -> Result<Rc<RefCell<Expr<'a>>>, Error<Rule>> {
+        let span = rule.as_span();
+        let mut encode_prefix = "";
+        let mut text = vec![];
+        for rule in rule.into_inner() {
+            match rule.as_rule() {
+                Rule::encoding_prefix => encode_prefix = rule.as_str(),
+                Rule::c_char => text.push(self.parse_char(rule)?),
+                _ => unreachable!(),
+            }
+        }
+        let text = text.iter().collect::<String>();
+        Ok(Rc::new(RefCell::new(Expr {
+            kind: ExprKind::Char {
+                prefix: match encode_prefix {
+                    "u8" => EncodePrefix::UTF8,
+                    "u" => EncodePrefix::UTF16,
+                    "U" => EncodePrefix::UTF32,
+                    "L" => EncodePrefix::Wide,
+                    _ => EncodePrefix::Default,
+                },
+                text,
+            },
+            ..Expr::new(span)
+        })))
+    }
+
+    pub fn parse_char(&self, rule: Pair<'a, Rule>) -> Result<char, Error<Rule>> {
+        let str = rule.as_str();
+        for rule in rule.into_inner() {
+            return Ok(match rule.as_rule() {
+                Rule::escape_sequence => self.parse_escape_sequence(rule)?,
+                _ => rule.as_str().chars().next().unwrap(),
+            });
+        }
+        Ok(str.chars().next().unwrap())
+    }
+
+    pub fn parse_escape_sequence(&self, rule: Pair<'a, Rule>) -> Result<char, Error<Rule>> {
+        for rule in rule.into_inner() {
+            return Ok(match rule.as_rule() {
+                Rule::simple_escape_sequence => match rule.as_str() {
+                    "\\'" => '\'',
+                    "\\\"" => '"',
+                    "\\?" => unsafe { char::from_u32_unchecked(0x3f) }, // '\?'
+                    "\\\\" => '\\',
+                    "\\a" => unsafe { char::from_u32_unchecked(0x07) }, // '\a'
+                    "\\b" => unsafe { char::from_u32_unchecked(0x08) }, // '\b'
+                    "\\f" => unsafe { char::from_u32_unchecked(0x0c) }, // '\f'
+                    "\\n" => '\n',
+                    "\\r" => '\r',
+                    "\\t" => '\t',
+                    "\\v" => unsafe { char::from_u32_unchecked(0x0b) }, // '\v'
+                    _ => unreachable!(),
+                },
+                Rule::octal_escape_sequence => unsafe {
+                    char::from_u32_unchecked(u32::from_str_radix(&rule.as_str()[1..], 8).unwrap())
+                },
+                Rule::hexadecimal_escape_sequence | Rule::universal_character_name => unsafe {
+                    char::from_u32_unchecked(u32::from_str_radix(&rule.as_str()[2..], 16).unwrap())
+                },
+                _ => rule.as_str().chars().next().unwrap(),
+            });
+        }
+        Ok('\0')
     }
 
     pub fn parse_string_literal(
         &self,
         rule: Pair<'a, Rule>,
     ) -> Result<Rc<RefCell<Expr<'a>>>, Error<Rule>> {
-        let str = rule.as_str();
+        let span = rule.as_span();
+        let mut encode_prefix = "";
+        let mut text = vec![];
+        for rule in rule.into_inner() {
+            match rule.as_rule() {
+                Rule::encoding_prefix => encode_prefix = rule.as_str(),
+                Rule::s_char => text.push(self.parse_char(rule)?),
+                _ => unreachable!(),
+            }
+        }
+        let text = text.iter().collect::<String>();
         Ok(Rc::new(RefCell::new(Expr {
-            span: rule.as_span(),
+            span,
             kind: ExprKind::String {
-                prefix: if str.starts_with("u8") {
-                    EncodePrefix::UTF8
-                } else if str.starts_with("u") {
-                    EncodePrefix::UTF16
-                } else if str.starts_with("U") {
-                    EncodePrefix::UTF32
-                } else if str.starts_with("L") {
-                    EncodePrefix::Wide
-                } else {
-                    EncodePrefix::Default
+                prefix: match encode_prefix {
+                    "u8" => EncodePrefix::UTF8,
+                    "u" => EncodePrefix::UTF16,
+                    "U" => EncodePrefix::UTF32,
+                    "L" => EncodePrefix::Wide,
+                    _ => EncodePrefix::Default,
                 },
-                raw_value: str.to_string(),
+                text,
             },
+            ..Expr::new(span)
         })))
     }
 }

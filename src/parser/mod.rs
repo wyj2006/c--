@@ -11,6 +11,8 @@ use crate::ast::DesignationKind;
 use crate::ast::Initializer;
 use crate::ast::InitializerKind;
 use crate::ast::TranslationUnit;
+use crate::ctype::Type;
+use crate::ctype::TypeKind;
 use pest::{Parser, error::Error, iterators::Pair};
 use pest_derive::Parser;
 use std::cell::RefCell;
@@ -119,6 +121,11 @@ impl<'a> CParser<'a> {
                     return Ok(Rc::new(RefCell::new(Initializer {
                         span: rule.as_span(),
                         designation: Vec::new(),
+                        r#type: Rc::new(RefCell::new(Type {
+                            span: rule.as_span(),
+                            attributes: vec![],
+                            kind: TypeKind::Error,
+                        })),
                         kind: InitializerKind::Expr(self.parse_assignment_expression(rule)?),
                     })));
                 }
@@ -151,6 +158,11 @@ impl<'a> CParser<'a> {
             span,
             designation: Vec::new(),
             kind: InitializerKind::Braced(initializers),
+            r#type: Rc::new(RefCell::new(Type {
+                span,
+                attributes: vec![],
+                kind: TypeKind::Error,
+            })),
         })))
     }
 

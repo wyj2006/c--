@@ -30,6 +30,10 @@ pub enum AttributeKind<'a> {
         r#type: Option<Rc<RefCell<Type<'a>>>>,
         expr: Option<Rc<RefCell<Expr<'a>>>>,
     },
+    //用于函数参数中由数组转换过来的指针类型, 保留原来数组类型的信息供后续分析
+    PtrFromArray {
+        array_type: Rc<RefCell<Type<'a>>>,
+    },
     Unkown {
         arguments: Option<Pair<'a, Rule>>,
     },
@@ -40,6 +44,7 @@ pub struct Initializer<'a> {
     pub span: Span<'a>,
     pub designation: Vec<Designation<'a>>, //只有braced initializer中的initializer才有可能有
     pub kind: InitializerKind<'a>,
+    pub r#type: Rc<RefCell<Type<'a>>>,
 }
 
 #[derive(Debug)]
@@ -54,7 +59,7 @@ pub enum DesignationKind<'a> {
     MemberAccess(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum InitializerKind<'a> {
     Braced(Vec<Rc<RefCell<Initializer<'a>>>>),
     Expr(Rc<RefCell<Expr<'a>>>),

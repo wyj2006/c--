@@ -262,8 +262,7 @@ impl<'a> Preprocessor<'a> {
                         - 1
                 }
                 Rule::string_literal => {
-                    //TODO 正确解析字符串
-                    self.file_path = rule.as_str()[1..rule.as_str().len() - 1].to_string();
+                    self.file_path = self.process_string_literal(rule)?;
                 }
                 _ => {}
             }

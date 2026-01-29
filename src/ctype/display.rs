@@ -1,6 +1,5 @@
-use crate::ctype::RecordKind;
-
 use super::{Type, TypeKind};
+use crate::ctype::RecordKind;
 use std::fmt::Display;
 
 #[derive(Debug, Default)]
@@ -44,11 +43,12 @@ impl Type<'_> {
             TypeKind::ULongLong => parent.prefix.push("unsigned long long".to_string()),
             TypeKind::BitInt {
                 unsigned,
-                width_expr: _,
+                width_expr,
             } => {
                 parent.prefix.push(format!(
-                    "{}_BitInt()",
-                    if *unsigned { "unsigned " } else { "" }
+                    "{}_BitInt({})",
+                    if *unsigned { "unsigned " } else { "" },
+                    width_expr.borrow().unparse(),
                 ));
             }
             TypeKind::Float => parent.prefix.push("float".to_string()),
@@ -57,11 +57,15 @@ impl Type<'_> {
             TypeKind::Decimal32 => parent.prefix.push("_Decimal32".to_string()),
             TypeKind::Decimal64 => parent.prefix.push("_Decimal64".to_string()),
             TypeKind::Decimal128 => parent.prefix.push("_Decimal128".to_string()),
-            TypeKind::Complex | TypeKind::FloatComplex => {
-                parent.prefix.push("float _Complex".to_string())
+            TypeKind::Complex(r#type) => {
+                parent.prefix.push(format!(
+                    "{} _Complex",
+                    match r#type {
+                        Some(t) => t.borrow().to_string(),
+                        None => "float".to_string(),
+                    }
+                ));
             }
-            TypeKind::DoubleComplex => parent.prefix.push("double _Complex".to_string()),
-            TypeKind::LongDoubleComplex => parent.prefix.push("long double _Complex".to_string()),
             TypeKind::Function {
                 return_type,
                 parameters_type,
@@ -87,6 +91,7 @@ impl Type<'_> {
                             .map(|x| x.to_string())
                             .collect::<Vec<String>>(),
                     );
+                    parent = r#type.borrow().to_typestring(parent);
                 }
             }
             TypeKind::Typeof {
@@ -119,7 +124,7 @@ impl Type<'_> {
                     }
                 ));
             }
-            TypeKind::Record { name, kind } => {
+            TypeKind::Record { name, kind, .. } => {
                 parent.prefix.push(format!(
                     "{} {name}",
                     match kind {
@@ -128,7 +133,9 @@ impl Type<'_> {
                     }
                 ));
             }
-            TypeKind::Enum { name, underlying } => {
+            TypeKind::Enum {
+                name, underlying, ..
+            } => {
                 parent
                     .prefix
                     .push(format!("enum {name}:{}", underlying.borrow()));
@@ -136,6 +143,18 @@ impl Type<'_> {
             TypeKind::Atomic(t) => {
                 parent.prefix.push(format!("_Atomic({})", t.borrow()));
             }
+            TypeKind::Auto(r#type) => {
+                parent.prefix.push(format!(
+                    "auto:{}",
+                    if let Some(t) = r#type {
+                        t.borrow().to_string()
+                    } else {
+                        "<unkown>".to_string()
+                    }
+                ));
+            }
+            TypeKind::Nullptr => parent.prefix.push(format!("nullptr_t")),
+            TypeKind::Error => parent.prefix.push(format!("<error>")),
             _ => {}
         }
 

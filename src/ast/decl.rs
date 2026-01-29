@@ -58,11 +58,11 @@ pub enum DeclarationKind<'a> {
     },
     Type,
     Record {
-        members_decl: Vec<Rc<RefCell<Declaration<'a>>>>,
+        members_decl: Option<Vec<Rc<RefCell<Declaration<'a>>>>>, //为None是声明
     },
     Enum {
         //借用Declaration处理枚举值
-        enumerators: Vec<Rc<RefCell<Declaration<'a>>>>,
+        enumerators: Option<Vec<Rc<RefCell<Declaration<'a>>>>>, //为None是声明
     },
     StaticAssert {
         //message复用name字段

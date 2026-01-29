@@ -1,6 +1,7 @@
 // 尽量保留源文件的字符, 包括空白字符
 WHITESPACE =  { " " | "\t" | "\\\n" }
 identifier = @{ identifier_start ~ identifier_continue* }
+COMMENT    = @{ "//" ~ (!(NEWLINE | EOI) ~ ANY)* ~ NEWLINE? | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 
 preprocessing_file = ${ SOI ~ group_part* ~ EOI }
 // 等需要解析的时候再解析

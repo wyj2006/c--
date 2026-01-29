@@ -1,0 +1,191 @@
+---
+source: src/typechecker/tests/expr.rs
+expression: ast
+---
+RefCell {
+    value: TranslationUnit {
+        span: Span {
+            str: "\nint main()\n{\n    1;\n    1uwb;\n}\n",
+            start: 0,
+            end: 33,
+        },
+        decls: [
+            RefCell {
+                value: Declaration {
+                    span: Span {
+                        str: "main()\n",
+                        start: 5,
+                        end: 12,
+                    },
+                    attributes: [],
+                    name: "main",
+                    type: RefCell {
+                        value: Type {
+                            span: Span {
+                                str: "()\n",
+                                start: 9,
+                                end: 12,
+                            },
+                            attributes: [],
+                            kind: Function {
+                                return_type: RefCell {
+                                    value: Type {
+                                        span: Span {
+                                            str: "int ",
+                                            start: 1,
+                                            end: 5,
+                                        },
+                                        attributes: [],
+                                        kind: Int,
+                                    },
+                                },
+                                parameters_type: [],
+                                has_varparam: false,
+                            },
+                        },
+                    },
+                    storage_classes: [],
+                    kind: Function {
+                        parameter_decls: [],
+                        function_specs: [],
+                        body: Some(
+                            RefCell {
+                                value: Stmt {
+                                    span: Span {
+                                        str: "{\n    1;\n    1uwb;\n}",
+                                        start: 12,
+                                        end: 32,
+                                    },
+                                    attributes: [],
+                                    kind: Compound(
+                                        [
+                                            RefCell {
+                                                value: Stmt {
+                                                    span: Span {
+                                                        str: "1",
+                                                        start: 18,
+                                                        end: 19,
+                                                    },
+                                                    attributes: [],
+                                                    kind: Expr(
+                                                        RefCell {
+                                                            value: Expr {
+                                                                span: Span {
+                                                                    str: "1",
+                                                                    start: 18,
+                                                                    end: 19,
+                                                                },
+                                                                kind: Integer {
+                                                                    base: 10,
+                                                                    text: "1",
+                                                                    type_suffix: [],
+                                                                },
+                                                                type: RefCell {
+                                                                    value: Type {
+                                                                        span: Span {
+                                                                            str: "1",
+                                                                            start: 18,
+                                                                            end: 19,
+                                                                        },
+                                                                        attributes: [],
+                                                                        kind: Int,
+                                                                    },
+                                                                },
+                                                                value: Int(
+                                                                    1,
+                                                                ),
+                                                                is_lvalue: false,
+                                                                symbol: None,
+                                                            },
+                                                        },
+                                                    ),
+                                                },
+                                            },
+                                            RefCell {
+                                                value: Stmt {
+                                                    span: Span {
+                                                        str: "1uwb",
+                                                        start: 25,
+                                                        end: 29,
+                                                    },
+                                                    attributes: [],
+                                                    kind: Expr(
+                                                        RefCell {
+                                                            value: Expr {
+                                                                span: Span {
+                                                                    str: "1uwb",
+                                                                    start: 25,
+                                                                    end: 29,
+                                                                },
+                                                                kind: Integer {
+                                                                    base: 10,
+                                                                    text: "1",
+                                                                    type_suffix: [
+                                                                        "wb",
+                                                                        "u",
+                                                                    ],
+                                                                },
+                                                                type: RefCell {
+                                                                    value: Type {
+                                                                        span: Span {
+                                                                            str: "1uwb",
+                                                                            start: 25,
+                                                                            end: 29,
+                                                                        },
+                                                                        attributes: [],
+                                                                        kind: BitInt {
+                                                                            unsigned: true,
+                                                                            width_expr: RefCell {
+                                                                                value: Expr {
+                                                                                    span: Span {
+                                                                                        str: "1uwb",
+                                                                                        start: 25,
+                                                                                        end: 29,
+                                                                                    },
+                                                                                    kind: Integer {
+                                                                                        base: 10,
+                                                                                        text: "1",
+                                                                                        type_suffix: [],
+                                                                                    },
+                                                                                    type: RefCell {
+                                                                                        value: Type {
+                                                                                            span: Span {
+                                                                                                str: "1uwb",
+                                                                                                start: 25,
+                                                                                                end: 29,
+                                                                                            },
+                                                                                            attributes: [],
+                                                                                            kind: ULongLong,
+                                                                                        },
+                                                                                    },
+                                                                                    value: Int(
+                                                                                        1,
+                                                                                    ),
+                                                                                    is_lvalue: false,
+                                                                                    symbol: None,
+                                                                                },
+                                                                            },
+                                                                        },
+                                                                    },
+                                                                },
+                                                                value: Int(
+                                                                    1,
+                                                                ),
+                                                                is_lvalue: false,
+                                                                symbol: None,
+                                                            },
+                                                        },
+                                                    ),
+                                                },
+                                            },
+                                        ],
+                                    ),
+                                },
+                            },
+                        ),
+                    },
+                },
+            },
+        ],
+    },
+}

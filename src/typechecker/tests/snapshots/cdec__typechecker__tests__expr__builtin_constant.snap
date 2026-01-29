@@ -1,0 +1,184 @@
+---
+source: src/typechecker/tests/expr.rs
+expression: ast
+---
+RefCell {
+    value: TranslationUnit {
+        span: Span {
+            str: "\nint main()\n{\n    true;\n    false;\n    nullptr;\n}\n",
+            start: 0,
+            end: 50,
+        },
+        decls: [
+            RefCell {
+                value: Declaration {
+                    span: Span {
+                        str: "main()\n",
+                        start: 5,
+                        end: 12,
+                    },
+                    attributes: [],
+                    name: "main",
+                    type: RefCell {
+                        value: Type {
+                            span: Span {
+                                str: "()\n",
+                                start: 9,
+                                end: 12,
+                            },
+                            attributes: [],
+                            kind: Function {
+                                return_type: RefCell {
+                                    value: Type {
+                                        span: Span {
+                                            str: "int ",
+                                            start: 1,
+                                            end: 5,
+                                        },
+                                        attributes: [],
+                                        kind: Int,
+                                    },
+                                },
+                                parameters_type: [],
+                                has_varparam: false,
+                            },
+                        },
+                    },
+                    storage_classes: [],
+                    kind: Function {
+                        parameter_decls: [],
+                        function_specs: [],
+                        body: Some(
+                            RefCell {
+                                value: Stmt {
+                                    span: Span {
+                                        str: "{\n    true;\n    false;\n    nullptr;\n}",
+                                        start: 12,
+                                        end: 49,
+                                    },
+                                    attributes: [],
+                                    kind: Compound(
+                                        [
+                                            RefCell {
+                                                value: Stmt {
+                                                    span: Span {
+                                                        str: "true",
+                                                        start: 18,
+                                                        end: 22,
+                                                    },
+                                                    attributes: [],
+                                                    kind: Expr(
+                                                        RefCell {
+                                                            value: Expr {
+                                                                span: Span {
+                                                                    str: "true",
+                                                                    start: 18,
+                                                                    end: 22,
+                                                                },
+                                                                kind: True,
+                                                                type: RefCell {
+                                                                    value: Type {
+                                                                        span: Span {
+                                                                            str: "true",
+                                                                            start: 18,
+                                                                            end: 22,
+                                                                        },
+                                                                        attributes: [],
+                                                                        kind: Bool,
+                                                                    },
+                                                                },
+                                                                value: Bool(
+                                                                    true,
+                                                                ),
+                                                                is_lvalue: false,
+                                                                symbol: None,
+                                                            },
+                                                        },
+                                                    ),
+                                                },
+                                            },
+                                            RefCell {
+                                                value: Stmt {
+                                                    span: Span {
+                                                        str: "false",
+                                                        start: 28,
+                                                        end: 33,
+                                                    },
+                                                    attributes: [],
+                                                    kind: Expr(
+                                                        RefCell {
+                                                            value: Expr {
+                                                                span: Span {
+                                                                    str: "false",
+                                                                    start: 28,
+                                                                    end: 33,
+                                                                },
+                                                                kind: False,
+                                                                type: RefCell {
+                                                                    value: Type {
+                                                                        span: Span {
+                                                                            str: "false",
+                                                                            start: 28,
+                                                                            end: 33,
+                                                                        },
+                                                                        attributes: [],
+                                                                        kind: Bool,
+                                                                    },
+                                                                },
+                                                                value: Bool(
+                                                                    false,
+                                                                ),
+                                                                is_lvalue: false,
+                                                                symbol: None,
+                                                            },
+                                                        },
+                                                    ),
+                                                },
+                                            },
+                                            RefCell {
+                                                value: Stmt {
+                                                    span: Span {
+                                                        str: "nullptr",
+                                                        start: 39,
+                                                        end: 46,
+                                                    },
+                                                    attributes: [],
+                                                    kind: Expr(
+                                                        RefCell {
+                                                            value: Expr {
+                                                                span: Span {
+                                                                    str: "nullptr",
+                                                                    start: 39,
+                                                                    end: 46,
+                                                                },
+                                                                kind: Nullptr,
+                                                                type: RefCell {
+                                                                    value: Type {
+                                                                        span: Span {
+                                                                            str: "nullptr",
+                                                                            start: 39,
+                                                                            end: 46,
+                                                                        },
+                                                                        attributes: [],
+                                                                        kind: Nullptr,
+                                                                    },
+                                                                },
+                                                                value: Nullptr,
+                                                                is_lvalue: false,
+                                                                symbol: None,
+                                                            },
+                                                        },
+                                                    ),
+                                                },
+                                            },
+                                        ],
+                                    ),
+                                },
+                            },
+                        ),
+                    },
+                },
+            },
+        ],
+    },
+}

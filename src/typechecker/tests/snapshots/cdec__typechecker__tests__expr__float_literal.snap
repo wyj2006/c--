@@ -1,0 +1,307 @@
+---
+source: src/typechecker/tests/expr.rs
+expression: ast
+---
+RefCell {
+    value: TranslationUnit {
+        span: Span {
+            str: "\nint main()\n{\n    0.1;\n    0.;\n    .1;\n    0.1e-2;\n    0x0.fp1;\n}\n",
+            start: 0,
+            end: 66,
+        },
+        decls: [
+            RefCell {
+                value: Declaration {
+                    span: Span {
+                        str: "main()\n",
+                        start: 5,
+                        end: 12,
+                    },
+                    attributes: [],
+                    name: "main",
+                    type: RefCell {
+                        value: Type {
+                            span: Span {
+                                str: "()\n",
+                                start: 9,
+                                end: 12,
+                            },
+                            attributes: [],
+                            kind: Function {
+                                return_type: RefCell {
+                                    value: Type {
+                                        span: Span {
+                                            str: "int ",
+                                            start: 1,
+                                            end: 5,
+                                        },
+                                        attributes: [],
+                                        kind: Int,
+                                    },
+                                },
+                                parameters_type: [],
+                                has_varparam: false,
+                            },
+                        },
+                    },
+                    storage_classes: [],
+                    kind: Function {
+                        parameter_decls: [],
+                        function_specs: [],
+                        body: Some(
+                            RefCell {
+                                value: Stmt {
+                                    span: Span {
+                                        str: "{\n    0.1;\n    0.;\n    .1;\n    0.1e-2;\n    0x0.fp1;\n}",
+                                        start: 12,
+                                        end: 65,
+                                    },
+                                    attributes: [],
+                                    kind: Compound(
+                                        [
+                                            RefCell {
+                                                value: Stmt {
+                                                    span: Span {
+                                                        str: "0.1",
+                                                        start: 18,
+                                                        end: 21,
+                                                    },
+                                                    attributes: [],
+                                                    kind: Expr(
+                                                        RefCell {
+                                                            value: Expr {
+                                                                span: Span {
+                                                                    str: "0.1",
+                                                                    start: 18,
+                                                                    end: 21,
+                                                                },
+                                                                kind: Float {
+                                                                    base: 10,
+                                                                    digits: "0.1",
+                                                                    exp_base: 10,
+                                                                    exponent: "0",
+                                                                    type_suffix: [],
+                                                                },
+                                                                type: RefCell {
+                                                                    value: Type {
+                                                                        span: Span {
+                                                                            str: "0.1",
+                                                                            start: 18,
+                                                                            end: 21,
+                                                                        },
+                                                                        attributes: [],
+                                                                        kind: Double,
+                                                                    },
+                                                                },
+                                                                value: Rational(
+                                                                    Ratio {
+                                                                        numer: 1,
+                                                                        denom: 10,
+                                                                    },
+                                                                ),
+                                                                is_lvalue: false,
+                                                                symbol: None,
+                                                            },
+                                                        },
+                                                    ),
+                                                },
+                                            },
+                                            RefCell {
+                                                value: Stmt {
+                                                    span: Span {
+                                                        str: "0.",
+                                                        start: 27,
+                                                        end: 29,
+                                                    },
+                                                    attributes: [],
+                                                    kind: Expr(
+                                                        RefCell {
+                                                            value: Expr {
+                                                                span: Span {
+                                                                    str: "0.",
+                                                                    start: 27,
+                                                                    end: 29,
+                                                                },
+                                                                kind: Float {
+                                                                    base: 10,
+                                                                    digits: "0.",
+                                                                    exp_base: 10,
+                                                                    exponent: "0",
+                                                                    type_suffix: [],
+                                                                },
+                                                                type: RefCell {
+                                                                    value: Type {
+                                                                        span: Span {
+                                                                            str: "0.",
+                                                                            start: 27,
+                                                                            end: 29,
+                                                                        },
+                                                                        attributes: [],
+                                                                        kind: Double,
+                                                                    },
+                                                                },
+                                                                value: Rational(
+                                                                    Ratio {
+                                                                        numer: 0,
+                                                                        denom: 1,
+                                                                    },
+                                                                ),
+                                                                is_lvalue: false,
+                                                                symbol: None,
+                                                            },
+                                                        },
+                                                    ),
+                                                },
+                                            },
+                                            RefCell {
+                                                value: Stmt {
+                                                    span: Span {
+                                                        str: ".1",
+                                                        start: 35,
+                                                        end: 37,
+                                                    },
+                                                    attributes: [],
+                                                    kind: Expr(
+                                                        RefCell {
+                                                            value: Expr {
+                                                                span: Span {
+                                                                    str: ".1",
+                                                                    start: 35,
+                                                                    end: 37,
+                                                                },
+                                                                kind: Float {
+                                                                    base: 10,
+                                                                    digits: ".1",
+                                                                    exp_base: 10,
+                                                                    exponent: "0",
+                                                                    type_suffix: [],
+                                                                },
+                                                                type: RefCell {
+                                                                    value: Type {
+                                                                        span: Span {
+                                                                            str: ".1",
+                                                                            start: 35,
+                                                                            end: 37,
+                                                                        },
+                                                                        attributes: [],
+                                                                        kind: Double,
+                                                                    },
+                                                                },
+                                                                value: Rational(
+                                                                    Ratio {
+                                                                        numer: 1,
+                                                                        denom: 10,
+                                                                    },
+                                                                ),
+                                                                is_lvalue: false,
+                                                                symbol: None,
+                                                            },
+                                                        },
+                                                    ),
+                                                },
+                                            },
+                                            RefCell {
+                                                value: Stmt {
+                                                    span: Span {
+                                                        str: "0.1e-2",
+                                                        start: 43,
+                                                        end: 49,
+                                                    },
+                                                    attributes: [],
+                                                    kind: Expr(
+                                                        RefCell {
+                                                            value: Expr {
+                                                                span: Span {
+                                                                    str: "0.1e-2",
+                                                                    start: 43,
+                                                                    end: 49,
+                                                                },
+                                                                kind: Float {
+                                                                    base: 10,
+                                                                    digits: "0.1",
+                                                                    exp_base: 10,
+                                                                    exponent: "-2",
+                                                                    type_suffix: [],
+                                                                },
+                                                                type: RefCell {
+                                                                    value: Type {
+                                                                        span: Span {
+                                                                            str: "0.1e-2",
+                                                                            start: 43,
+                                                                            end: 49,
+                                                                        },
+                                                                        attributes: [],
+                                                                        kind: Double,
+                                                                    },
+                                                                },
+                                                                value: Rational(
+                                                                    Ratio {
+                                                                        numer: 1,
+                                                                        denom: 1000,
+                                                                    },
+                                                                ),
+                                                                is_lvalue: false,
+                                                                symbol: None,
+                                                            },
+                                                        },
+                                                    ),
+                                                },
+                                            },
+                                            RefCell {
+                                                value: Stmt {
+                                                    span: Span {
+                                                        str: "0x0.fp1",
+                                                        start: 55,
+                                                        end: 62,
+                                                    },
+                                                    attributes: [],
+                                                    kind: Expr(
+                                                        RefCell {
+                                                            value: Expr {
+                                                                span: Span {
+                                                                    str: "0x0.fp1",
+                                                                    start: 55,
+                                                                    end: 62,
+                                                                },
+                                                                kind: Float {
+                                                                    base: 16,
+                                                                    digits: "0.f",
+                                                                    exp_base: 2,
+                                                                    exponent: "1",
+                                                                    type_suffix: [],
+                                                                },
+                                                                type: RefCell {
+                                                                    value: Type {
+                                                                        span: Span {
+                                                                            str: "0x0.fp1",
+                                                                            start: 55,
+                                                                            end: 62,
+                                                                        },
+                                                                        attributes: [],
+                                                                        kind: Double,
+                                                                    },
+                                                                },
+                                                                value: Rational(
+                                                                    Ratio {
+                                                                        numer: 15,
+                                                                        denom: 8,
+                                                                    },
+                                                                ),
+                                                                is_lvalue: false,
+                                                                symbol: None,
+                                                            },
+                                                        },
+                                                    ),
+                                                },
+                                            },
+                                        ],
+                                    ),
+                                },
+                            },
+                        ),
+                    },
+                },
+            },
+        ],
+    },
+}

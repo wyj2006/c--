@@ -1,0 +1,139 @@
+use crate::{parser::CParser, symtab::SymbolTable, test_template, typechecker::TypeChecker};
+use insta::assert_debug_snapshot;
+use std::{cell::RefCell, rc::Rc};
+
+test_template!(
+    builtin_constant,
+    "
+int main()
+{
+    true;
+    false;
+    nullptr;
+}
+"
+);
+
+test_template!(
+    string_and_char,
+    "
+int main()
+{
+    '猫';
+    u'猫';
+    U'猫';
+    L'猫';
+    \"猫我\";
+    u\"猫我\";
+    U\"猫我\";
+    L\"猫我\";
+}
+"
+);
+
+test_template!(
+    integer_literal,
+    "
+int main()
+{
+    1;
+    1uwb;
+}
+"
+);
+
+test_template!(
+    float_literal,
+    "
+int main()
+{
+    0.1;
+    0.;
+    .1;
+    0.1e-2;
+    0x0.fp1;
+}
+"
+);
+
+test_template!(
+    generic_selection,
+    "
+int main()
+{
+    int a;
+    _Generic(a,char:1,int:2,default:3);
+}
+"
+);
+
+test_template!(
+    function_call,
+    "
+int f(long long n)
+{
+
+}
+
+int main()
+{
+    f(1);
+}
+"
+);
+
+test_template!(
+    subscript,
+    "
+int main()
+{
+    int a;
+    int b[3];
+    b[a];
+    a[\"1\"];
+}
+"
+);
+
+test_template!(
+    member_access,
+    "
+int main()
+{
+    struct A{int a;} a;
+    a.a;
+}
+"
+);
+test_template!(
+    deref_lvalue,
+    "
+int main()
+{
+    int *a;
+    *a;
+}
+"
+);
+
+#[test]
+#[should_panic]
+pub fn addressof_bitfield() {
+    let parser = CParser::new(
+        "
+struct A{
+    int a:1;
+}a;
+
+int main()
+{
+    &a.a;
+}
+",
+    );
+    let ast = parser.parse_to_ast().unwrap();
+
+    let symtab = Rc::new(RefCell::new(SymbolTable::new()));
+    let mut type_checker = TypeChecker::new(Rc::clone(&symtab));
+    type_checker.check(Rc::clone(&ast)).unwrap();
+}

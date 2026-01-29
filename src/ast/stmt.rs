@@ -12,7 +12,7 @@ pub struct Stmt<'a> {
     pub kind: StmtKind<'a>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum StmtKind<'a> {
     Compound(Vec<Rc<RefCell<Stmt<'a>>>>),
     If {

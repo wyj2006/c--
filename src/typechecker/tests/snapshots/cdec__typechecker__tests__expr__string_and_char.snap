@@ -1,0 +1,1372 @@
+---
+source: src/typechecker/tests/expr.rs
+expression: ast
+---
+RefCell {
+    value: TranslationUnit {
+        span: Span {
+            str: "\nint main()\n{\n    '猫';\n    u'猫';\n    U'猫';\n    L'猫';\n    \"猫我\";\n    u\"猫我\";\n    U\"猫我\";\n    L\"猫我\";\n}\n",
+            start: 0,
+            end: 122,
+        },
+        decls: [
+            RefCell {
+                value: Declaration {
+                    span: Span {
+                        str: "main()\n",
+                        start: 5,
+                        end: 12,
+                    },
+                    attributes: [],
+                    name: "main",
+                    type: RefCell {
+                        value: Type {
+                            span: Span {
+                                str: "()\n",
+                                start: 9,
+                                end: 12,
+                            },
+                            attributes: [],
+                            kind: Function {
+                                return_type: RefCell {
+                                    value: Type {
+                                        span: Span {
+                                            str: "int ",
+                                            start: 1,
+                                            end: 5,
+                                        },
+                                        attributes: [],
+                                        kind: Int,
+                                    },
+                                },
+                                parameters_type: [],
+                                has_varparam: false,
+                            },
+                        },
+                    },
+                    storage_classes: [],
+                    kind: Function {
+                        parameter_decls: [],
+                        function_specs: [],
+                        body: Some(
+                            RefCell {
+                                value: Stmt {
+                                    span: Span {
+                                        str: "{\n    '猫';\n    u'猫';\n    U'猫';\n    L'猫';\n    \"猫我\";\n    u\"猫我\";\n    U\"猫我\";\n    L\"猫我\";\n}",
+                                        start: 12,
+                                        end: 121,
+                                    },
+                                    attributes: [],
+                                    kind: Compound(
+                                        [
+                                            RefCell {
+                                                value: Stmt {
+                                                    span: Span {
+                                                        str: "'猫'",
+                                                        start: 18,
+                                                        end: 23,
+                                                    },
+                                                    attributes: [],
+                                                    kind: Expr(
+                                                        RefCell {
+                                                            value: Expr {
+                                                                span: Span {
+                                                                    str: "'猫'",
+                                                                    start: 18,
+                                                                    end: 23,
+                                                                },
+                                                                kind: Char {
+                                                                    prefix: Default,
+                                                                    text: "猫",
+                                                                },
+                                                                type: RefCell {
+                                                                    value: Type {
+                                                                        span: Span {
+                                                                            str: "'猫'",
+                                                                            start: 18,
+                                                                            end: 23,
+                                                                        },
+                                                                        attributes: [],
+                                                                        kind: Qualified {
+                                                                            qualifiers: [
+                                                                                Const,
+                                                                            ],
+                                                                            type: RefCell {
+                                                                                value: Type {
+                                                                                    span: Span {
+                                                                                        str: "'猫'",
+                                                                                        start: 18,
+                                                                                        end: 23,
+                                                                                    },
+                                                                                    attributes: [],
+                                                                                    kind: Int,
+                                                                                },
+                                                                            },
+                                                                        },
+                                                                    },
+                                                                },
+                                                                value: Int(
+                                                                    15174827,
+                                                                ),
+                                                                is_lvalue: false,
+                                                                symbol: None,
+                                                            },
+                                                        },
+                                                    ),
+                                                },
+                                            },
+                                            RefCell {
+                                                value: Stmt {
+                                                    span: Span {
+                                                        str: "u'猫'",
+                                                        start: 29,
+                                                        end: 35,
+                                                    },
+                                                    attributes: [],
+                                                    kind: Expr(
+                                                        RefCell {
+                                                            value: Expr {
+                                                                span: Span {
+                                                                    str: "u'猫'",
+                                                                    start: 29,
+                                                                    end: 35,
+                                                                },
+                                                                kind: Char {
+                                                                    prefix: UTF16,
+                                                                    text: "猫",
+                                                                },
+                                                                type: RefCell {
+                                                                    value: Type {
+                                                                        span: Span {
+                                                                            str: "u'猫'",
+                                                                            start: 29,
+                                                                            end: 35,
+                                                                        },
+                                                                        attributes: [],
+                                                                        kind: Qualified {
+                                                                            qualifiers: [
+                                                                                Const,
+                                                                            ],
+                                                                            type: RefCell {
+                                                                                value: Type {
+                                                                                    span: Span {
+                                                                                        str: "u'猫'",
+                                                                                        start: 29,
+                                                                                        end: 35,
+                                                                                    },
+                                                                                    attributes: [],
+                                                                                    kind: UShort,
+                                                                                },
+                                                                            },
+                                                                        },
+                                                                    },
+                                                                },
+                                                                value: Int(
+                                                                    29483,
+                                                                ),
+                                                                is_lvalue: false,
+                                                                symbol: None,
+                                                            },
+                                                        },
+                                                    ),
+                                                },
+                                            },
+                                            RefCell {
+                                                value: Stmt {
+                                                    span: Span {
+                                                        str: "U'猫'",
+                                                        start: 41,
+                                                        end: 47,
+                                                    },
+                                                    attributes: [],
+                                                    kind: Expr(
+                                                        RefCell {
+                                                            value: Expr {
+                                                                span: Span {
+                                                                    str: "U'猫'",
+                                                                    start: 41,
+                                                                    end: 47,
+                                                                },
+                                                                kind: Char {
+                                                                    prefix: UTF32,
+                                                                    text: "猫",
+                                                                },
+                                                                type: RefCell {
+                                                                    value: Type {
+                                                                        span: Span {
+                                                                            str: "U'猫'",
+                                                                            start: 41,
+                                                                            end: 47,
+                                                                        },
+                                                                        attributes: [],
+                                                                        kind: Qualified {
+                                                                            qualifiers: [
+                                                                                Const,
+                                                                            ],
+                                                                            type: RefCell {
+                                                                                value: Type {
+                                                                                    span: Span {
+                                                                                        str: "U'猫'",
+                                                                                        start: 41,
+                                                                                        end: 47,
+                                                                                    },
+                                                                                    attributes: [],
+                                                                                    kind: UInt,
+                                                                                },
+                                                                            },
+                                                                        },
+                                                                    },
+                                                                },
+                                                                value: Int(
+                                                                    29483,
+                                                                ),
+                                                                is_lvalue: false,
+                                                                symbol: None,
+                                                            },
+                                                        },
+                                                    ),
+                                                },
+                                            },
+                                            RefCell {
+                                                value: Stmt {
+                                                    span: Span {
+                                                        str: "L'猫'",
+                                                        start: 53,
+                                                        end: 59,
+                                                    },
+                                                    attributes: [],
+                                                    kind: Expr(
+                                                        RefCell {
+                                                            value: Expr {
+                                                                span: Span {
+                                                                    str: "L'猫'",
+                                                                    start: 53,
+                                                                    end: 59,
+                                                                },
+                                                                kind: Char {
+                                                                    prefix: Wide,
+                                                                    text: "猫",
+                                                                },
+                                                                type: RefCell {
+                                                                    value: Type {
+                                                                        span: Span {
+                                                                            str: "L'猫'",
+                                                                            start: 53,
+                                                                            end: 59,
+                                                                        },
+                                                                        attributes: [],
+                                                                        kind: Qualified {
+                                                                            qualifiers: [
+                                                                                Const,
+                                                                            ],
+                                                                            type: RefCell {
+                                                                                value: Type {
+                                                                                    span: Span {
+                                                                                        str: "L'猫'",
+                                                                                        start: 53,
+                                                                                        end: 59,
+                                                                                    },
+                                                                                    attributes: [],
+                                                                                    kind: Int,
+                                                                                },
+                                                                            },
+                                                                        },
+                                                                    },
+                                                                },
+                                                                value: Int(
+                                                                    29483,
+                                                                ),
+                                                                is_lvalue: false,
+                                                                symbol: None,
+                                                            },
+                                                        },
+                                                    ),
+                                                },
+                                            },
+                                            RefCell {
+                                                value: Stmt {
+                                                    span: Span {
+                                                        str: "\"猫我\"",
+                                                        start: 65,
+                                                        end: 73,
+                                                    },
+                                                    attributes: [],
+                                                    kind: Expr(
+                                                        RefCell {
+                                                            value: Expr {
+                                                                span: Span {
+                                                                    str: "\"猫我\"",
+                                                                    start: 65,
+                                                                    end: 73,
+                                                                },
+                                                                kind: Cast {
+                                                                    is_implicit: true,
+                                                                    target: RefCell {
+                                                                        value: Expr {
+                                                                            span: Span {
+                                                                                str: "\"猫我\"",
+                                                                                start: 65,
+                                                                                end: 73,
+                                                                            },
+                                                                            kind: String {
+                                                                                prefix: Default,
+                                                                                text: "猫我",
+                                                                            },
+                                                                            type: RefCell {
+                                                                                value: Type {
+                                                                                    span: Span {
+                                                                                        str: "\"猫我\"",
+                                                                                        start: 65,
+                                                                                        end: 73,
+                                                                                    },
+                                                                                    attributes: [],
+                                                                                    kind: Array {
+                                                                                        has_static: false,
+                                                                                        has_star: false,
+                                                                                        element_type: RefCell {
+                                                                                            value: Type {
+                                                                                                span: Span {
+                                                                                                    str: "\"猫我\"",
+                                                                                                    start: 65,
+                                                                                                    end: 73,
+                                                                                                },
+                                                                                                attributes: [],
+                                                                                                kind: Qualified {
+                                                                                                    qualifiers: [
+                                                                                                        Const,
+                                                                                                    ],
+                                                                                                    type: RefCell {
+                                                                                                        value: Type {
+                                                                                                            span: Span {
+                                                                                                                str: "\"猫我\"",
+                                                                                                                start: 65,
+                                                                                                                end: 73,
+                                                                                                            },
+                                                                                                            attributes: [],
+                                                                                                            kind: Char,
+                                                                                                        },
+                                                                                                    },
+                                                                                                },
+                                                                                            },
+                                                                                        },
+                                                                                        len_expr: Some(
+                                                                                            RefCell {
+                                                                                                value: Expr {
+                                                                                                    span: Span {
+                                                                                                        str: "\"猫我\"",
+                                                                                                        start: 65,
+                                                                                                        end: 73,
+                                                                                                    },
+                                                                                                    kind: Integer {
+                                                                                                        base: 10,
+                                                                                                        text: "7",
+                                                                                                        type_suffix: [],
+                                                                                                    },
+                                                                                                    type: RefCell {
+                                                                                                        value: Type {
+                                                                                                            span: Span {
+                                                                                                                str: "\"猫我\"",
+                                                                                                                start: 65,
+                                                                                                                end: 73,
+                                                                                                            },
+                                                                                                            attributes: [],
+                                                                                                            kind: ULongLong,
+                                                                                                        },
+                                                                                                    },
+                                                                                                    value: Int(
+                                                                                                        7,
+                                                                                                    ),
+                                                                                                    is_lvalue: false,
+                                                                                                    symbol: None,
+                                                                                                },
+                                                                                            },
+                                                                                        ),
+                                                                                    },
+                                                                                },
+                                                                            },
+                                                                            value: Array(
+                                                                                [
+                                                                                    Int(
+                                                                                        231,
+                                                                                    ),
+                                                                                    Int(
+                                                                                        140,
+                                                                                    ),
+                                                                                    Int(
+                                                                                        171,
+                                                                                    ),
+                                                                                    Int(
+                                                                                        230,
+                                                                                    ),
+                                                                                    Int(
+                                                                                        136,
+                                                                                    ),
+                                                                                    Int(
+                                                                                        145,
+                                                                                    ),
+                                                                                    Int(
+                                                                                        0,
+                                                                                    ),
+                                                                                ],
+                                                                            ),
+                                                                            is_lvalue: true,
+                                                                            symbol: None,
+                                                                        },
+                                                                    },
+                                                                },
+                                                                type: RefCell {
+                                                                    value: Type {
+                                                                        span: Span {
+                                                                            str: "\"猫我\"",
+                                                                            start: 65,
+                                                                            end: 73,
+                                                                        },
+                                                                        attributes: [
+                                                                            RefCell {
+                                                                                value: Attribute {
+                                                                                    span: Span {
+                                                                                        str: "\"猫我\"",
+                                                                                        start: 65,
+                                                                                        end: 73,
+                                                                                    },
+                                                                                    prefix_name: None,
+                                                                                    name: "ptr_from_array",
+                                                                                    kind: PtrFromArray {
+                                                                                        array_type: RefCell {
+                                                                                            value: Type {
+                                                                                                span: Span {
+                                                                                                    str: "\"猫我\"",
+                                                                                                    start: 65,
+                                                                                                    end: 73,
+                                                                                                },
+                                                                                                attributes: [],
+                                                                                                kind: Array {
+                                                                                                    has_static: false,
+                                                                                                    has_star: false,
+                                                                                                    element_type: RefCell {
+                                                                                                        value: Type {
+                                                                                                            span: Span {
+                                                                                                                str: "\"猫我\"",
+                                                                                                                start: 65,
+                                                                                                                end: 73,
+                                                                                                            },
+                                                                                                            attributes: [],
+                                                                                                            kind: Qualified {
+                                                                                                                qualifiers: [
+                                                                                                                    Const,
+                                                                                                                ],
+                                                                                                                type: RefCell {
+                                                                                                                    value: Type {
+                                                                                                                        span: Span {
+                                                                                                                            str: "\"猫我\"",
+                                                                                                                            start: 65,
+                                                                                                                            end: 73,
+                                                                                                                        },
+                                                                                                                        attributes: [],
+                                                                                                                        kind: Char,
+                                                                                                                    },
+                                                                                                                },
+                                                                                                            },
+                                                                                                        },
+                                                                                                    },
+                                                                                                    len_expr: Some(
+                                                                                                        RefCell {
+                                                                                                            value: Expr {
+                                                                                                                span: Span {
+                                                                                                                    str: "\"猫我\"",
+                                                                                                                    start: 65,
+                                                                                                                    end: 73,
+                                                                                                                },
+                                                                                                                kind: Integer {
+                                                                                                                    base: 10,
+                                                                                                                    text: "7",
+                                                                                                                    type_suffix: [],
+                                                                                                                },
+                                                                                                                type: RefCell {
+                                                                                                                    value: Type {
+                                                                                                                        span: Span {
+                                                                                                                            str: "\"猫我\"",
+                                                                                                                            start: 65,
+                                                                                                                            end: 73,
+                                                                                                                        },
+                                                                                                                        attributes: [],
+                                                                                                                        kind: ULongLong,
+                                                                                                                    },
+                                                                                                                },
+                                                                                                                value: Int(
+                                                                                                                    7,
+                                                                                                                ),
+                                                                                                                is_lvalue: false,
+                                                                                                                symbol: None,
+                                                                                                            },
+                                                                                                        },
+                                                                                                    ),
+                                                                                                },
+                                                                                            },
+                                                                                        },
+                                                                                    },
+                                                                                },
+                                                                            },
+                                                                        ],
+                                                                        kind: Pointer(
+                                                                            RefCell {
+                                                                                value: Type {
+                                                                                    span: Span {
+                                                                                        str: "\"猫我\"",
+                                                                                        start: 65,
+                                                                                        end: 73,
+                                                                                    },
+                                                                                    attributes: [],
+                                                                                    kind: Qualified {
+                                                                                        qualifiers: [
+                                                                                            Const,
+                                                                                        ],
+                                                                                        type: RefCell {
+                                                                                            value: Type {
+                                                                                                span: Span {
+                                                                                                    str: "\"猫我\"",
+                                                                                                    start: 65,
+                                                                                                    end: 73,
+                                                                                                },
+                                                                                                attributes: [],
+                                                                                                kind: Char,
+                                                                                            },
+                                                                                        },
+                                                                                    },
+                                                                                },
+                                                                            },
+                                                                        ),
+                                                                    },
+                                                                },
+                                                                value: Array(
+                                                                    [
+                                                                        Int(
+                                                                            231,
+                                                                        ),
+                                                                        Int(
+                                                                            140,
+                                                                        ),
+                                                                        Int(
+                                                                            171,
+                                                                        ),
+                                                                        Int(
+                                                                            230,
+                                                                        ),
+                                                                        Int(
+                                                                            136,
+                                                                        ),
+                                                                        Int(
+                                                                            145,
+                                                                        ),
+                                                                        Int(
+                                                                            0,
+                                                                        ),
+                                                                    ],
+                                                                ),
+                                                                is_lvalue: false,
+                                                                symbol: None,
+                                                            },
+                                                        },
+                                                    ),
+                                                },
+                                            },
+                                            RefCell {
+                                                value: Stmt {
+                                                    span: Span {
+                                                        str: "u\"猫我\"",
+                                                        start: 79,
+                                                        end: 88,
+                                                    },
+                                                    attributes: [],
+                                                    kind: Expr(
+                                                        RefCell {
+                                                            value: Expr {
+                                                                span: Span {
+                                                                    str: "u\"猫我\"",
+                                                                    start: 79,
+                                                                    end: 88,
+                                                                },
+                                                                kind: Cast {
+                                                                    is_implicit: true,
+                                                                    target: RefCell {
+                                                                        value: Expr {
+                                                                            span: Span {
+                                                                                str: "u\"猫我\"",
+                                                                                start: 79,
+                                                                                end: 88,
+                                                                            },
+                                                                            kind: String {
+                                                                                prefix: UTF16,
+                                                                                text: "猫我",
+                                                                            },
+                                                                            type: RefCell {
+                                                                                value: Type {
+                                                                                    span: Span {
+                                                                                        str: "u\"猫我\"",
+                                                                                        start: 79,
+                                                                                        end: 88,
+                                                                                    },
+                                                                                    attributes: [],
+                                                                                    kind: Array {
+                                                                                        has_static: false,
+                                                                                        has_star: false,
+                                                                                        element_type: RefCell {
+                                                                                            value: Type {
+                                                                                                span: Span {
+                                                                                                    str: "u\"猫我\"",
+                                                                                                    start: 79,
+                                                                                                    end: 88,
+                                                                                                },
+                                                                                                attributes: [],
+                                                                                                kind: Qualified {
+                                                                                                    qualifiers: [
+                                                                                                        Const,
+                                                                                                    ],
+                                                                                                    type: RefCell {
+                                                                                                        value: Type {
+                                                                                                            span: Span {
+                                                                                                                str: "u\"猫我\"",
+                                                                                                                start: 79,
+                                                                                                                end: 88,
+                                                                                                            },
+                                                                                                            attributes: [],
+                                                                                                            kind: UShort,
+                                                                                                        },
+                                                                                                    },
+                                                                                                },
+                                                                                            },
+                                                                                        },
+                                                                                        len_expr: Some(
+                                                                                            RefCell {
+                                                                                                value: Expr {
+                                                                                                    span: Span {
+                                                                                                        str: "u\"猫我\"",
+                                                                                                        start: 79,
+                                                                                                        end: 88,
+                                                                                                    },
+                                                                                                    kind: Integer {
+                                                                                                        base: 10,
+                                                                                                        text: "3",
+                                                                                                        type_suffix: [],
+                                                                                                    },
+                                                                                                    type: RefCell {
+                                                                                                        value: Type {
+                                                                                                            span: Span {
+                                                                                                                str: "u\"猫我\"",
+                                                                                                                start: 79,
+                                                                                                                end: 88,
+                                                                                                            },
+                                                                                                            attributes: [],
+                                                                                                            kind: ULongLong,
+                                                                                                        },
+                                                                                                    },
+                                                                                                    value: Int(
+                                                                                                        3,
+                                                                                                    ),
+                                                                                                    is_lvalue: false,
+                                                                                                    symbol: None,
+                                                                                                },
+                                                                                            },
+                                                                                        ),
+                                                                                    },
+                                                                                },
+                                                                            },
+                                                                            value: Array(
+                                                                                [
+                                                                                    Int(
+                                                                                        29483,
+                                                                                    ),
+                                                                                    Int(
+                                                                                        25105,
+                                                                                    ),
+                                                                                    Int(
+                                                                                        0,
+                                                                                    ),
+                                                                                ],
+                                                                            ),
+                                                                            is_lvalue: true,
+                                                                            symbol: None,
+                                                                        },
+                                                                    },
+                                                                },
+                                                                type: RefCell {
+                                                                    value: Type {
+                                                                        span: Span {
+                                                                            str: "u\"猫我\"",
+                                                                            start: 79,
+                                                                            end: 88,
+                                                                        },
+                                                                        attributes: [
+                                                                            RefCell {
+                                                                                value: Attribute {
+                                                                                    span: Span {
+                                                                                        str: "u\"猫我\"",
+                                                                                        start: 79,
+                                                                                        end: 88,
+                                                                                    },
+                                                                                    prefix_name: None,
+                                                                                    name: "ptr_from_array",
+                                                                                    kind: PtrFromArray {
+                                                                                        array_type: RefCell {
+                                                                                            value: Type {
+                                                                                                span: Span {
+                                                                                                    str: "u\"猫我\"",
+                                                                                                    start: 79,
+                                                                                                    end: 88,
+                                                                                                },
+                                                                                                attributes: [],
+                                                                                                kind: Array {
+                                                                                                    has_static: false,
+                                                                                                    has_star: false,
+                                                                                                    element_type: RefCell {
+                                                                                                        value: Type {
+                                                                                                            span: Span {
+                                                                                                                str: "u\"猫我\"",
+                                                                                                                start: 79,
+                                                                                                                end: 88,
+                                                                                                            },
+                                                                                                            attributes: [],
+                                                                                                            kind: Qualified {
+                                                                                                                qualifiers: [
+                                                                                                                    Const,
+                                                                                                                ],
+                                                                                                                type: RefCell {
+                                                                                                                    value: Type {
+                                                                                                                        span: Span {
+                                                                                                                            str: "u\"猫我\"",
+                                                                                                                            start: 79,
+                                                                                                                            end: 88,
+                                                                                                                        },
+                                                                                                                        attributes: [],
+                                                                                                                        kind: UShort,
+                                                                                                                    },
+                                                                                                                },
+                                                                                                            },
+                                                                                                        },
+                                                                                                    },
+                                                                                                    len_expr: Some(
+                                                                                                        RefCell {
+                                                                                                            value: Expr {
+                                                                                                                span: Span {
+                                                                                                                    str: "u\"猫我\"",
+                                                                                                                    start: 79,
+                                                                                                                    end: 88,
+                                                                                                                },
+                                                                                                                kind: Integer {
+                                                                                                                    base: 10,
+                                                                                                                    text: "3",
+                                                                                                                    type_suffix: [],
+                                                                                                                },
+                                                                                                                type: RefCell {
+                                                                                                                    value: Type {
+                                                                                                                        span: Span {
+                                                                                                                            str: "u\"猫我\"",
+                                                                                                                            start: 79,
+                                                                                                                            end: 88,
+                                                                                                                        },
+                                                                                                                        attributes: [],
+                                                                                                                        kind: ULongLong,
+                                                                                                                    },
+                                                                                                                },
+                                                                                                                value: Int(
+                                                                                                                    3,
+                                                                                                                ),
+                                                                                                                is_lvalue: false,
+                                                                                                                symbol: None,
+                                                                                                            },
+                                                                                                        },
+                                                                                                    ),
+                                                                                                },
+                                                                                            },
+                                                                                        },
+                                                                                    },
+                                                                                },
+                                                                            },
+                                                                        ],
+                                                                        kind: Pointer(
+                                                                            RefCell {
+                                                                                value: Type {
+                                                                                    span: Span {
+                                                                                        str: "u\"猫我\"",
+                                                                                        start: 79,
+                                                                                        end: 88,
+                                                                                    },
+                                                                                    attributes: [],
+                                                                                    kind: Qualified {
+                                                                                        qualifiers: [
+                                                                                            Const,
+                                                                                        ],
+                                                                                        type: RefCell {
+                                                                                            value: Type {
+                                                                                                span: Span {
+                                                                                                    str: "u\"猫我\"",
+                                                                                                    start: 79,
+                                                                                                    end: 88,
+                                                                                                },
+                                                                                                attributes: [],
+                                                                                                kind: UShort,
+                                                                                            },
+                                                                                        },
+                                                                                    },
+                                                                                },
+                                                                            },
+                                                                        ),
+                                                                    },
+                                                                },
+                                                                value: Array(
+                                                                    [
+                                                                        Int(
+                                                                            29483,
+                                                                        ),
+                                                                        Int(
+                                                                            25105,
+                                                                        ),
+                                                                        Int(
+                                                                            0,
+                                                                        ),
+                                                                    ],
+                                                                ),
+                                                                is_lvalue: false,
+                                                                symbol: None,
+                                                            },
+                                                        },
+                                                    ),
+                                                },
+                                            },
+                                            RefCell {
+                                                value: Stmt {
+                                                    span: Span {
+                                                        str: "U\"猫我\"",
+                                                        start: 94,
+                                                        end: 103,
+                                                    },
+                                                    attributes: [],
+                                                    kind: Expr(
+                                                        RefCell {
+                                                            value: Expr {
+                                                                span: Span {
+                                                                    str: "U\"猫我\"",
+                                                                    start: 94,
+                                                                    end: 103,
+                                                                },
+                                                                kind: Cast {
+                                                                    is_implicit: true,
+                                                                    target: RefCell {
+                                                                        value: Expr {
+                                                                            span: Span {
+                                                                                str: "U\"猫我\"",
+                                                                                start: 94,
+                                                                                end: 103,
+                                                                            },
+                                                                            kind: String {
+                                                                                prefix: UTF32,
+                                                                                text: "猫我",
+                                                                            },
+                                                                            type: RefCell {
+                                                                                value: Type {
+                                                                                    span: Span {
+                                                                                        str: "U\"猫我\"",
+                                                                                        start: 94,
+                                                                                        end: 103,
+                                                                                    },
+                                                                                    attributes: [],
+                                                                                    kind: Array {
+                                                                                        has_static: false,
+                                                                                        has_star: false,
+                                                                                        element_type: RefCell {
+                                                                                            value: Type {
+                                                                                                span: Span {
+                                                                                                    str: "U\"猫我\"",
+                                                                                                    start: 94,
+                                                                                                    end: 103,
+                                                                                                },
+                                                                                                attributes: [],
+                                                                                                kind: Qualified {
+                                                                                                    qualifiers: [
+                                                                                                        Const,
+                                                                                                    ],
+                                                                                                    type: RefCell {
+                                                                                                        value: Type {
+                                                                                                            span: Span {
+                                                                                                                str: "U\"猫我\"",
+                                                                                                                start: 94,
+                                                                                                                end: 103,
+                                                                                                            },
+                                                                                                            attributes: [],
+                                                                                                            kind: UInt,
+                                                                                                        },
+                                                                                                    },
+                                                                                                },
+                                                                                            },
+                                                                                        },
+                                                                                        len_expr: Some(
+                                                                                            RefCell {
+                                                                                                value: Expr {
+                                                                                                    span: Span {
+                                                                                                        str: "U\"猫我\"",
+                                                                                                        start: 94,
+                                                                                                        end: 103,
+                                                                                                    },
+                                                                                                    kind: Integer {
+                                                                                                        base: 10,
+                                                                                                        text: "3",
+                                                                                                        type_suffix: [],
+                                                                                                    },
+                                                                                                    type: RefCell {
+                                                                                                        value: Type {
+                                                                                                            span: Span {
+                                                                                                                str: "U\"猫我\"",
+                                                                                                                start: 94,
+                                                                                                                end: 103,
+                                                                                                            },
+                                                                                                            attributes: [],
+                                                                                                            kind: ULongLong,
+                                                                                                        },
+                                                                                                    },
+                                                                                                    value: Int(
+                                                                                                        3,
+                                                                                                    ),
+                                                                                                    is_lvalue: false,
+                                                                                                    symbol: None,
+                                                                                                },
+                                                                                            },
+                                                                                        ),
+                                                                                    },
+                                                                                },
+                                                                            },
+                                                                            value: Array(
+                                                                                [
+                                                                                    Int(
+                                                                                        29483,
+                                                                                    ),
+                                                                                    Int(
+                                                                                        25105,
+                                                                                    ),
+                                                                                    Int(
+                                                                                        0,
+                                                                                    ),
+                                                                                ],
+                                                                            ),
+                                                                            is_lvalue: true,
+                                                                            symbol: None,
+                                                                        },
+                                                                    },
+                                                                },
+                                                                type: RefCell {
+                                                                    value: Type {
+                                                                        span: Span {
+                                                                            str: "U\"猫我\"",
+                                                                            start: 94,
+                                                                            end: 103,
+                                                                        },
+                                                                        attributes: [
+                                                                            RefCell {
+                                                                                value: Attribute {
+                                                                                    span: Span {
+                                                                                        str: "U\"猫我\"",
+                                                                                        start: 94,
+                                                                                        end: 103,
+                                                                                    },
+                                                                                    prefix_name: None,
+                                                                                    name: "ptr_from_array",
+                                                                                    kind: PtrFromArray {
+                                                                                        array_type: RefCell {
+                                                                                            value: Type {
+                                                                                                span: Span {
+                                                                                                    str: "U\"猫我\"",
+                                                                                                    start: 94,
+                                                                                                    end: 103,
+                                                                                                },
+                                                                                                attributes: [],
+                                                                                                kind: Array {
+                                                                                                    has_static: false,
+                                                                                                    has_star: false,
+                                                                                                    element_type: RefCell {
+                                                                                                        value: Type {
+                                                                                                            span: Span {
+                                                                                                                str: "U\"猫我\"",
+                                                                                                                start: 94,
+                                                                                                                end: 103,
+                                                                                                            },
+                                                                                                            attributes: [],
+                                                                                                            kind: Qualified {
+                                                                                                                qualifiers: [
+                                                                                                                    Const,
+                                                                                                                ],
+                                                                                                                type: RefCell {
+                                                                                                                    value: Type {
+                                                                                                                        span: Span {
+                                                                                                                            str: "U\"猫我\"",
+                                                                                                                            start: 94,
+                                                                                                                            end: 103,
+                                                                                                                        },
+                                                                                                                        attributes: [],
+                                                                                                                        kind: UInt,
+                                                                                                                    },
+                                                                                                                },
+                                                                                                            },
+                                                                                                        },
+                                                                                                    },
+                                                                                                    len_expr: Some(
+                                                                                                        RefCell {
+                                                                                                            value: Expr {
+                                                                                                                span: Span {
+                                                                                                                    str: "U\"猫我\"",
+                                                                                                                    start: 94,
+                                                                                                                    end: 103,
+                                                                                                                },
+                                                                                                                kind: Integer {
+                                                                                                                    base: 10,
+                                                                                                                    text: "3",
+                                                                                                                    type_suffix: [],
+                                                                                                                },
+                                                                                                                type: RefCell {
+                                                                                                                    value: Type {
+                                                                                                                        span: Span {
+                                                                                                                            str: "U\"猫我\"",
+                                                                                                                            start: 94,
+                                                                                                                            end: 103,
+                                                                                                                        },
+                                                                                                                        attributes: [],
+                                                                                                                        kind: ULongLong,
+                                                                                                                    },
+                                                                                                                },
+                                                                                                                value: Int(
+                                                                                                                    3,
+                                                                                                                ),
+                                                                                                                is_lvalue: false,
+                                                                                                                symbol: None,
+                                                                                                            },
+                                                                                                        },
+                                                                                                    ),
+                                                                                                },
+                                                                                            },
+                                                                                        },
+                                                                                    },
+                                                                                },
+                                                                            },
+                                                                        ],
+                                                                        kind: Pointer(
+                                                                            RefCell {
+                                                                                value: Type {
+                                                                                    span: Span {
+                                                                                        str: "U\"猫我\"",
+                                                                                        start: 94,
+                                                                                        end: 103,
+                                                                                    },
+                                                                                    attributes: [],
+                                                                                    kind: Qualified {
+                                                                                        qualifiers: [
+                                                                                            Const,
+                                                                                        ],
+                                                                                        type: RefCell {
+                                                                                            value: Type {
+                                                                                                span: Span {
+                                                                                                    str: "U\"猫我\"",
+                                                                                                    start: 94,
+                                                                                                    end: 103,
+                                                                                                },
+                                                                                                attributes: [],
+                                                                                                kind: UInt,
+                                                                                            },
+                                                                                        },
+                                                                                    },
+                                                                                },
+                                                                            },
+                                                                        ),
+                                                                    },
+                                                                },
+                                                                value: Array(
+                                                                    [
+                                                                        Int(
+                                                                            29483,
+                                                                        ),
+                                                                        Int(
+                                                                            25105,
+                                                                        ),
+                                                                        Int(
+                                                                            0,
+                                                                        ),
+                                                                    ],
+                                                                ),
+                                                                is_lvalue: false,
+                                                                symbol: None,
+                                                            },
+                                                        },
+                                                    ),
+                                                },
+                                            },
+                                            RefCell {
+                                                value: Stmt {
+                                                    span: Span {
+                                                        str: "L\"猫我\"",
+                                                        start: 109,
+                                                        end: 118,
+                                                    },
+                                                    attributes: [],
+                                                    kind: Expr(
+                                                        RefCell {
+                                                            value: Expr {
+                                                                span: Span {
+                                                                    str: "L\"猫我\"",
+                                                                    start: 109,
+                                                                    end: 118,
+                                                                },
+                                                                kind: Cast {
+                                                                    is_implicit: true,
+                                                                    target: RefCell {
+                                                                        value: Expr {
+                                                                            span: Span {
+                                                                                str: "L\"猫我\"",
+                                                                                start: 109,
+                                                                                end: 118,
+                                                                            },
+                                                                            kind: String {
+                                                                                prefix: Wide,
+                                                                                text: "猫我",
+                                                                            },
+                                                                            type: RefCell {
+                                                                                value: Type {
+                                                                                    span: Span {
+                                                                                        str: "L\"猫我\"",
+                                                                                        start: 109,
+                                                                                        end: 118,
+                                                                                    },
+                                                                                    attributes: [],
+                                                                                    kind: Array {
+                                                                                        has_static: false,
+                                                                                        has_star: false,
+                                                                                        element_type: RefCell {
+                                                                                            value: Type {
+                                                                                                span: Span {
+                                                                                                    str: "L\"猫我\"",
+                                                                                                    start: 109,
+                                                                                                    end: 118,
+                                                                                                },
+                                                                                                attributes: [],
+                                                                                                kind: Qualified {
+                                                                                                    qualifiers: [
+                                                                                                        Const,
+                                                                                                    ],
+                                                                                                    type: RefCell {
+                                                                                                        value: Type {
+                                                                                                            span: Span {
+                                                                                                                str: "L\"猫我\"",
+                                                                                                                start: 109,
+                                                                                                                end: 118,
+                                                                                                            },
+                                                                                                            attributes: [],
+                                                                                                            kind: Int,
+                                                                                                        },
+                                                                                                    },
+                                                                                                },
+                                                                                            },
+                                                                                        },
+                                                                                        len_expr: Some(
+                                                                                            RefCell {
+                                                                                                value: Expr {
+                                                                                                    span: Span {
+                                                                                                        str: "L\"猫我\"",
+                                                                                                        start: 109,
+                                                                                                        end: 118,
+                                                                                                    },
+                                                                                                    kind: Integer {
+                                                                                                        base: 10,
+                                                                                                        text: "3",
+                                                                                                        type_suffix: [],
+                                                                                                    },
+                                                                                                    type: RefCell {
+                                                                                                        value: Type {
+                                                                                                            span: Span {
+                                                                                                                str: "L\"猫我\"",
+                                                                                                                start: 109,
+                                                                                                                end: 118,
+                                                                                                            },
+                                                                                                            attributes: [],
+                                                                                                            kind: ULongLong,
+                                                                                                        },
+                                                                                                    },
+                                                                                                    value: Int(
+                                                                                                        3,
+                                                                                                    ),
+                                                                                                    is_lvalue: false,
+                                                                                                    symbol: None,
+                                                                                                },
+                                                                                            },
+                                                                                        ),
+                                                                                    },
+                                                                                },
+                                                                            },
+                                                                            value: Array(
+                                                                                [
+                                                                                    Int(
+                                                                                        29483,
+                                                                                    ),
+                                                                                    Int(
+                                                                                        25105,
+                                                                                    ),
+                                                                                    Int(
+                                                                                        0,
+                                                                                    ),
+                                                                                ],
+                                                                            ),
+                                                                            is_lvalue: true,
+                                                                            symbol: None,
+                                                                        },
+                                                                    },
+                                                                },
+                                                                type: RefCell {
+                                                                    value: Type {
+                                                                        span: Span {
+                                                                            str: "L\"猫我\"",
+                                                                            start: 109,
+                                                                            end: 118,
+                                                                        },
+                                                                        attributes: [
+                                                                            RefCell {
+                                                                                value: Attribute {
+                                                                                    span: Span {
+                                                                                        str: "L\"猫我\"",
+                                                                                        start: 109,
+                                                                                        end: 118,
+                                                                                    },
+                                                                                    prefix_name: None,
+                                                                                    name: "ptr_from_array",
+                                                                                    kind: PtrFromArray {
+                                                                                        array_type: RefCell {
+                                                                                            value: Type {
+                                                                                                span: Span {
+                                                                                                    str: "L\"猫我\"",
+                                                                                                    start: 109,
+                                                                                                    end: 118,
+                                                                                                },
+                                                                                                attributes: [],
+                                                                                                kind: Array {
+                                                                                                    has_static: false,
+                                                                                                    has_star: false,
+                                                                                                    element_type: RefCell {
+                                                                                                        value: Type {
+                                                                                                            span: Span {
+                                                                                                                str: "L\"猫我\"",
+                                                                                                                start: 109,
+                                                                                                                end: 118,
+                                                                                                            },
+                                                                                                            attributes: [],
+                                                                                                            kind: Qualified {
+                                                                                                                qualifiers: [
+                                                                                                                    Const,
+                                                                                                                ],
+                                                                                                                type: RefCell {
+                                                                                                                    value: Type {
+                                                                                                                        span: Span {
+                                                                                                                            str: "L\"猫我\"",
+                                                                                                                            start: 109,
+                                                                                                                            end: 118,
+                                                                                                                        },
+                                                                                                                        attributes: [],
+                                                                                                                        kind: Int,
+                                                                                                                    },
+                                                                                                                },
+                                                                                                            },
+                                                                                                        },
+                                                                                                    },
+                                                                                                    len_expr: Some(
+                                                                                                        RefCell {
+                                                                                                            value: Expr {
+                                                                                                                span: Span {
+                                                                                                                    str: "L\"猫我\"",
+                                                                                                                    start: 109,
+                                                                                                                    end: 118,
+                                                                                                                },
+                                                                                                                kind: Integer {
+                                                                                                                    base: 10,
+                                                                                                                    text: "3",
+                                                                                                                    type_suffix: [],
+                                                                                                                },
+                                                                                                                type: RefCell {
+                                                                                                                    value: Type {
+                                                                                                                        span: Span {
+                                                                                                                            str: "L\"猫我\"",
+                                                                                                                            start: 109,
+                                                                                                                            end: 118,
+                                                                                                                        },
+                                                                                                                        attributes: [],
+                                                                                                                        kind: ULongLong,
+                                                                                                                    },
+                                                                                                                },
+                                                                                                                value: Int(
+                                                                                                                    3,
+                                                                                                                ),
+                                                                                                                is_lvalue: false,
+                                                                                                                symbol: None,
+                                                                                                            },
+                                                                                                        },
+                                                                                                    ),
+                                                                                                },
+                                                                                            },
+                                                                                        },
+                                                                                    },
+                                                                                },
+                                                                            },
+                                                                        ],
+                                                                        kind: Pointer(
+                                                                            RefCell {
+                                                                                value: Type {
+                                                                                    span: Span {
+                                                                                        str: "L\"猫我\"",
+                                                                                        start: 109,
+                                                                                        end: 118,
+                                                                                    },
+                                                                                    attributes: [],
+                                                                                    kind: Qualified {
+                                                                                        qualifiers: [
+                                                                                            Const,
+                                                                                        ],
+                                                                                        type: RefCell {
+                                                                                            value: Type {
+                                                                                                span: Span {
+                                                                                                    str: "L\"猫我\"",
+                                                                                                    start: 109,
+                                                                                                    end: 118,
+                                                                                                },
+                                                                                                attributes: [],
+                                                                                                kind: Int,
+                                                                                            },
+                                                                                        },
+                                                                                    },
+                                                                                },
+                                                                            },
+                                                                        ),
+                                                                    },
+                                                                },
+                                                                value: Array(
+                                                                    [
+                                                                        Int(
+                                                                            29483,
+                                                                        ),
+                                                                        Int(
+                                                                            25105,
+                                                                        ),
+                                                                        Int(
+                                                                            0,
+                                                                        ),
+                                                                    ],
+                                                                ),
+                                                                is_lvalue: false,
+                                                                symbol: None,
+                                                            },
+                                                        },
+                                                    ),
+                                                },
+                                            },
+                                        ],
+                                    ),
+                                },
+                            },
+                        ),
+                    },
+                },
+            },
+        ],
+    },
+}

@@ -226,9 +226,16 @@ impl<'a> CParser<'a> {
         for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::type_qualifier => qualifiers.push(self.parse_type_qualifier(rule)?),
-                Rule::storage_class_specifier => {
-                    storage_classes.push(self.parse_storage_class_specifier(rule)?)
-                }
+                Rule::storage_class_specifier => match self.parse_storage_class_specifier(rule)? {
+                    StorageClass { kind, span } if matches!(kind, StorageClassKind::Auto) => {
+                        types.push(Type {
+                            span,
+                            attributes: vec![],
+                            kind: TypeKind::Auto(None),
+                        });
+                    }
+                    t => storage_classes.push(t),
+                },
                 Rule::function_specifier => function_specs.push(FunctionSpec {
                     span: rule.as_span(),
                     kind: match rule.as_str() {
@@ -274,7 +281,7 @@ impl<'a> CParser<'a> {
         types.sort_by_key(|x| match x.kind {
             TypeKind::Char
             | TypeKind::Int
-            | TypeKind::Complex
+            | TypeKind::Complex(..)
             | TypeKind::BitInt {
                 unsigned: _,
                 width_expr: _,
@@ -302,15 +309,15 @@ impl<'a> CParser<'a> {
             let mut acc = acc.unwrap();
             match x.kind {
                 TypeKind::Float => match acc.kind {
-                    TypeKind::Complex => {
-                        acc.kind = TypeKind::FloatComplex;
+                    TypeKind::Complex(None) => {
+                        acc.kind = TypeKind::Complex(Some(Rc::new(RefCell::new(x.clone()))));
                         return Ok(acc);
                     }
                     _ => {}
                 },
                 TypeKind::Double => match acc.kind {
-                    TypeKind::Complex => {
-                        acc.kind = TypeKind::DoubleComplex;
+                    TypeKind::Complex(None) => {
+                        acc.kind = TypeKind::Complex(Some(Rc::new(RefCell::new(x.clone()))));
                         return Ok(acc);
                     }
                     _ => {}
@@ -322,7 +329,7 @@ impl<'a> CParser<'a> {
                     }
                     _ => {}
                 },
-                TypeKind::Long => match acc.kind {
+                TypeKind::Long => match acc.kind.clone() {
                     TypeKind::Int => {
                         acc.kind = TypeKind::Long;
                         return Ok(acc);
@@ -335,9 +342,15 @@ impl<'a> CParser<'a> {
                         acc.kind = TypeKind::LongDouble;
                         return Ok(acc);
                     }
-                    TypeKind::DoubleComplex => {
-                        acc.kind = TypeKind::LongDoubleComplex;
-                        return Ok(acc);
+                    TypeKind::Complex(Some(t)) => {
+                        if let TypeKind::Double = t.borrow().kind {
+                            acc.kind = TypeKind::Complex(Some(Rc::new(RefCell::new(Type {
+                                span: x.span,
+                                attributes: x.attributes.clone(),
+                                kind: TypeKind::LongDouble,
+                            }))));
+                            return Ok(acc);
+                        }
                     }
                     _ => {}
                 },
@@ -372,7 +385,10 @@ impl<'a> CParser<'a> {
                         };
                         return Ok(acc);
                     }
-                    _ => {}
+                    _ => {
+                        acc.kind = TypeKind::Int;
+                        return Ok(acc);
+                    }
                 },
                 TypeKind::Unsigned => match acc.kind {
                     TypeKind::Char => {
@@ -405,7 +421,10 @@ impl<'a> CParser<'a> {
                         };
                         return Ok(acc);
                     }
-                    _ => {}
+                    _ => {
+                        acc.kind = TypeKind::UInt;
+                        return Ok(acc);
+                    }
                 },
                 _ => {}
             }
@@ -477,7 +496,7 @@ impl<'a> CParser<'a> {
                 kind.unwrap()
             }
             "bool" => TypeKind::Bool,
-            "_Complex" => TypeKind::Complex,
+            "_Complex" => TypeKind::Complex(None),
             "_Decimal32" => TypeKind::Decimal32,
             "_Decimal64" => TypeKind::Decimal64,
             "_Decimal128" => TypeKind::Decimal128,
@@ -593,7 +612,7 @@ impl<'a> CParser<'a> {
             RecordKind::Union
         };
         let span = rule.as_span();
-        let mut name = format!("<unnamed struct {span:?}>");
+        let mut name = format!("<unnamed struct {:?}>", span.start_pos().line_col());
         let mut members_decl = Vec::new();
         let mut attributes = Vec::new();
         for rule in rule.into_inner() {
@@ -614,25 +633,26 @@ impl<'a> CParser<'a> {
             kind: TypeKind::Record {
                 name: name.clone(),
                 kind: record_kind,
-                //TODO record成员
+                members: None,
             },
         };
         Ok((
             record_type.clone(),
-            if members_decl.len() == 0 {
-                //并不是定义
-                None
-            } else {
-                Some(Rc::new(RefCell::new(Declaration {
-                    span,
-                    attributes: attributes.clone(),
-                    name: name,
-                    //将会在语义分析的时候重新确定type
-                    r#type: Rc::new(RefCell::new(record_type)),
-                    storage_classes: Vec::new(),
-                    kind: DeclarationKind::Record { members_decl },
-                })))
-            },
+            Some(Rc::new(RefCell::new(Declaration {
+                span,
+                attributes: attributes.clone(),
+                name: name,
+                //将会在语义分析的时候重新确定type
+                r#type: Rc::new(RefCell::new(record_type)),
+                storage_classes: Vec::new(),
+                kind: DeclarationKind::Record {
+                    members_decl: if members_decl.len() > 0 {
+                        Some(members_decl)
+                    } else {
+                        None
+                    },
+                },
+            }))),
         ))
     }
 
@@ -641,7 +661,7 @@ impl<'a> CParser<'a> {
         rule: Pair<'a, Rule>,
     ) -> Result<(Type<'a>, Option<Rc<RefCell<Declaration<'a>>>>), Error<Rule>> {
         let span = rule.as_span();
-        let mut name = format!("<unnamed enum {span:?}>");
+        let mut name = format!("<unnamed enum {:?}>", span.start_pos().line_col());
         let mut attributes = Vec::new();
         let mut underlying_type = None;
         let mut enumerators = Vec::new();
@@ -658,7 +678,7 @@ impl<'a> CParser<'a> {
                 _ => unreachable!(),
             }
         }
-        let record_type = Type {
+        let enum_type = Type {
             span,
             attributes: attributes.clone(),
             kind: TypeKind::Enum {
@@ -666,27 +686,28 @@ impl<'a> CParser<'a> {
                 underlying: Rc::new(RefCell::new(underlying_type.unwrap_or(Type {
                     span,
                     attributes: Vec::new(),
-                    kind: TypeKind::Int, //TODO 确定underlying type
+                    kind: TypeKind::Error, //underlying type将在类型检查时确定
                 }))),
-                //TODO enumerators
+                enum_consts: None,
             },
         };
         Ok((
-            record_type.clone(),
-            if enumerators.len() == 0 {
-                //这不是定义
-                None
-            } else {
-                Some(Rc::new(RefCell::new(Declaration {
-                    span,
-                    attributes: attributes.clone(),
-                    name,
-                    //将会在语义分析的时候重新确定type
-                    r#type: Rc::new(RefCell::new(record_type)),
-                    storage_classes: Vec::new(),
-                    kind: DeclarationKind::Enum { enumerators },
-                })))
-            },
+            enum_type.clone(),
+            Some(Rc::new(RefCell::new(Declaration {
+                span,
+                attributes: attributes.clone(),
+                name,
+                //将会在语义分析的时候重新确定type
+                r#type: Rc::new(RefCell::new(enum_type)),
+                storage_classes: Vec::new(),
+                kind: DeclarationKind::Enum {
+                    enumerators: if enumerators.len() > 0 {
+                        Some(enumerators)
+                    } else {
+                        None
+                    },
+                },
+            }))),
         ))
     }
 
@@ -848,11 +869,7 @@ impl<'a> CParser<'a> {
             return self.parse_declarator(final_type, rule);
         }
         let kind = match &final_type.kind {
-            TypeKind::Function {
-                return_type: _,
-                parameters_type: _,
-                has_varparam: _,
-            } => DeclarationKind::Function {
+            TypeKind::Function { .. } => DeclarationKind::Function {
                 parameter_decls,
                 function_specs: Vec::new(),
                 body: None,
@@ -984,11 +1001,10 @@ impl<'a> CParser<'a> {
             span,
             attributes,
             name,
-            //TODO 设为真正的类型
             r#type: Rc::new(RefCell::new(Type {
                 span,
                 attributes: Vec::new(),
-                kind: TypeKind::Int,
+                kind: TypeKind::Void, //真正的类型在类型检查时确定
             })),
             storage_classes: Vec::new(),
             kind: DeclarationKind::Enumerator { value: expr },
@@ -1065,7 +1081,10 @@ impl<'a> CParser<'a> {
                 _ => unreachable!(),
             }
         }
-        Ok(r#type.unwrap())
+        Ok(match r#type {
+            Some(t) => t,
+            None => Rc::new(RefCell::new(spec_type.unwrap())),
+        })
     }
 
     pub fn parse_static_assert_declaration(
@@ -1079,12 +1098,10 @@ impl<'a> CParser<'a> {
             match rule.as_rule() {
                 Rule::constant_expression => expr = Some(self.parse_constant_expression(rule)?),
                 Rule::string_literal => {
-                    message = if let ExprKind::String {
-                        prefix: _,
-                        raw_value,
-                    } = &self.parse_string_literal(rule)?.borrow().kind
+                    message = if let ExprKind::String { prefix: _, text } =
+                        &self.parse_string_literal(rule)?.borrow().kind
                     {
-                        raw_value.clone()
+                        text.clone()
                     } else {
                         unreachable!()
                     }

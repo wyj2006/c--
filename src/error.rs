@@ -1,29 +1,24 @@
-use crate::ctype::Type;
-use crate::parser;
-use pest::error::ErrorVariant;
-use pest::error::{self};
-use pest::{RuleType, Span};
-use std::cell::RefCell;
+use pest::{
+    Span,
+    error::{self, ErrorVariant},
+};
 use std::fmt::Display;
-use std::rc::Rc;
+
+use crate::parser;
 
 #[derive(Debug)]
 pub struct Error<'a> {
     pub span: Span<'a>,
-    pub kind: ErrorKind<'a>,
+    pub kind: ErrorKind,
 }
 
 #[derive(Debug)]
-pub enum ErrorKind<'a> {
-    //TODO 改善
+pub enum ErrorKind {
     Redefine(String),
     Undefine(String),
     UnexpectStorageClass,
     TooManyStorageClass,
     TooLargeChar,
-    TooLargeInt,
-    NoFitAssociation(Rc<RefCell<Type<'a>>>),
-    Other(String),
 }
 
 impl Display for Error<'_> {
@@ -36,23 +31,10 @@ impl Display for Error<'_> {
                     ErrorKind::UnexpectStorageClass => format!("Unexpect storage class"),
                     ErrorKind::TooManyStorageClass => format!("Too many storage class"),
                     ErrorKind::TooLargeChar => format!("Character too large"),
-                    ErrorKind::TooLargeInt => format!("Integer literal too large"),
-                    ErrorKind::NoFitAssociation(r#type) => {
-                        format!("No fit associations for {}", r#type.borrow().to_string())
-                    }
-                    ErrorKind::Other(str) => format!("{str}"),
                 },
             },
             self.span,
         )
         .fmt(f)
     }
-}
-
-pub fn warning<T: RuleType>(message: String, span: Span, path: &str) {
-    println!(
-        "warning:\n{}",
-        error::Error::<T>::new_from_span(ErrorVariant::CustomError { message }, span)
-            .with_path(path)
-    );
 }

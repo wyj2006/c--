@@ -1,37 +1,45 @@
 use super::Initializer;
 use crate::ast::decl::StorageClass;
-use crate::ctype::Type;
+use crate::ctype::{Type, TypeKind};
+use crate::symtab::Symbol;
+use crate::variant::Variant;
 use pest::Span;
 use std::cell::RefCell;
 use std::fmt::Display;
 use std::rc::Rc;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Expr<'a> {
     pub span: Span<'a>,
     pub kind: ExprKind<'a>,
+    pub r#type: Rc<RefCell<Type<'a>>>,
+    pub value: Variant,
+    pub is_lvalue: bool,
+    pub symbol: Option<Rc<RefCell<Symbol<'a>>>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ExprKind<'a> {
     Name(String),
     Integer {
-        base: usize,
-        raw_value: String,
-        type_suffix: Vec<String>,
+        base: u32,
+        text: String,
+        type_suffix: Vec<String>, //后缀, 全为小写
     },
     Float {
-        base: usize,
-        raw_value: String,
-        type_suffix: Vec<String>,
+        base: u32,
+        digits: String,           //有效数字
+        exp_base: u32,            //指数的底数
+        exponent: String,         //指数
+        type_suffix: Vec<String>, //后缀, 全为小写
     },
     String {
         prefix: EncodePrefix,
-        raw_value: String,
+        text: String,
     },
     Char {
         prefix: EncodePrefix,
-        raw_value: String,
+        text: String,
     },
     True,
     False,
@@ -42,7 +50,6 @@ pub enum ExprKind<'a> {
     },
     CompoundLiteral {
         storage_classes: Vec<StorageClass<'a>>,
-        r#type: Rc<RefCell<Type<'a>>>,
         initializer: Rc<RefCell<Initializer<'a>>>,
     },
     BinOp {
@@ -55,7 +62,7 @@ pub enum ExprKind<'a> {
         operand: Rc<RefCell<Expr<'a>>>,
     },
     Cast {
-        r#type: Rc<RefCell<Type<'a>>>,
+        is_implicit: bool,
         target: Rc<RefCell<Expr<'a>>>,
     },
     Subscript {
@@ -64,7 +71,7 @@ pub enum ExprKind<'a> {
     },
     MemberAccess {
         target: Rc<RefCell<Expr<'a>>>,
-        through_pointer: bool,
+        is_arrow: bool,
         name: String,
     },
     FunctionCall {
@@ -83,11 +90,12 @@ pub enum ExprKind<'a> {
 #[derive(Debug)]
 pub struct GenericAssoc<'a> {
     pub span: Span<'a>,
+    pub is_selected: bool,
     pub r#type: Option<Rc<RefCell<Type<'a>>>>, //为None的就是default
     pub expr: Rc<RefCell<Expr<'a>>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum EncodePrefix {
     Default,
     UTF8,
@@ -96,7 +104,7 @@ pub enum EncodePrefix {
     Wide,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BinOpKind {
     Add,
     Sub,
@@ -130,7 +138,7 @@ pub enum BinOpKind {
     BitXOrAssign,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum UnaryOpKind {
     Positive,
     Negative,
@@ -157,7 +165,22 @@ macro_rules! unparse_with_priority {
     }};
 }
 
-impl Expr<'_> {
+impl<'a> Expr<'a> {
+    pub fn new(span: Span<'a>) -> Self {
+        Expr {
+            span,
+            kind: ExprKind::Nullptr,
+            r#type: Rc::new(RefCell::new(Type {
+                span,
+                attributes: vec![],
+                kind: TypeKind::Error,
+            })),
+            value: Variant::default(),
+            is_lvalue: false,
+            symbol: None,
+        }
+    }
+
     pub fn priority(&self) -> usize {
         match &self.kind {
             ExprKind::Alignof(..) => 95,
@@ -213,19 +236,18 @@ impl Expr<'_> {
                 unparse_with_priority!(left, self),
                 unparse_with_priority!(right, self),
             ),
-            ExprKind::Cast { r#type, target } => format!(
+            ExprKind::Cast { target, .. } => format!(
                 "({}){}",
-                r#type.borrow().to_string(),
+                self.r#type.borrow().to_string(),
                 unparse_with_priority!(target, self),
             ),
-            ExprKind::Char { prefix, raw_value } => format!("{prefix}'{raw_value}'"),
+            ExprKind::Char { prefix, text } => format!("{prefix}'{text}'"),
             ExprKind::CompoundLiteral {
                 storage_classes,
-                r#type,
                 initializer,
             } => format!(
                 "({storage_classes:?} {}){}",
-                r#type.borrow().to_string(),
+                self.r#type.borrow().to_string(),
                 initializer.borrow().unparse()
             ),
             ExprKind::Conditional {
@@ -241,11 +263,14 @@ impl Expr<'_> {
             ExprKind::False => "false".to_string(),
             ExprKind::Float {
                 base,
-                raw_value,
+                digits,
+                exp_base,
+                exponent,
                 type_suffix,
             } => format!(
-                "{}{raw_value}{}",
+                "{}{digits}{}{exponent}{}",
                 if *base == 16 { "0x" } else { "" },
+                if *exp_base == 2 { "p" } else { "e" },
                 type_suffix.join("")
             ),
             ExprKind::FunctionCall { target, arguments } => {
@@ -278,10 +303,10 @@ impl Expr<'_> {
             }),
             ExprKind::Integer {
                 base,
-                raw_value,
+                text,
                 type_suffix,
             } => format!(
-                "{}{raw_value}{}",
+                "{}{text}{}",
                 {
                     match base {
                         2 => "0b",
@@ -294,7 +319,7 @@ impl Expr<'_> {
             ),
             ExprKind::MemberAccess {
                 target,
-                through_pointer,
+                is_arrow: through_pointer,
                 name,
             } => format!(
                 "{}{}{name}",
@@ -304,7 +329,7 @@ impl Expr<'_> {
             ExprKind::Name(name) => name.to_string(),
             ExprKind::Nullptr => "nullptr".to_string(),
             ExprKind::SizeOf(r#type) => format!("sizeof({})", r#type.borrow().to_string()),
-            ExprKind::String { prefix, raw_value } => format!("{prefix}\"{raw_value}\""),
+            ExprKind::String { prefix, text } => format!("{prefix}\"{text}\""),
             ExprKind::Subscript { target, index } => format!(
                 "{}[{}]",
                 unparse_with_priority!(target, self),

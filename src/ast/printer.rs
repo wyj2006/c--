@@ -1,3 +1,5 @@
+use crate::variant::Variant;
+
 use super::decl::{Declaration, DeclarationKind};
 use super::expr::{Expr, ExprKind, GenericAssoc};
 use super::stmt::{Stmt, StmtKind};
@@ -104,7 +106,7 @@ impl Print for Declaration<'_> {
                     function_specs,
                     body: _,
                 } => &format!(
-                    "FunctionDecl {:?}",
+                    "FunctionDecl {}",
                     function_specs
                         .iter()
                         .map(|x| format!(
@@ -177,9 +179,10 @@ impl Print for Declaration<'_> {
 impl Print for Initializer<'_> {
     fn display(&self) -> String {
         format!(
-            "Initializer <{:?},{:?}>",
+            "Initializer <{:?},{:?}> {}",
             self.span.start_pos().line_col(),
-            self.span.end_pos().line_col()
+            self.span.end_pos().line_col(),
+            self.r#type.borrow().to_string()
         )
     }
 
@@ -289,41 +292,49 @@ impl Print for Stmt<'_> {
 impl Print for Expr<'_> {
     fn display(&self) -> String {
         format!(
-            "{} <{:?},{:?}>",
+            "{} <{:?},{:?}> {} {} {}",
             match &self.kind {
                 ExprKind::Alignof(t) => &format!("Alignof {}", t.borrow()),
                 ExprKind::BinOp { op, .. } => &format!("BinOp {:?}", op),
-                ExprKind::Cast { r#type, .. } => &format!("Cast {}", r#type.borrow()),
-                ExprKind::Char { prefix, raw_value } => &format!("Char {prefix:?} {raw_value}"),
+                ExprKind::Cast {
+                    is_implicit: false, ..
+                } => &format!("Cast"),
+                ExprKind::Cast {
+                    is_implicit: true, ..
+                } => &format!("ImplicitCast"),
+                ExprKind::Char { prefix, text } => &format!("Char {prefix:?} {text:?}"),
                 ExprKind::CompoundLiteral {
-                    storage_classes,
-                    r#type,
-                    ..
-                } => &format!("CompoundLiteral {storage_classes:?} {}", r#type.borrow()),
+                    storage_classes, ..
+                } => &format!(
+                    "CompoundLiteral {storage_classes:?} {}",
+                    self.r#type.borrow()
+                ),
                 ExprKind::False => "False",
                 ExprKind::Float {
                     base,
-                    raw_value,
+                    digits,
+                    exp_base,
+                    exponent,
                     type_suffix,
-                } => &format!("Float {base} {raw_value} {type_suffix:?}"),
+                } => &format!("Float {base} {digits} {exp_base} {exponent} {type_suffix:?}"),
                 ExprKind::Integer {
                     base,
-                    raw_value,
+                    text,
                     type_suffix,
-                } => &format!("Integer {base} {raw_value} {type_suffix:?}"),
+                } => &format!("Integer {base} {text} {type_suffix:?}"),
                 ExprKind::MemberAccess {
                     target: _,
-                    through_pointer,
+                    is_arrow,
                     name,
                 } => &format!(
                     "MemberAccess {} {}",
-                    if *through_pointer { "->" } else { "." },
+                    if *is_arrow { "->" } else { "." },
                     name
                 ),
                 ExprKind::Name(name) => &format!("Name {name}"),
                 ExprKind::Nullptr => "Nullptr",
                 ExprKind::SizeOf(t) => &format!("SizeOf {}", t.borrow()),
-                ExprKind::String { prefix, raw_value } => &format!("String {prefix:?} {raw_value}"),
+                ExprKind::String { prefix, text } => &format!("String {prefix:?} {text:?}"),
                 ExprKind::True => "True",
                 ExprKind::GenericSelection { .. } => "GenericSelection",
                 ExprKind::UnaryOp { op, .. } => &format!("UnaryOp {:?}", op),
@@ -332,7 +343,14 @@ impl Print for Expr<'_> {
                 ExprKind::Subscript { .. } => "Subscript",
             },
             self.span.start_pos().line_col(),
-            self.span.end_pos().line_col()
+            self.span.end_pos().line_col(),
+            self.r#type.borrow().to_string(),
+            if let Variant::Unknown = self.value {
+                String::new()
+            } else {
+                self.value.to_string()
+            },
+            if self.is_lvalue { "lvalue" } else { "" }
         )
     }
 
@@ -388,14 +406,15 @@ impl Print for Expr<'_> {
 impl Print for GenericAssoc<'_> {
     fn display(&self) -> String {
         format!(
-            "GenericAssoc <{:?},{:?}> {}",
+            "GenericAssoc <{:?},{:?}> {} {}",
             self.span.start_pos().line_col(),
             self.span.end_pos().line_col(),
             if let Some(t) = &self.r#type {
                 format!("{}", t.borrow())
             } else {
                 "".to_string()
-            }
+            },
+            if self.is_selected { "selected" } else { "" }
         )
     }
 
@@ -409,13 +428,13 @@ impl Print for Attribute<'_> {
         format!(
             "{} <{:?},{:?}>",
             match &self.kind {
-                AttributeKind::Unkown { arguments } => &format!(
+                AttributeKind::Unkown { arguments } => format!(
                     "Attribute {}::{} ({:?})",
                     self.prefix_name.clone().unwrap_or("".to_string()),
                     self.name,
                     arguments
                 ),
-                AttributeKind::AlignAs { r#type, .. } => &format!(
+                AttributeKind::AlignAs { r#type, .. } => format!(
                     "AlignAs {}",
                     if let Some(t) = &r#type {
                         format!("{}", t.borrow())
@@ -423,6 +442,8 @@ impl Print for Attribute<'_> {
                         "".to_string()
                     }
                 ),
+                AttributeKind::PtrFromArray { array_type } =>
+                    format!("ArrayPtr {}", array_type.borrow().to_string()),
             },
             self.span.start_pos().line_col(),
             self.span.end_pos().line_col(),
