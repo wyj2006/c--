@@ -10,17 +10,20 @@ use crate::{
         InitializerKind, TranslationUnit, decl::DeclarationKind, expr::ExprKind, stmt::StmtKind,
     },
     ctype::Type,
-    diagnostic::Error,
+    diagnostic::Diagnostic,
     symtab::SymbolTable,
 };
 use std::{cell::RefCell, rc::Rc};
 
 pub struct TypeChecker<'a> {
+    pub file_path: &'a str,
     pub cur_symtab: Rc<RefCell<SymbolTable<'a>>>,
     //作用域所位于的函数作用域
-    pub func_symtab: Vec<Rc<RefCell<SymbolTable<'a>>>>,
-    //正在处理的record类型
-    pub records: Vec<Rc<RefCell<Type<'a>>>>,
+    pub func_symtabs: Vec<Rc<RefCell<SymbolTable<'a>>>>,
+    //正在处理的函数类型
+    pub funcs: Vec<Rc<RefCell<Type<'a>>>>,
+    //正在处理的record类型的成员
+    pub member_symtabs: Vec<Rc<RefCell<SymbolTable<'a>>>>,
     //正在处理的enum类型
     pub enums: Vec<Rc<RefCell<Type<'a>>>>,
     //上下文信息, 实际上就是调用路径
@@ -30,20 +33,20 @@ pub struct TypeChecker<'a> {
 pub enum Context<'a> {
     //使用XXXKind避免重复借用
     Expr(ExprKind<'a>),
-    #[allow(unused)]
     Decl(DeclarationKind<'a>),
-    #[allow(unused)]
     Stmt(StmtKind<'a>),
     Init(InitializerKind<'a>),
     Typeof,
 }
 
 impl<'a> TypeChecker<'a> {
-    pub fn new(cur_symtab: Rc<RefCell<SymbolTable<'a>>>) -> TypeChecker<'a> {
+    pub fn new(file_path: &'a str, cur_symtab: Rc<RefCell<SymbolTable<'a>>>) -> TypeChecker<'a> {
         TypeChecker {
+            file_path,
             cur_symtab,
-            func_symtab: vec![],
-            records: vec![],
+            func_symtabs: vec![],
+            funcs: vec![],
+            member_symtabs: vec![],
             enums: vec![],
             contexts: vec![],
         }
@@ -74,14 +77,14 @@ impl<'a> TypeChecker<'a> {
         self.cur_symtab = Rc::clone(&parent_symtab);
     }
 
-    pub fn check(&mut self, ast: Rc<RefCell<TranslationUnit<'a>>>) -> Result<(), Error<'a>> {
+    pub fn check(&mut self, ast: Rc<RefCell<TranslationUnit<'a>>>) -> Result<(), Diagnostic<'a>> {
         self.visit_translation_unit(ast)
     }
 
     pub fn visit_translation_unit(
         &mut self,
         node: Rc<RefCell<TranslationUnit<'a>>>,
-    ) -> Result<(), Error<'a>> {
+    ) -> Result<(), Diagnostic<'a>> {
         for decl in &node.borrow().decls {
             self.visit_declaration(Rc::clone(&decl))?;
         }

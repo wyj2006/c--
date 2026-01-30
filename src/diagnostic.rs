@@ -1,58 +1,55 @@
-use crate::ctype::Type;
 use crate::parser;
-use pest::error::ErrorVariant;
-use pest::error::{self};
-use pest::{RuleType, Span};
-use std::cell::RefCell;
-use std::fmt::Display;
-use std::rc::Rc;
+use pest::Span;
+use pest::error::{Error, ErrorVariant};
 
 #[derive(Debug)]
-pub struct Error<'a> {
+pub struct Diagnostic<'a> {
     pub span: Span<'a>,
-    pub kind: ErrorKind<'a>,
+    pub kind: DiagnosticKind,
+    pub message: String,
+    pub notes: Vec<Diagnostic<'a>>,
 }
 
 #[derive(Debug)]
-pub enum ErrorKind<'a> {
-    //TODO 改善
-    Redefine(String),
-    Undefine(String),
-    UnexpectStorageClass,
-    TooManyStorageClass,
-    TooLargeChar,
-    TooLargeInt,
-    NoFitAssociation(Rc<RefCell<Type<'a>>>),
-    Other(String),
+pub enum DiagnosticKind {
+    Error,
+    Warning,
+    Note,
 }
 
-impl Display for Error<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        error::Error::<parser::Rule>::new_from_span(
-            ErrorVariant::CustomError {
-                message: match &self.kind {
-                    ErrorKind::Redefine(name) => format!("Redefine {name}"),
-                    ErrorKind::Undefine(name) => format!("Undefine {name}"),
-                    ErrorKind::UnexpectStorageClass => format!("Unexpect storage class"),
-                    ErrorKind::TooManyStorageClass => format!("Too many storage class"),
-                    ErrorKind::TooLargeChar => format!("Character too large"),
-                    ErrorKind::TooLargeInt => format!("Integer literal too large"),
-                    ErrorKind::NoFitAssociation(r#type) => {
-                        format!("No fit associations for {}", r#type.borrow().to_string())
-                    }
-                    ErrorKind::Other(str) => format!("{str}"),
+impl<'a> Diagnostic<'a> {
+    pub fn print(&self) {
+        self.print_with_path("");
+    }
+
+    pub fn print_with_path(&self, path: &str) {
+        for note in &self.notes {
+            note.print();
+        }
+        match self.kind {
+            DiagnosticKind::Error => println!("error:"),
+            DiagnosticKind::Warning => println!("warning:"),
+            DiagnosticKind::Note => println!("note:"),
+        }
+        println!(
+            "{}",
+            Error::<parser::Rule>::new_from_span(
+                ErrorVariant::CustomError {
+                    message: self.message.clone()
                 },
-            },
-            self.span,
-        )
-        .fmt(f)
+                self.span
+            )
+            .with_path(path)
+        );
     }
 }
 
-pub fn warning<T: RuleType>(message: String, span: Span, path: &str) {
-    println!(
-        "warning:\n{}",
-        error::Error::<T>::new_from_span(ErrorVariant::CustomError { message }, span)
-            .with_path(path)
-    );
+pub fn warning(message: String, span: Span, path: &str) {
+    Diagnostic {
+        span,
+        kind: DiagnosticKind::Warning,
+        message,
+        notes: vec![],
+    }
+    .print_with_path(path);
 }

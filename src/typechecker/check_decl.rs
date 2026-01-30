@@ -1,24 +1,28 @@
 use super::TypeChecker;
 use crate::{
     ast::decl::{Declaration, DeclarationKind, StorageClassKind},
-    ctype::{Type, TypeKind, as_parameter_type},
-    diagnostic::{Error, ErrorKind},
+    ctype::{Type, TypeKind, TypeQual, as_parameter_type},
+    diagnostic::{Diagnostic, DiagnosticKind},
     symtab::{Namespace, Symbol, SymbolKind, SymbolTable},
     typechecker::Context,
     variant::Variant,
 };
 use indexmap::IndexMap;
-use num::{BigInt, ToPrimitive};
+use num::BigInt;
 use std::{cell::RefCell, rc::Rc};
 
 impl<'a> TypeChecker<'a> {
-    pub fn reassign(&mut self, r#type: &mut Rc<RefCell<Type<'a>>>) -> Result<(), Error<'a>> {
+    pub fn reassign(&mut self, r#type: &mut Rc<RefCell<Type<'a>>>) -> Result<(), Diagnostic<'a>> {
         let mut new_type = None;
         {
             let mut r#type = r#type.borrow_mut();
             match &mut r#type.kind {
                 TypeKind::Record { name, .. } | TypeKind::Enum { name, .. } => {
-                    if let Some(t) = &self.cur_symtab.borrow().lookup(Namespace::Tag, name) {
+                    if let Some(t) = &self
+                        .cur_symtab
+                        .borrow()
+                        .lookup_current(Namespace::Tag, name)
+                    {
                         new_type = Some(Rc::clone(&t.borrow().r#type));
                     }
                 }
@@ -65,7 +69,25 @@ impl<'a> TypeChecker<'a> {
                     }
                 }
                 TypeKind::Pointer(r#type) => self.reassign(r#type)?,
-                TypeKind::Qualified { r#type, .. } => self.reassign(r#type)?,
+                TypeKind::Qualified { qualifiers, r#type } => {
+                    self.reassign(r#type)?;
+                    if qualifiers.contains(&TypeQual::Restrict) {
+                        if !match &r#type.borrow().kind {
+                            TypeKind::Pointer(t) => t.borrow().is_object(),
+                            TypeKind::Array { .. } => true,
+                            _ => false,
+                        } {
+                            return Err(Diagnostic {
+                                span: r#type.borrow().span,
+                                kind: DiagnosticKind::Error,
+                                message: format!(
+                                    "'restrict' requires an array or a pointer point to an object type"
+                                ),
+                                notes: vec![],
+                            });
+                        }
+                    }
+                }
                 TypeKind::Typeof { r#type, expr, .. } => {
                     if let Some(t) = r#type {
                         self.reassign(t)?;
@@ -90,7 +112,7 @@ impl<'a> TypeChecker<'a> {
     pub fn visit_declaration(
         &mut self,
         node: Rc<RefCell<Declaration<'a>>>,
-    ) -> Result<(), Error<'a>> {
+    ) -> Result<(), Diagnostic<'a>> {
         self.contexts
             .push(Context::Decl(node.borrow().kind.clone()));
 
@@ -109,10 +131,16 @@ impl<'a> TypeChecker<'a> {
         let node = node.borrow();
 
         if node.storage_classes.len() > 1 {
-            return Err(Error {
-                span: node.storage_classes[1].span,
-                kind: ErrorKind::TooManyStorageClass,
+            return Err(Diagnostic {
+                span: node.span,
+                kind: DiagnosticKind::Error,
+                message: format!("at most one storage class specifier is allowed"),
+                notes: vec![],
             });
+        }
+        if node.name.len() == 0 {
+            self.contexts.pop();
+            return Ok(());
         }
         match &node.kind {
             DeclarationKind::Var { initializer } => {
@@ -145,7 +173,8 @@ impl<'a> TypeChecker<'a> {
 
                 if let Some(_) = body {
                     self.enter_scope();
-                    self.func_symtab.push(Rc::clone(&self.cur_symtab));
+                    self.func_symtabs.push(Rc::clone(&self.cur_symtab));
+                    self.funcs.push(Rc::clone(&node.r#type));
                 } else {
                     //函数声明需要解析参数声明, 但只做类型检查, 添加的符号将被忽略
                     self.cur_symtab = Rc::new(RefCell::new(SymbolTable::new()));
@@ -175,7 +204,8 @@ impl<'a> TypeChecker<'a> {
                 if let Some(body) = body {
                     self.visit_stmt(Rc::clone(body))?;
 
-                    self.func_symtab.pop();
+                    self.funcs.pop();
+                    self.func_symtabs.pop();
                     self.leave_scope();
                 } else {
                     self.cur_symtab = parent_symtab;
@@ -184,9 +214,13 @@ impl<'a> TypeChecker<'a> {
             DeclarationKind::Parameter => {
                 for storage_class in &node.storage_classes {
                     if storage_class.kind != StorageClassKind::Register {
-                        return Err(Error {
+                        return Err(Diagnostic {
                             span: storage_class.span,
-                            kind: ErrorKind::UnexpectStorageClass,
+                            kind: DiagnosticKind::Error,
+                            message: format!(
+                                "only 'register' storage class specifier is allowed in parameter"
+                            ),
+                            notes: vec![],
                         });
                     }
                 }
@@ -241,23 +275,53 @@ impl<'a> TypeChecker<'a> {
                 )?;
 
                 if let Some(members_decl) = members_decl {
-                    self.records.push(Rc::clone(&node.r#type));
+                    //在处理完成员声明前保持不完整(members为None说明不完整)
+                    let member_symtab = Rc::new(RefCell::new(SymbolTable::new()));
+                    self.member_symtabs.push(Rc::clone(&member_symtab));
                     for decl in members_decl {
                         self.visit_declaration(Rc::clone(&decl))?;
                     }
-                    self.records.pop();
+                    self.member_symtabs.pop();
+
+                    match &mut node.r#type.borrow_mut().kind {
+                        //这里members一定为None, 否则在之前加入符号表时就会报错
+                        TypeKind::Record { members, .. } => {
+                            *members = Some(
+                                member_symtab
+                                    .borrow()
+                                    .namespaces
+                                    .get(&Namespace::Member)
+                                    .unwrap_or(&IndexMap::new())
+                                    .clone(),
+                            );
+                        }
+                        _ => {}
+                    }
                 }
             }
             DeclarationKind::Member { bit_field } => {
                 if node.storage_classes.len() > 0 {
-                    return Err(Error {
+                    return Err(Diagnostic {
                         span: node.storage_classes[0].span,
-                        kind: ErrorKind::TooManyStorageClass,
+                        kind: DiagnosticKind::Error,
+                        message: format!("member should not hava any storage class specifier"),
+                        notes: vec![],
                     });
                 }
+
+                if !node.r#type.borrow().is_complete() {
+                    return Err(Diagnostic {
+                        span: node.span,
+                        kind: DiagnosticKind::Error,
+                        message: format!("'{}' is not complete", node.r#type.borrow().to_string()),
+                        notes: vec![],
+                    });
+                }
+
                 if let Some(t) = bit_field {
                     self.visit_expr(Rc::clone(t))?;
                 }
+
                 let symbol = Rc::new(RefCell::new(Symbol {
                     define_span: Some(node.span),
                     declare_spans: vec![node.span],
@@ -265,19 +329,13 @@ impl<'a> TypeChecker<'a> {
                     kind: SymbolKind::Member {
                         bit_field: match bit_field {
                             Some(t) => match &t.borrow().value {
-                                Variant::Int(value) => match value.to_usize() {
-                                    Some(t) => Some(t),
-                                    None => {
-                                        return Err(Error {
-                                            span: t.borrow().span,
-                                            kind: ErrorKind::Other(format!("invalid bit field")),
-                                        });
-                                    }
-                                },
+                                Variant::Int(value) => Some(value.clone()),
                                 _ => {
-                                    return Err(Error {
+                                    return Err(Diagnostic {
                                         span: t.borrow().span,
-                                        kind: ErrorKind::Other(format!("invalid bit field")),
+                                        kind: DiagnosticKind::Error,
+                                        message: format!("bit-field must has an integer type"),
+                                        notes: vec![],
                                     });
                                 }
                             },
@@ -287,24 +345,12 @@ impl<'a> TypeChecker<'a> {
                     r#type: Rc::clone(&node.r#type),
                     attributes: node.attributes.clone(),
                 }));
-                match &mut self.records.last().unwrap().borrow_mut().kind {
-                    TypeKind::Record { members, .. } => {
-                        if let Some(t) = members {
-                            if t.contains_key(&node.name) {
-                                return Err(Error {
-                                    span: node.span,
-                                    kind: ErrorKind::Redefine(node.name.clone()),
-                                });
-                            }
-                            t.insert(node.name.clone(), symbol);
-                        } else {
-                            let mut t = IndexMap::new();
-                            t.insert(node.name.clone(), symbol);
-                            *members = Some(t);
-                        }
-                    }
-                    _ => unreachable!(),
-                }
+
+                self.member_symtabs
+                    .last()
+                    .unwrap()
+                    .borrow_mut()
+                    .add(Namespace::Member, symbol)?;
             }
             DeclarationKind::Enum { enumerators } => {
                 self.cur_symtab.borrow_mut().add(
@@ -331,15 +377,17 @@ impl<'a> TypeChecker<'a> {
 
                     let TypeKind::Enum {
                         underlying,
-                        enum_consts: Some(enum_consts),
+                        enum_consts,
                         ..
                     } = &mut node.r#type.borrow_mut().kind
                     else {
-                        return Err(Error {
-                            span: node.span,
-                            kind: ErrorKind::Other(format!("incomplete enum")),
-                        });
+                        unreachable!()
                     };
+
+                    if let None = enum_consts {
+                        *enum_consts = Some(IndexMap::new());
+                    }
+                    let enum_consts = enum_consts.as_ref().unwrap();
 
                     let mut kind = None;
                     if let TypeKind::Error = underlying.borrow().kind {

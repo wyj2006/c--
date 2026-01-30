@@ -70,7 +70,7 @@ impl<'a> Preprocessor<'a> {
                     result += "\n";
                 }
                 Rule::non_directive_line => {
-                    warning::<Rule>(
+                    warning(
                         format!("Unkown preprocessing directive: {}", rule.as_str()),
                         rule.as_span(),
                         &self.file_path,
@@ -234,7 +234,7 @@ impl<'a> Preprocessor<'a> {
                 _ => {}
             }
         }
-        warning::<Rule>(message, span, &self.file_path);
+        warning(message, span, &self.file_path);
         Ok("\n".to_string())
     }
 
@@ -473,7 +473,7 @@ impl<'a> Preprocessor<'a> {
                             if_empty = param_clause;
                         }
                         _ => {
-                            warning::<Rule>(
+                            warning(
                                 format!("Unkown parameter: {}", param_name),
                                 span,
                                 &self.file_path,

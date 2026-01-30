@@ -1,24 +1,21 @@
-use std::{
-    cell::RefCell, collections::HashMap, iter::repeat, mem::discriminant, ptr::addr_of, rc::Rc,
-};
-
-use indexmap::IndexMap;
-use num::BigInt;
-use pest::Span;
-
 use crate::{
     ast::{
         Attribute,
         decl::{FunctionSpec, StorageClass},
     },
     ctype::{Type, TypeKind, is_compatible},
-    diagnostic::{Error, ErrorKind},
+    diagnostic::{Diagnostic, DiagnosticKind},
 };
+use indexmap::IndexMap;
+use num::BigInt;
+use pest::Span;
+use std::{cell::RefCell, collections::HashMap, iter::repeat, ptr::addr_of, rc::Rc};
 
-#[derive(Debug, Eq, PartialEq, Hash)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy)]
 pub enum Namespace {
     Label,
     Tag,
+    Member,
     Ordinary,
 }
 
@@ -48,7 +45,7 @@ pub enum SymbolKind<'a> {
         storage_classes: Vec<StorageClass<'a>>,
     },
     Member {
-        bit_field: Option<usize>,
+        bit_field: Option<BigInt>,
     },
     Function {
         function_specs: Vec<FunctionSpec<'a>>,
@@ -146,32 +143,44 @@ impl<'a> SymbolTable<'a> {
         &mut self,
         namespace: Namespace,
         symbol: Rc<RefCell<Symbol<'a>>>,
-    ) -> Result<(), Error<'a>> {
+    ) -> Result<(), Diagnostic<'a>> {
         let name = symbol.borrow().name.clone();
         if let Some(symbols) = self.namespaces.get_mut(&namespace) {
             match symbols.get(&name) {
                 Some(pre_symbol) => {
                     let mut pre_symbol = pre_symbol.borrow_mut();
                     let symbol = symbol.borrow();
-                    if let Some(_) = pre_symbol.define_span
-                        && let Some(_) = symbol.define_span
+                    if !is_compatible(Rc::clone(&pre_symbol.r#type), Rc::clone(&symbol.r#type)) {
+                        Err(Diagnostic {
+                            span: symbol.define_span.unwrap_or(symbol.declare_spans[0]),
+                            kind: DiagnosticKind::Error,
+                            message: format!(
+                                "redefine '{name}' with incompatible type '{}' and '{}'",
+                                symbol.r#type.borrow().to_string(),
+                                pre_symbol.r#type.borrow().to_string()
+                            ),
+                            notes: vec![Diagnostic {
+                                span: pre_symbol
+                                    .define_span
+                                    .unwrap_or(pre_symbol.declare_spans[0]),
+                                kind: DiagnosticKind::Note,
+                                message: format!("previous defination"),
+                                notes: vec![],
+                            }],
+                        })
+                    } else if let Some(a) = pre_symbol.define_span
+                        && let Some(b) = symbol.define_span
                     {
-                        Err(Error {
-                            span: symbol.define_span.unwrap_or(symbol.declare_spans[0]),
-                            kind: ErrorKind::Redefine(name),
-                        })
-                    } else if discriminant(&pre_symbol.kind) != discriminant(&symbol.kind) {
-                        Err(Error {
-                            span: symbol.define_span.unwrap_or(symbol.declare_spans[0]),
-                            kind: ErrorKind::Redefine(name),
-                        })
-                    } else if !is_compatible(
-                        Rc::clone(&pre_symbol.r#type),
-                        Rc::clone(&symbol.r#type),
-                    ) {
-                        Err(Error {
-                            span: symbol.define_span.unwrap_or(symbol.declare_spans[0]),
-                            kind: ErrorKind::Redefine(name),
+                        Err(Diagnostic {
+                            span: b,
+                            kind: DiagnosticKind::Error,
+                            message: format!("'{name}' is redefined"),
+                            notes: vec![Diagnostic {
+                                span: a,
+                                kind: DiagnosticKind::Note,
+                                message: format!("previous defination"),
+                                notes: vec![],
+                            }],
                         })
                     } else {
                         pre_symbol.define_span = if let Some(t) = symbol.define_span {
@@ -198,21 +207,33 @@ impl<'a> SymbolTable<'a> {
         }
     }
 
-    pub fn lookup<'b>(
+    ///只查找当前作用域
+    pub fn lookup_current<'b>(
         &self,
         namespace: Namespace,
         name: &'b String,
     ) -> Option<Rc<RefCell<Symbol<'a>>>> {
         if let Some(symbols) = self.namespaces.get(&namespace) {
             match symbols.get(name) {
-                Some(t) => return Some(Rc::clone(t)),
-                None => {}
+                Some(t) => Some(Rc::clone(t)),
+                None => None,
             }
-        }
-        if let Some(t) = &self.parent {
-            t.borrow().lookup(namespace, name)
         } else {
             None
+        }
+    }
+
+    pub fn lookup<'b>(
+        &self,
+        namespace: Namespace,
+        name: &'b String,
+    ) -> Option<Rc<RefCell<Symbol<'a>>>> {
+        match self.lookup_current(namespace, name) {
+            Some(t) => Some(t),
+            None => match &self.parent {
+                Some(t) => t.borrow().lookup(namespace, name),
+                None => None,
+            },
         }
     }
 }

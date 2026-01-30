@@ -7,6 +7,9 @@ pub fn typedef_name() {
         Rule::translation_unit,
         "int main()
 {
+    struct A{
+        int a:1;
+    };
     int a;
     sizeof a;
     A a;

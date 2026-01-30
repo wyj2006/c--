@@ -22,6 +22,8 @@ impl<'a> TypeKind<'a> {
     pub fn is_integer(&self) -> bool {
         match self {
             TypeKind::Char
+            | TypeKind::SignedChar
+            | TypeKind::UnsignedChar
             | TypeKind::Unsigned
             | TypeKind::Signed
             | TypeKind::Short
@@ -41,12 +43,14 @@ impl<'a> TypeKind<'a> {
     pub fn is_unsigned(&self) -> Option<bool> {
         match self {
             TypeKind::Char
+            | TypeKind::SignedChar
             | TypeKind::Signed
             | TypeKind::Short
             | TypeKind::Int
             | TypeKind::Long
             | TypeKind::LongLong => Some(false),
-            TypeKind::Unsigned
+            TypeKind::UnsignedChar
+            | TypeKind::Unsigned
             | TypeKind::UShort
             | TypeKind::UInt
             | TypeKind::ULong
@@ -64,6 +68,7 @@ impl<'a> TypeKind<'a> {
         let size = size * 8;
         match &self {
             TypeKind::Char
+            | TypeKind::SignedChar
             | TypeKind::Signed
             | TypeKind::Short
             | TypeKind::Int
@@ -75,7 +80,8 @@ impl<'a> TypeKind<'a> {
                 -BigInt::from(2).pow(size - 1),
                 BigInt::from(2).pow(size - 1) - 1,
             )),
-            TypeKind::Unsigned
+            TypeKind::UnsignedChar
+            | TypeKind::Unsigned
             | TypeKind::UShort
             | TypeKind::UInt
             | TypeKind::ULong
@@ -95,7 +101,7 @@ impl<'a> TypeKind<'a> {
             | TypeKind::UInt
             | TypeKind::ULong
             | TypeKind::ULongLong => Some(self.clone()),
-            TypeKind::Char => Some(TypeKind::UnsignedChar),
+            TypeKind::Char | TypeKind::SignedChar => Some(TypeKind::UnsignedChar),
             TypeKind::Signed | TypeKind::Int => Some(TypeKind::UInt),
             TypeKind::Short => Some(TypeKind::UShort),
             TypeKind::Long => Some(TypeKind::ULong),

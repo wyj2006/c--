@@ -1,7 +1,7 @@
 use crate::{
     ast::{Attribute, AttributeKind},
     ctype::{Type, TypeKind, is_compatible},
-    diagnostic::{Error, ErrorKind},
+    diagnostic::{Diagnostic, DiagnosticKind},
 };
 use std::{cell::RefCell, rc::Rc};
 
@@ -87,7 +87,7 @@ pub fn integer_promote(a: Rc<RefCell<Type>>) -> Rc<RefCell<Type>> {
 pub fn usual_arith_cast<'a>(
     a: Rc<RefCell<Type<'a>>>,
     b: Rc<RefCell<Type<'a>>>,
-) -> Result<(Rc<RefCell<Type<'a>>>, Rc<RefCell<Type<'a>>>), Error<'a>> {
+) -> Result<(Rc<RefCell<Type<'a>>>, Rc<RefCell<Type<'a>>>), Diagnostic<'a>> {
     let decimal_rank = |x: &TypeKind| match x {
         TypeKind::Decimal128 => 3,
         TypeKind::Decimal64 => 2,
@@ -98,20 +98,20 @@ pub fn usual_arith_cast<'a>(
         (
             TypeKind::Decimal128 | TypeKind::Decimal64 | TypeKind::Decimal32,
             TypeKind::Float | TypeKind::Double | TypeKind::LongDouble | TypeKind::Complex(..),
-        ) => Err(Error {
+        ) => Err(Diagnostic {
             span: a.borrow().span,
-            kind: ErrorKind::Other(format!(
-                "cannot mix operands of decimal floating and other floating types"
-            )),
+            kind: DiagnosticKind::Error,
+            message: format!("cannot mix operands of decimal floating and other floating types"),
+            notes: vec![],
         }),
         (
             TypeKind::Float | TypeKind::Double | TypeKind::LongDouble | TypeKind::Complex(..),
             TypeKind::Decimal128 | TypeKind::Decimal64 | TypeKind::Decimal32,
-        ) => Err(Error {
+        ) => Err(Diagnostic {
             span: b.borrow().span,
-            kind: ErrorKind::Other(format!(
-                "cannot mix operands of decimal floating and other floating types"
-            )),
+            kind: DiagnosticKind::Error,
+            message: format!("cannot mix operands of decimal floating and other floating types"),
+            notes: vec![],
         }),
         (x @ (TypeKind::Decimal128 | TypeKind::Decimal64 | TypeKind::Decimal32), y)
         | (x, y @ (TypeKind::Decimal128 | TypeKind::Decimal64 | TypeKind::Decimal32)) => {

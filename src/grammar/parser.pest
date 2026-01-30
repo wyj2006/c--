@@ -35,12 +35,13 @@ and     =  { "&&" }
 or      =  { "||" }
 comma   =  { "," }
 
-postfix           = _{ subscript | function_call | member_access | postfix_increment | postfix_decrement }
-subscript         =  { "[" ~ expression ~ "]" }
-function_call     =  { "(" ~ assignment_expression* ~ ")" }
-member_access     =  { "." ~ identifier | "->" ~ identifier }
-postfix_increment =  { "++" }
-postfix_decrement =  { "--" }
+postfix            = _{ subscript | function_call | member_access | postfix_increment | postfix_decrement }
+subscript          =  { "[" ~ expression ~ "]" }
+function_call      =  { "(" ~ function_arguments? ~ ")" }
+function_arguments = _{ assignment_expression ~ ("," ~ assignment_expression)* ~ ","? }
+member_access      =  { "." ~ identifier | "->" ~ identifier }
+postfix_increment  =  { "++" }
+postfix_decrement  =  { "--" }
 
 primary = {
     compound_literal

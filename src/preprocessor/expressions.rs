@@ -96,8 +96,10 @@ impl Preprocessor<'_> {
                                 .unwrap(),
                         )
                         .unwrap();
-                    let mut type_checker =
-                        TypeChecker::new(Rc::new(RefCell::new(SymbolTable::new())));
+                    let mut type_checker = TypeChecker::new(
+                        &self.file_path,
+                        Rc::new(RefCell::new(SymbolTable::new())),
+                    );
                     match type_checker.visit_expr(Rc::clone(&expr)) {
                         Ok(()) => Ok(match &expr.borrow().value {
                             Variant::Int(value) => value.to_isize().unwrap_or(0),
@@ -105,7 +107,7 @@ impl Preprocessor<'_> {
                         }),
                         Err(e) => Err(Error::new_from_span(
                             ErrorVariant::CustomError {
-                                message: e.to_string(),
+                                message: e.message.clone(),
                             },
                             primary.as_span(),
                         )),

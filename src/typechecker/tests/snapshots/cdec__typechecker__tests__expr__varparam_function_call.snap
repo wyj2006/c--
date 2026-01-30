@@ -1,0 +1,1061 @@
+---
+source: src/typechecker/tests/expr.rs
+expression: ast
+---
+RefCell {
+    value: TranslationUnit {
+        span: Span {
+            str: "\nvoid printf(char* message,...);\n\nint main()\n{\n    float a;\n    const char b;\n    printf(\"Hello,World\",a,b);\n}\n",
+            start: 0,
+            end: 111,
+        },
+        decls: [
+            RefCell {
+                value: Declaration {
+                    span: Span {
+                        str: "printf(char* message,...)",
+                        start: 6,
+                        end: 31,
+                    },
+                    attributes: [],
+                    name: "printf",
+                    type: RefCell {
+                        value: Type {
+                            span: Span {
+                                str: "(char* message,...)",
+                                start: 12,
+                                end: 31,
+                            },
+                            attributes: [],
+                            kind: Function {
+                                return_type: RefCell {
+                                    value: Type {
+                                        span: Span {
+                                            str: "void ",
+                                            start: 1,
+                                            end: 6,
+                                        },
+                                        attributes: [],
+                                        kind: Void,
+                                    },
+                                },
+                                parameters_type: [
+                                    RefCell {
+                                        value: Type {
+                                            span: Span {
+                                                str: "* ",
+                                                start: 17,
+                                                end: 19,
+                                            },
+                                            attributes: [],
+                                            kind: Pointer(
+                                                RefCell {
+                                                    value: Type {
+                                                        span: Span {
+                                                            str: "char",
+                                                            start: 13,
+                                                            end: 17,
+                                                        },
+                                                        attributes: [],
+                                                        kind: Char,
+                                                    },
+                                                },
+                                            ),
+                                        },
+                                    },
+                                ],
+                                has_varparam: true,
+                            },
+                        },
+                    },
+                    storage_classes: [],
+                    kind: Function {
+                        parameter_decls: [
+                            RefCell {
+                                value: Declaration {
+                                    span: Span {
+                                        str: "* message",
+                                        start: 17,
+                                        end: 26,
+                                    },
+                                    attributes: [],
+                                    name: "message",
+                                    type: RefCell {
+                                        value: Type {
+                                            span: Span {
+                                                str: "* ",
+                                                start: 17,
+                                                end: 19,
+                                            },
+                                            attributes: [],
+                                            kind: Pointer(
+                                                RefCell {
+                                                    value: Type {
+                                                        span: Span {
+                                                            str: "char",
+                                                            start: 13,
+                                                            end: 17,
+                                                        },
+                                                        attributes: [],
+                                                        kind: Char,
+                                                    },
+                                                },
+                                            ),
+                                        },
+                                    },
+                                    storage_classes: [],
+                                    kind: Parameter,
+                                },
+                            },
+                        ],
+                        function_specs: [],
+                        body: None,
+                    },
+                },
+            },
+            RefCell {
+                value: Declaration {
+                    span: Span {
+                        str: "main()\n",
+                        start: 38,
+                        end: 45,
+                    },
+                    attributes: [],
+                    name: "main",
+                    type: RefCell {
+                        value: Type {
+                            span: Span {
+                                str: "()\n",
+                                start: 42,
+                                end: 45,
+                            },
+                            attributes: [],
+                            kind: Function {
+                                return_type: RefCell {
+                                    value: Type {
+                                        span: Span {
+                                            str: "int ",
+                                            start: 34,
+                                            end: 38,
+                                        },
+                                        attributes: [],
+                                        kind: Int,
+                                    },
+                                },
+                                parameters_type: [],
+                                has_varparam: false,
+                            },
+                        },
+                    },
+                    storage_classes: [],
+                    kind: Function {
+                        parameter_decls: [],
+                        function_specs: [],
+                        body: Some(
+                            RefCell {
+                                value: Stmt {
+                                    span: Span {
+                                        str: "{\n    float a;\n    const char b;\n    printf(\"Hello,World\",a,b);\n}",
+                                        start: 45,
+                                        end: 110,
+                                    },
+                                    attributes: [],
+                                    kind: Compound(
+                                        [
+                                            RefCell {
+                                                value: Stmt {
+                                                    span: Span {
+                                                        str: "float a;",
+                                                        start: 51,
+                                                        end: 59,
+                                                    },
+                                                    attributes: [],
+                                                    kind: Decl(
+                                                        RefCell {
+                                                            value: Declaration {
+                                                                span: Span {
+                                                                    str: "a",
+                                                                    start: 57,
+                                                                    end: 58,
+                                                                },
+                                                                attributes: [],
+                                                                name: "a",
+                                                                type: RefCell {
+                                                                    value: Type {
+                                                                        span: Span {
+                                                                            str: "float ",
+                                                                            start: 51,
+                                                                            end: 57,
+                                                                        },
+                                                                        attributes: [],
+                                                                        kind: Float,
+                                                                    },
+                                                                },
+                                                                storage_classes: [],
+                                                                kind: Var {
+                                                                    initializer: None,
+                                                                },
+                                                            },
+                                                        },
+                                                    ),
+                                                },
+                                            },
+                                            RefCell {
+                                                value: Stmt {
+                                                    span: Span {
+                                                        str: "const char b;",
+                                                        start: 64,
+                                                        end: 77,
+                                                    },
+                                                    attributes: [],
+                                                    kind: Decl(
+                                                        RefCell {
+                                                            value: Declaration {
+                                                                span: Span {
+                                                                    str: "b",
+                                                                    start: 75,
+                                                                    end: 76,
+                                                                },
+                                                                attributes: [],
+                                                                name: "b",
+                                                                type: RefCell {
+                                                                    value: Type {
+                                                                        span: Span {
+                                                                            str: "const char ",
+                                                                            start: 64,
+                                                                            end: 75,
+                                                                        },
+                                                                        attributes: [],
+                                                                        kind: Qualified {
+                                                                            qualifiers: [
+                                                                                Const,
+                                                                            ],
+                                                                            type: RefCell {
+                                                                                value: Type {
+                                                                                    span: Span {
+                                                                                        str: "char",
+                                                                                        start: 70,
+                                                                                        end: 74,
+                                                                                    },
+                                                                                    attributes: [],
+                                                                                    kind: Char,
+                                                                                },
+                                                                            },
+                                                                        },
+                                                                    },
+                                                                },
+                                                                storage_classes: [],
+                                                                kind: Var {
+                                                                    initializer: None,
+                                                                },
+                                                            },
+                                                        },
+                                                    ),
+                                                },
+                                            },
+                                            RefCell {
+                                                value: Stmt {
+                                                    span: Span {
+                                                        str: "printf(\"Hello,World\",a,b)",
+                                                        start: 82,
+                                                        end: 107,
+                                                    },
+                                                    attributes: [],
+                                                    kind: Expr(
+                                                        RefCell {
+                                                            value: Expr {
+                                                                span: Span {
+                                                                    str: "(\"Hello,World\",a,b)",
+                                                                    start: 88,
+                                                                    end: 107,
+                                                                },
+                                                                kind: FunctionCall {
+                                                                    target: RefCell {
+                                                                        value: Expr {
+                                                                            span: Span {
+                                                                                str: "printf",
+                                                                                start: 82,
+                                                                                end: 88,
+                                                                            },
+                                                                            kind: Cast {
+                                                                                is_implicit: true,
+                                                                                target: RefCell {
+                                                                                    value: Expr {
+                                                                                        span: Span {
+                                                                                            str: "printf",
+                                                                                            start: 82,
+                                                                                            end: 88,
+                                                                                        },
+                                                                                        kind: Name(
+                                                                                            "printf",
+                                                                                        ),
+                                                                                        type: RefCell {
+                                                                                            value: Type {
+                                                                                                span: Span {
+                                                                                                    str: "(char* message,...)",
+                                                                                                    start: 12,
+                                                                                                    end: 31,
+                                                                                                },
+                                                                                                attributes: [],
+                                                                                                kind: Function {
+                                                                                                    return_type: RefCell {
+                                                                                                        value: Type {
+                                                                                                            span: Span {
+                                                                                                                str: "void ",
+                                                                                                                start: 1,
+                                                                                                                end: 6,
+                                                                                                            },
+                                                                                                            attributes: [],
+                                                                                                            kind: Void,
+                                                                                                        },
+                                                                                                    },
+                                                                                                    parameters_type: [
+                                                                                                        RefCell {
+                                                                                                            value: Type {
+                                                                                                                span: Span {
+                                                                                                                    str: "* ",
+                                                                                                                    start: 17,
+                                                                                                                    end: 19,
+                                                                                                                },
+                                                                                                                attributes: [],
+                                                                                                                kind: Pointer(
+                                                                                                                    RefCell {
+                                                                                                                        value: Type {
+                                                                                                                            span: Span {
+                                                                                                                                str: "char",
+                                                                                                                                start: 13,
+                                                                                                                                end: 17,
+                                                                                                                            },
+                                                                                                                            attributes: [],
+                                                                                                                            kind: Char,
+                                                                                                                        },
+                                                                                                                    },
+                                                                                                                ),
+                                                                                                            },
+                                                                                                        },
+                                                                                                    ],
+                                                                                                    has_varparam: true,
+                                                                                                },
+                                                                                            },
+                                                                                        },
+                                                                                        value: Unknown,
+                                                                                        is_lvalue: false,
+                                                                                        symbol: Some(
+                                                                                            RefCell {
+                                                                                                value: Symbol {
+                                                                                                    define_span: None,
+                                                                                                    declare_spans: [
+                                                                                                        Span {
+                                                                                                            str: "printf(char* message,...)",
+                                                                                                            start: 6,
+                                                                                                            end: 31,
+                                                                                                        },
+                                                                                                    ],
+                                                                                                    name: "printf",
+                                                                                                    kind: Function {
+                                                                                                        function_specs: [],
+                                                                                                    },
+                                                                                                    type: RefCell {
+                                                                                                        value: Type {
+                                                                                                            span: Span {
+                                                                                                                str: "(char* message,...)",
+                                                                                                                start: 12,
+                                                                                                                end: 31,
+                                                                                                            },
+                                                                                                            attributes: [],
+                                                                                                            kind: Function {
+                                                                                                                return_type: RefCell {
+                                                                                                                    value: Type {
+                                                                                                                        span: Span {
+                                                                                                                            str: "void ",
+                                                                                                                            start: 1,
+                                                                                                                            end: 6,
+                                                                                                                        },
+                                                                                                                        attributes: [],
+                                                                                                                        kind: Void,
+                                                                                                                    },
+                                                                                                                },
+                                                                                                                parameters_type: [
+                                                                                                                    RefCell {
+                                                                                                                        value: Type {
+                                                                                                                            span: Span {
+                                                                                                                                str: "* ",
+                                                                                                                                start: 17,
+                                                                                                                                end: 19,
+                                                                                                                            },
+                                                                                                                            attributes: [],
+                                                                                                                            kind: Pointer(
+                                                                                                                                RefCell {
+                                                                                                                                    value: Type {
+                                                                                                                                        span: Span {
+                                                                                                                                            str: "char",
+                                                                                                                                            start: 13,
+                                                                                                                                            end: 17,
+                                                                                                                                        },
+                                                                                                                                        attributes: [],
+                                                                                                                                        kind: Char,
+                                                                                                                                    },
+                                                                                                                                },
+                                                                                                                            ),
+                                                                                                                        },
+                                                                                                                    },
+                                                                                                                ],
+                                                                                                                has_varparam: true,
+                                                                                                            },
+                                                                                                        },
+                                                                                                    },
+                                                                                                    attributes: [],
+                                                                                                },
+                                                                                            },
+                                                                                        ),
+                                                                                    },
+                                                                                },
+                                                                            },
+                                                                            type: RefCell {
+                                                                                value: Type {
+                                                                                    span: Span {
+                                                                                        str: "(char* message,...)",
+                                                                                        start: 12,
+                                                                                        end: 31,
+                                                                                    },
+                                                                                    attributes: [],
+                                                                                    kind: Pointer(
+                                                                                        RefCell {
+                                                                                            value: Type {
+                                                                                                span: Span {
+                                                                                                    str: "(char* message,...)",
+                                                                                                    start: 12,
+                                                                                                    end: 31,
+                                                                                                },
+                                                                                                attributes: [],
+                                                                                                kind: Function {
+                                                                                                    return_type: RefCell {
+                                                                                                        value: Type {
+                                                                                                            span: Span {
+                                                                                                                str: "void ",
+                                                                                                                start: 1,
+                                                                                                                end: 6,
+                                                                                                            },
+                                                                                                            attributes: [],
+                                                                                                            kind: Void,
+                                                                                                        },
+                                                                                                    },
+                                                                                                    parameters_type: [
+                                                                                                        RefCell {
+                                                                                                            value: Type {
+                                                                                                                span: Span {
+                                                                                                                    str: "* ",
+                                                                                                                    start: 17,
+                                                                                                                    end: 19,
+                                                                                                                },
+                                                                                                                attributes: [],
+                                                                                                                kind: Pointer(
+                                                                                                                    RefCell {
+                                                                                                                        value: Type {
+                                                                                                                            span: Span {
+                                                                                                                                str: "char",
+                                                                                                                                start: 13,
+                                                                                                                                end: 17,
+                                                                                                                            },
+                                                                                                                            attributes: [],
+                                                                                                                            kind: Char,
+                                                                                                                        },
+                                                                                                                    },
+                                                                                                                ),
+                                                                                                            },
+                                                                                                        },
+                                                                                                    ],
+                                                                                                    has_varparam: true,
+                                                                                                },
+                                                                                            },
+                                                                                        },
+                                                                                    ),
+                                                                                },
+                                                                            },
+                                                                            value: Unknown,
+                                                                            is_lvalue: false,
+                                                                            symbol: None,
+                                                                        },
+                                                                    },
+                                                                    arguments: [
+                                                                        RefCell {
+                                                                            value: Expr {
+                                                                                span: Span {
+                                                                                    str: "\"Hello,World\"",
+                                                                                    start: 89,
+                                                                                    end: 102,
+                                                                                },
+                                                                                kind: Cast {
+                                                                                    is_implicit: true,
+                                                                                    target: RefCell {
+                                                                                        value: Expr {
+                                                                                            span: Span {
+                                                                                                str: "\"Hello,World\"",
+                                                                                                start: 89,
+                                                                                                end: 102,
+                                                                                            },
+                                                                                            kind: String {
+                                                                                                prefix: Default,
+                                                                                                text: "Hello,World",
+                                                                                            },
+                                                                                            type: RefCell {
+                                                                                                value: Type {
+                                                                                                    span: Span {
+                                                                                                        str: "\"Hello,World\"",
+                                                                                                        start: 89,
+                                                                                                        end: 102,
+                                                                                                    },
+                                                                                                    attributes: [],
+                                                                                                    kind: Array {
+                                                                                                        has_static: false,
+                                                                                                        has_star: false,
+                                                                                                        element_type: RefCell {
+                                                                                                            value: Type {
+                                                                                                                span: Span {
+                                                                                                                    str: "\"Hello,World\"",
+                                                                                                                    start: 89,
+                                                                                                                    end: 102,
+                                                                                                                },
+                                                                                                                attributes: [],
+                                                                                                                kind: Qualified {
+                                                                                                                    qualifiers: [
+                                                                                                                        Const,
+                                                                                                                    ],
+                                                                                                                    type: RefCell {
+                                                                                                                        value: Type {
+                                                                                                                            span: Span {
+                                                                                                                                str: "\"Hello,World\"",
+                                                                                                                                start: 89,
+                                                                                                                                end: 102,
+                                                                                                                            },
+                                                                                                                            attributes: [],
+                                                                                                                            kind: Char,
+                                                                                                                        },
+                                                                                                                    },
+                                                                                                                },
+                                                                                                            },
+                                                                                                        },
+                                                                                                        len_expr: Some(
+                                                                                                            RefCell {
+                                                                                                                value: Expr {
+                                                                                                                    span: Span {
+                                                                                                                        str: "\"Hello,World\"",
+                                                                                                                        start: 89,
+                                                                                                                        end: 102,
+                                                                                                                    },
+                                                                                                                    kind: Integer {
+                                                                                                                        base: 10,
+                                                                                                                        text: "12",
+                                                                                                                        type_suffix: [],
+                                                                                                                    },
+                                                                                                                    type: RefCell {
+                                                                                                                        value: Type {
+                                                                                                                            span: Span {
+                                                                                                                                str: "\"Hello,World\"",
+                                                                                                                                start: 89,
+                                                                                                                                end: 102,
+                                                                                                                            },
+                                                                                                                            attributes: [],
+                                                                                                                            kind: ULongLong,
+                                                                                                                        },
+                                                                                                                    },
+                                                                                                                    value: Int(
+                                                                                                                        12,
+                                                                                                                    ),
+                                                                                                                    is_lvalue: false,
+                                                                                                                    symbol: None,
+                                                                                                                },
+                                                                                                            },
+                                                                                                        ),
+                                                                                                    },
+                                                                                                },
+                                                                                            },
+                                                                                            value: Array(
+                                                                                                [
+                                                                                                    Int(
+                                                                                                        72,
+                                                                                                    ),
+                                                                                                    Int(
+                                                                                                        101,
+                                                                                                    ),
+                                                                                                    Int(
+                                                                                                        108,
+                                                                                                    ),
+                                                                                                    Int(
+                                                                                                        108,
+                                                                                                    ),
+                                                                                                    Int(
+                                                                                                        111,
+                                                                                                    ),
+                                                                                                    Int(
+                                                                                                        44,
+                                                                                                    ),
+                                                                                                    Int(
+                                                                                                        87,
+                                                                                                    ),
+                                                                                                    Int(
+                                                                                                        111,
+                                                                                                    ),
+                                                                                                    Int(
+                                                                                                        114,
+                                                                                                    ),
+                                                                                                    Int(
+                                                                                                        108,
+                                                                                                    ),
+                                                                                                    Int(
+                                                                                                        100,
+                                                                                                    ),
+                                                                                                    Int(
+                                                                                                        0,
+                                                                                                    ),
+                                                                                                ],
+                                                                                            ),
+                                                                                            is_lvalue: true,
+                                                                                            symbol: None,
+                                                                                        },
+                                                                                    },
+                                                                                },
+                                                                                type: RefCell {
+                                                                                    value: Type {
+                                                                                        span: Span {
+                                                                                            str: "\"Hello,World\"",
+                                                                                            start: 89,
+                                                                                            end: 102,
+                                                                                        },
+                                                                                        attributes: [
+                                                                                            RefCell {
+                                                                                                value: Attribute {
+                                                                                                    span: Span {
+                                                                                                        str: "\"Hello,World\"",
+                                                                                                        start: 89,
+                                                                                                        end: 102,
+                                                                                                    },
+                                                                                                    prefix_name: None,
+                                                                                                    name: "ptr_from_array",
+                                                                                                    kind: PtrFromArray {
+                                                                                                        array_type: RefCell {
+                                                                                                            value: Type {
+                                                                                                                span: Span {
+                                                                                                                    str: "\"Hello,World\"",
+                                                                                                                    start: 89,
+                                                                                                                    end: 102,
+                                                                                                                },
+                                                                                                                attributes: [],
+                                                                                                                kind: Array {
+                                                                                                                    has_static: false,
+                                                                                                                    has_star: false,
+                                                                                                                    element_type: RefCell {
+                                                                                                                        value: Type {
+                                                                                                                            span: Span {
+                                                                                                                                str: "\"Hello,World\"",
+                                                                                                                                start: 89,
+                                                                                                                                end: 102,
+                                                                                                                            },
+                                                                                                                            attributes: [],
+                                                                                                                            kind: Qualified {
+                                                                                                                                qualifiers: [
+                                                                                                                                    Const,
+                                                                                                                                ],
+                                                                                                                                type: RefCell {
+                                                                                                                                    value: Type {
+                                                                                                                                        span: Span {
+                                                                                                                                            str: "\"Hello,World\"",
+                                                                                                                                            start: 89,
+                                                                                                                                            end: 102,
+                                                                                                                                        },
+                                                                                                                                        attributes: [],
+                                                                                                                                        kind: Char,
+                                                                                                                                    },
+                                                                                                                                },
+                                                                                                                            },
+                                                                                                                        },
+                                                                                                                    },
+                                                                                                                    len_expr: Some(
+                                                                                                                        RefCell {
+                                                                                                                            value: Expr {
+                                                                                                                                span: Span {
+                                                                                                                                    str: "\"Hello,World\"",
+                                                                                                                                    start: 89,
+                                                                                                                                    end: 102,
+                                                                                                                                },
+                                                                                                                                kind: Integer {
+                                                                                                                                    base: 10,
+                                                                                                                                    text: "12",
+                                                                                                                                    type_suffix: [],
+                                                                                                                                },
+                                                                                                                                type: RefCell {
+                                                                                                                                    value: Type {
+                                                                                                                                        span: Span {
+                                                                                                                                            str: "\"Hello,World\"",
+                                                                                                                                            start: 89,
+                                                                                                                                            end: 102,
+                                                                                                                                        },
+                                                                                                                                        attributes: [],
+                                                                                                                                        kind: ULongLong,
+                                                                                                                                    },
+                                                                                                                                },
+                                                                                                                                value: Int(
+                                                                                                                                    12,
+                                                                                                                                ),
+                                                                                                                                is_lvalue: false,
+                                                                                                                                symbol: None,
+                                                                                                                            },
+                                                                                                                        },
+                                                                                                                    ),
+                                                                                                                },
+                                                                                                            },
+                                                                                                        },
+                                                                                                    },
+                                                                                                },
+                                                                                            },
+                                                                                        ],
+                                                                                        kind: Pointer(
+                                                                                            RefCell {
+                                                                                                value: Type {
+                                                                                                    span: Span {
+                                                                                                        str: "\"Hello,World\"",
+                                                                                                        start: 89,
+                                                                                                        end: 102,
+                                                                                                    },
+                                                                                                    attributes: [],
+                                                                                                    kind: Qualified {
+                                                                                                        qualifiers: [
+                                                                                                            Const,
+                                                                                                        ],
+                                                                                                        type: RefCell {
+                                                                                                            value: Type {
+                                                                                                                span: Span {
+                                                                                                                    str: "\"Hello,World\"",
+                                                                                                                    start: 89,
+                                                                                                                    end: 102,
+                                                                                                                },
+                                                                                                                attributes: [],
+                                                                                                                kind: Char,
+                                                                                                            },
+                                                                                                        },
+                                                                                                    },
+                                                                                                },
+                                                                                            },
+                                                                                        ),
+                                                                                    },
+                                                                                },
+                                                                                value: Array(
+                                                                                    [
+                                                                                        Int(
+                                                                                            72,
+                                                                                        ),
+                                                                                        Int(
+                                                                                            101,
+                                                                                        ),
+                                                                                        Int(
+                                                                                            108,
+                                                                                        ),
+                                                                                        Int(
+                                                                                            108,
+                                                                                        ),
+                                                                                        Int(
+                                                                                            111,
+                                                                                        ),
+                                                                                        Int(
+                                                                                            44,
+                                                                                        ),
+                                                                                        Int(
+                                                                                            87,
+                                                                                        ),
+                                                                                        Int(
+                                                                                            111,
+                                                                                        ),
+                                                                                        Int(
+                                                                                            114,
+                                                                                        ),
+                                                                                        Int(
+                                                                                            108,
+                                                                                        ),
+                                                                                        Int(
+                                                                                            100,
+                                                                                        ),
+                                                                                        Int(
+                                                                                            0,
+                                                                                        ),
+                                                                                    ],
+                                                                                ),
+                                                                                is_lvalue: false,
+                                                                                symbol: None,
+                                                                            },
+                                                                        },
+                                                                        RefCell {
+                                                                            value: Expr {
+                                                                                span: Span {
+                                                                                    str: "a",
+                                                                                    start: 103,
+                                                                                    end: 104,
+                                                                                },
+                                                                                kind: Cast {
+                                                                                    is_implicit: true,
+                                                                                    target: RefCell {
+                                                                                        value: Expr {
+                                                                                            span: Span {
+                                                                                                str: "a",
+                                                                                                start: 103,
+                                                                                                end: 104,
+                                                                                            },
+                                                                                            kind: Cast {
+                                                                                                is_implicit: true,
+                                                                                                target: RefCell {
+                                                                                                    value: Expr {
+                                                                                                        span: Span {
+                                                                                                            str: "a",
+                                                                                                            start: 103,
+                                                                                                            end: 104,
+                                                                                                        },
+                                                                                                        kind: Name(
+                                                                                                            "a",
+                                                                                                        ),
+                                                                                                        type: RefCell {
+                                                                                                            value: Type {
+                                                                                                                span: Span {
+                                                                                                                    str: "float ",
+                                                                                                                    start: 51,
+                                                                                                                    end: 57,
+                                                                                                                },
+                                                                                                                attributes: [],
+                                                                                                                kind: Float,
+                                                                                                            },
+                                                                                                        },
+                                                                                                        value: Unknown,
+                                                                                                        is_lvalue: true,
+                                                                                                        symbol: Some(
+                                                                                                            RefCell {
+                                                                                                                value: Symbol {
+                                                                                                                    define_span: None,
+                                                                                                                    declare_spans: [
+                                                                                                                        Span {
+                                                                                                                            str: "a",
+                                                                                                                            start: 57,
+                                                                                                                            end: 58,
+                                                                                                                        },
+                                                                                                                    ],
+                                                                                                                    name: "a",
+                                                                                                                    kind: Object {
+                                                                                                                        storage_classes: [],
+                                                                                                                    },
+                                                                                                                    type: RefCell {
+                                                                                                                        value: Type {
+                                                                                                                            span: Span {
+                                                                                                                                str: "float ",
+                                                                                                                                start: 51,
+                                                                                                                                end: 57,
+                                                                                                                            },
+                                                                                                                            attributes: [],
+                                                                                                                            kind: Float,
+                                                                                                                        },
+                                                                                                                    },
+                                                                                                                    attributes: [],
+                                                                                                                },
+                                                                                                            },
+                                                                                                        ),
+                                                                                                    },
+                                                                                                },
+                                                                                            },
+                                                                                            type: RefCell {
+                                                                                                value: Type {
+                                                                                                    span: Span {
+                                                                                                        str: "float ",
+                                                                                                        start: 51,
+                                                                                                        end: 57,
+                                                                                                    },
+                                                                                                    attributes: [],
+                                                                                                    kind: Float,
+                                                                                                },
+                                                                                            },
+                                                                                            value: Unknown,
+                                                                                            is_lvalue: false,
+                                                                                            symbol: None,
+                                                                                        },
+                                                                                    },
+                                                                                },
+                                                                                type: RefCell {
+                                                                                    value: Type {
+                                                                                        span: Span {
+                                                                                            str: "a",
+                                                                                            start: 103,
+                                                                                            end: 104,
+                                                                                        },
+                                                                                        attributes: [],
+                                                                                        kind: Double,
+                                                                                    },
+                                                                                },
+                                                                                value: Unknown,
+                                                                                is_lvalue: false,
+                                                                                symbol: None,
+                                                                            },
+                                                                        },
+                                                                        RefCell {
+                                                                            value: Expr {
+                                                                                span: Span {
+                                                                                    str: "b",
+                                                                                    start: 105,
+                                                                                    end: 106,
+                                                                                },
+                                                                                kind: Cast {
+                                                                                    is_implicit: true,
+                                                                                    target: RefCell {
+                                                                                        value: Expr {
+                                                                                            span: Span {
+                                                                                                str: "b",
+                                                                                                start: 105,
+                                                                                                end: 106,
+                                                                                            },
+                                                                                            kind: Cast {
+                                                                                                is_implicit: true,
+                                                                                                target: RefCell {
+                                                                                                    value: Expr {
+                                                                                                        span: Span {
+                                                                                                            str: "b",
+                                                                                                            start: 105,
+                                                                                                            end: 106,
+                                                                                                        },
+                                                                                                        kind: Name(
+                                                                                                            "b",
+                                                                                                        ),
+                                                                                                        type: RefCell {
+                                                                                                            value: Type {
+                                                                                                                span: Span {
+                                                                                                                    str: "const char ",
+                                                                                                                    start: 64,
+                                                                                                                    end: 75,
+                                                                                                                },
+                                                                                                                attributes: [],
+                                                                                                                kind: Qualified {
+                                                                                                                    qualifiers: [
+                                                                                                                        Const,
+                                                                                                                    ],
+                                                                                                                    type: RefCell {
+                                                                                                                        value: Type {
+                                                                                                                            span: Span {
+                                                                                                                                str: "char",
+                                                                                                                                start: 70,
+                                                                                                                                end: 74,
+                                                                                                                            },
+                                                                                                                            attributes: [],
+                                                                                                                            kind: Char,
+                                                                                                                        },
+                                                                                                                    },
+                                                                                                                },
+                                                                                                            },
+                                                                                                        },
+                                                                                                        value: Unknown,
+                                                                                                        is_lvalue: true,
+                                                                                                        symbol: Some(
+                                                                                                            RefCell {
+                                                                                                                value: Symbol {
+                                                                                                                    define_span: None,
+                                                                                                                    declare_spans: [
+                                                                                                                        Span {
+                                                                                                                            str: "b",
+                                                                                                                            start: 75,
+                                                                                                                            end: 76,
+                                                                                                                        },
+                                                                                                                    ],
+                                                                                                                    name: "b",
+                                                                                                                    kind: Object {
+                                                                                                                        storage_classes: [],
+                                                                                                                    },
+                                                                                                                    type: RefCell {
+                                                                                                                        value: Type {
+                                                                                                                            span: Span {
+                                                                                                                                str: "const char ",
+                                                                                                                                start: 64,
+                                                                                                                                end: 75,
+                                                                                                                            },
+                                                                                                                            attributes: [],
+                                                                                                                            kind: Qualified {
+                                                                                                                                qualifiers: [
+                                                                                                                                    Const,
+                                                                                                                                ],
+                                                                                                                                type: RefCell {
+                                                                                                                                    value: Type {
+                                                                                                                                        span: Span {
+                                                                                                                                            str: "char",
+                                                                                                                                            start: 70,
+                                                                                                                                            end: 74,
+                                                                                                                                        },
+                                                                                                                                        attributes: [],
+                                                                                                                                        kind: Char,
+                                                                                                                                    },
+                                                                                                                                },
+                                                                                                                            },
+                                                                                                                        },
+                                                                                                                    },
+                                                                                                                    attributes: [],
+                                                                                                                },
+                                                                                                            },
+                                                                                                        ),
+                                                                                                    },
+                                                                                                },
+                                                                                            },
+                                                                                            type: RefCell {
+                                                                                                value: Type {
+                                                                                                    span: Span {
+                                                                                                        str: "char",
+                                                                                                        start: 70,
+                                                                                                        end: 74,
+                                                                                                    },
+                                                                                                    attributes: [],
+                                                                                                    kind: Char,
+                                                                                                },
+                                                                                            },
+                                                                                            value: Unknown,
+                                                                                            is_lvalue: false,
+                                                                                            symbol: None,
+                                                                                        },
+                                                                                    },
+                                                                                },
+                                                                                type: RefCell {
+                                                                                    value: Type {
+                                                                                        span: Span {
+                                                                                            str: "char",
+                                                                                            start: 70,
+                                                                                            end: 74,
+                                                                                        },
+                                                                                        attributes: [],
+                                                                                        kind: Int,
+                                                                                    },
+                                                                                },
+                                                                                value: Unknown,
+                                                                                is_lvalue: false,
+                                                                                symbol: None,
+                                                                            },
+                                                                        },
+                                                                    ],
+                                                                },
+                                                                type: RefCell {
+                                                                    value: Type {
+                                                                        span: Span {
+                                                                            str: "void ",
+                                                                            start: 1,
+                                                                            end: 6,
+                                                                        },
+                                                                        attributes: [],
+                                                                        kind: Void,
+                                                                    },
+                                                                },
+                                                                value: Unknown,
+                                                                is_lvalue: false,
+                                                                symbol: None,
+                                                            },
+                                                        },
+                                                    ),
+                                                },
+                                            },
+                                        ],
+                                    ),
+                                },
+                            },
+                        ),
+                    },
+                },
+            },
+        ],
+    },
+}

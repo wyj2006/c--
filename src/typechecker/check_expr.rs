@@ -7,10 +7,13 @@ use crate::{
     },
     ctype::{
         Type, TypeKind, TypeQual, arith_result_type,
-        cast::{array_to_ptr, func_to_ptr, integer_promote, lvalue_cast, usual_arith_cast},
-        is_compatible, pointee_type,
+        cast::{
+            array_to_ptr, func_to_ptr, integer_promote, lvalue_cast, remove_qualifier,
+            usual_arith_cast,
+        },
+        is_compatible, pointee,
     },
-    diagnostic::{Error, ErrorKind},
+    diagnostic::{Diagnostic, DiagnosticKind, warning},
     symtab::{Namespace, SymbolKind},
     typechecker::Context,
     variant::Variant,
@@ -41,7 +44,7 @@ impl<'a> TypeChecker<'a> {
         &self,
         source: Rc<RefCell<Expr<'a>>>,
         target_type: Rc<RefCell<Type<'a>>>,
-    ) -> Result<Rc<RefCell<Expr<'a>>>, Error<'a>> {
+    ) -> Result<Rc<RefCell<Expr<'a>>>, Diagnostic<'a>> {
         let t = &source.borrow().r#type;
         if is_compatible(Rc::clone(&target_type), Rc::clone(t)) {
             Ok(Rc::clone(&source))
@@ -65,18 +68,20 @@ impl<'a> TypeChecker<'a> {
                 self.wrap_implicit_cast(Rc::clone(&source), target_type),
             )))
         } else {
-            Err(Error {
+            Err(Diagnostic {
                 span: source.borrow().span,
-                kind: ErrorKind::Other(format!(
-                    "cannot convert {} to {}",
+                kind: DiagnosticKind::Error,
+                message: format!(
+                    "cannot convert '{}' to '{}'",
                     t.borrow().to_string(),
                     target_type.borrow().to_string()
-                )),
+                ),
+                notes: vec![],
             })
         }
     }
 
-    pub fn visit_expr(&mut self, node: Rc<RefCell<Expr<'a>>>) -> Result<(), Error<'a>> {
+    pub fn visit_expr(&mut self, node: Rc<RefCell<Expr<'a>>>) -> Result<(), Diagnostic<'a>> {
         let allow_lvalue_cast = match self.contexts.last() {
             Some(Context::Expr(ExprKind::UnaryOp {
                 op:
@@ -147,9 +152,11 @@ impl<'a> TypeChecker<'a> {
                         }
                         EncodePrefix::UTF8 => {
                             if text.as_bytes().len() > 1 {
-                                return Err(Error {
+                                return Err(Diagnostic {
                                     span: node.span,
-                                    kind: ErrorKind::TooLargeChar,
+                                    kind: DiagnosticKind::Error,
+                                    message: format!("the character is too large as utf-8"),
+                                    notes: vec![],
                                 });
                             }
                             node.value = Variant::Int(BigInt::from(text.as_bytes()[0]));
@@ -157,9 +164,11 @@ impl<'a> TypeChecker<'a> {
                         }
                         EncodePrefix::UTF16 => {
                             if text.encode_utf16().count() > 1 {
-                                return Err(Error {
+                                return Err(Diagnostic {
                                     span: node.span,
-                                    kind: ErrorKind::TooLargeChar,
+                                    kind: DiagnosticKind::Error,
+                                    message: format!("the character is too large as utf-16"),
+                                    notes: vec![],
                                 });
                             }
                             node.value =
@@ -168,9 +177,11 @@ impl<'a> TypeChecker<'a> {
                         }
                         EncodePrefix::UTF32 => {
                             if text.chars().count() > 1 {
-                                return Err(Error {
+                                return Err(Diagnostic {
                                     span: node.span,
-                                    kind: ErrorKind::TooLargeChar,
+                                    kind: DiagnosticKind::Error,
+                                    message: format!("the character is too large as utf-32"),
+                                    notes: vec![],
                                 });
                             }
                             node.value =
@@ -288,9 +299,11 @@ impl<'a> TypeChecker<'a> {
                             _ => false,
                         };
                     } else {
-                        return Err(Error {
+                        return Err(Diagnostic {
                             span: node.span,
-                            kind: ErrorKind::Undefine(name.clone()),
+                            kind: DiagnosticKind::Error,
+                            message: format!("'{name}' is undefined"),
+                            notes: vec![],
                         });
                     }
                 }
@@ -510,9 +523,11 @@ impl<'a> TypeChecker<'a> {
                     if let Some(t) = r#type {
                         node.r#type = Rc::new(RefCell::new(t));
                     } else {
-                        return Err(Error {
+                        return Err(Diagnostic {
                             span: node.span,
-                            kind: ErrorKind::TooLargeInt,
+                            kind: DiagnosticKind::Error,
+                            message: format!("the integer is too large"),
+                            notes: vec![],
                         });
                     }
 
@@ -659,9 +674,11 @@ impl<'a> TypeChecker<'a> {
                             _ => unreachable!(),
                         }
                     } else {
-                        return Err(Error {
+                        return Err(Diagnostic {
                             span: node.span,
-                            kind: ErrorKind::NoFitAssociation(control_type),
+                            kind: DiagnosticKind::Error,
+                            message: format!("cannot find suitable association"),
+                            notes: vec![],
                         });
                     }
                 }
@@ -693,19 +710,19 @@ impl<'a> TypeChecker<'a> {
                         };
 
                         if parameters_type.len() > arguments.len() {
-                            return Err(Error {
+                            return Err(Diagnostic {
                                 span: node.span,
-                                kind: ErrorKind::Other(format!(
-                                    "too few arguments to function call"
-                                )),
+                                kind: DiagnosticKind::Error,
+                                message: format!("too few arguments to function call"),
+                                notes: vec![],
                             });
                         }
                         if !*has_varparam && parameters_type.len() < arguments.len() {
-                            return Err(Error {
+                            return Err(Diagnostic {
                                 span: node.span,
-                                kind: ErrorKind::Other(format!(
-                                    "too many arguments to function call"
-                                )),
+                                kind: DiagnosticKind::Error,
+                                message: format!("too many arguments to function call"),
+                                notes: vec![],
                             });
                         }
                         node.r#type = Rc::clone(return_type);
@@ -747,7 +764,15 @@ impl<'a> TypeChecker<'a> {
                                             continue;
                                         };
                                         if len_expr.borrow().value < min_len_expr.borrow().value {
-                                            //TODO warning
+                                            warning(
+                                                format!(
+                                                    "array argument is too small; contains {} elements, callee requires at least {}",
+                                                    len_expr.borrow().value,
+                                                    min_len_expr.borrow().value
+                                                ),
+                                                argument.borrow().span,
+                                                self.file_path,
+                                            );
                                         }
                                     }
                                 }
@@ -756,24 +781,39 @@ impl<'a> TypeChecker<'a> {
 
                             *argument = self.try_implicit_cast(
                                 Rc::clone(argument),
-                                Rc::clone(parameter_type),
+                                remove_qualifier(Rc::clone(parameter_type)),
                             )?;
                             i = i + 1;
                         }
-                        //尾随省略号的参数
+                        //属于省略号的参数
                         while i < arguments.len() {
                             let argument = arguments.get_mut(i).unwrap();
-                            let target_type = integer_promote(Rc::clone(&argument.borrow().r#type));
-                            *argument = self.try_implicit_cast(Rc::clone(argument), target_type)?;
+                            let r#type = Rc::clone(&argument.borrow().r#type);
+                            if r#type.borrow().is_integer() {
+                                let target_type =
+                                    integer_promote(Rc::clone(&argument.borrow().r#type));
+                                *argument =
+                                    self.try_implicit_cast(Rc::clone(argument), target_type)?;
+                            } else if let TypeKind::Float = r#type.borrow().kind {
+                                let target_type = Rc::new(RefCell::new(Type {
+                                    span: argument.borrow().span,
+                                    attributes: vec![],
+                                    kind: TypeKind::Double,
+                                }));
+                                *argument =
+                                    self.try_implicit_cast(Rc::clone(argument), target_type)?;
+                            }
                             i = i + 1;
                         }
                     } else {
-                        return Err(Error {
+                        return Err(Diagnostic {
                             span: target.borrow().span,
-                            kind: ErrorKind::Other(format!(
+                            kind: DiagnosticKind::Error,
+                            message: format!(
                                 "{} is not a function or a function pointer",
                                 target.borrow().r#type.borrow().to_string()
-                            )),
+                            ),
+                            notes: vec![],
                         });
                     }
                 }
@@ -815,11 +855,13 @@ impl<'a> TypeChecker<'a> {
                         node.is_lvalue = true;
                         node.value = value.get(&i).clone();
                     } else {
-                        return Err(Error {
+                        return Err(Diagnostic {
                             span: node.span,
-                            kind: ErrorKind::Other(format!(
+                            kind: DiagnosticKind::Error,
+                            message: format!(
                                 "subscripted value must be a pointer or array and index must be an integer"
-                            )),
+                            ),
+                            notes: vec![],
                         });
                     }
                 }
@@ -837,12 +879,14 @@ impl<'a> TypeChecker<'a> {
                         match &target.borrow().r#type.borrow().kind {
                             TypeKind::Pointer(pointee) => target_type = Rc::clone(pointee),
                             _ => {
-                                return Err(Error {
+                                return Err(Diagnostic {
                                     span: target.borrow().span,
-                                    kind: ErrorKind::Other(format!(
+                                    kind: DiagnosticKind::Error,
+                                    message: format!(
                                         "'{}' is not a pointer",
                                         target.borrow().r#type.borrow().to_string()
-                                    )),
+                                    ),
+                                    notes: vec![],
                                 });
                             }
                         }
@@ -889,30 +933,33 @@ impl<'a> TypeChecker<'a> {
                                     node.r#type = Rc::clone(&member.borrow().r#type);
                                 }
                             } else {
-                                return Err(Error {
+                                return Err(Diagnostic {
                                     span: target.borrow().span,
-                                    kind: ErrorKind::Other(format!(
+                                    kind: DiagnosticKind::Error,
+                                    message: format!(
                                         "no member named '{name}' in '{}'",
                                         t.borrow().to_string()
-                                    )),
+                                    ),
+                                    notes: vec![],
                                 });
                             }
                         } else {
-                            return Err(Error {
+                            return Err(Diagnostic {
                                 span: target.borrow().span,
-                                kind: ErrorKind::Other(format!(
-                                    "'{}' is incomplete",
-                                    t.borrow().to_string()
-                                )),
+                                kind: DiagnosticKind::Error,
+                                message: format!("'{}' is incomplete", t.borrow().to_string()),
+                                notes: vec![],
                             });
                         }
                     } else {
-                        return Err(Error {
+                        return Err(Diagnostic {
                             span: target.borrow().span,
-                            kind: ErrorKind::Other(format!(
+                            kind: DiagnosticKind::Error,
+                            message: format!(
                                 "'{}' is not a struct or union",
                                 target.borrow().r#type.borrow().to_string()
-                            )),
+                            ),
+                            notes: vec![],
                         });
                     }
                     node.is_lvalue = is_lvalue;
@@ -930,12 +977,14 @@ impl<'a> TypeChecker<'a> {
                                     kind: TypeKind::Int,
                                 }))
                             } else {
-                                return Err(Error {
+                                return Err(Diagnostic {
                                     span: operand.borrow().span,
-                                    kind: ErrorKind::Other(format!(
+                                    kind: DiagnosticKind::Error,
+                                    message: format!(
                                         "'{}' is not a scale type",
                                         operand.borrow().r#type.borrow().to_string()
-                                    )),
+                                    ),
+                                    notes: vec![],
                                 });
                             }
                         }
@@ -961,12 +1010,14 @@ impl<'a> TypeChecker<'a> {
                                 node.value = value;
                                 node.r#type = promote_type;
                             } else {
-                                return Err(Error {
+                                return Err(Diagnostic {
                                     span: operand.borrow().span,
-                                    kind: ErrorKind::Other(format!(
+                                    kind: DiagnosticKind::Error,
+                                    message: format!(
                                         "'{}' is not a arithmetic type",
                                         operand.borrow().r#type.borrow().to_string()
-                                    )),
+                                    ),
+                                    notes: vec![],
                                 });
                             }
                         }
@@ -989,12 +1040,14 @@ impl<'a> TypeChecker<'a> {
                                 node.value = value;
                                 node.r#type = promote_type;
                             } else {
-                                return Err(Error {
+                                return Err(Diagnostic {
                                     span: operand.borrow().span,
-                                    kind: ErrorKind::Other(format!(
+                                    kind: DiagnosticKind::Error,
+                                    message: format!(
                                         "'{}' is not a integer type",
                                         operand.borrow().r#type.borrow().to_string()
-                                    )),
+                                    ),
+                                    notes: vec![],
                                 });
                             }
                         }
@@ -1004,20 +1057,24 @@ impl<'a> TypeChecker<'a> {
                         | UnaryOpKind::PostfixDec => {
                             let r#type = Rc::clone(&operand.borrow().r#type);
                             if !operand.borrow().is_lvalue || !r#type.borrow().can_modify() {
-                                return Err(Error {
+                                return Err(Diagnostic {
                                     span: operand.borrow().span,
-                                    kind: ErrorKind::Other(format!("invalid operand")),
+                                    kind: DiagnosticKind::Error,
+                                    message: format!("invalid operand"),
+                                    notes: vec![],
                                 });
                             } else if !(r#type.borrow().is_integer()
                                 || r#type.borrow().is_real_float()
                                 || r#type.borrow().is_pointer())
                             {
-                                return Err(Error {
+                                return Err(Diagnostic {
                                     span: operand.borrow().span,
-                                    kind: ErrorKind::Other(format!(
+                                    kind: DiagnosticKind::Error,
+                                    message: format!(
                                         "'{}' is not a integer, real floating or pointer",
                                         r#type.borrow().to_string()
-                                    )),
+                                    ),
+                                    notes: vec![],
                                 });
                             } else {
                                 let value = if let UnaryOpKind::PrefixInc
@@ -1037,12 +1094,14 @@ impl<'a> TypeChecker<'a> {
                             match operand.borrow().r#type.borrow().size() {
                                 Some(t) => value = Variant::Int(BigInt::from(t)),
                                 None => {
-                                    return Err(Error {
+                                    return Err(Diagnostic {
                                         span: operand.borrow().span,
-                                        kind: ErrorKind::Other(format!(
+                                        kind: DiagnosticKind::Error,
+                                        message: format!(
                                             "'{}' is incomplete",
                                             operand.borrow().r#type.borrow().to_string()
-                                        )),
+                                        ),
+                                        notes: vec![],
                                     });
                                 }
                             }
@@ -1068,11 +1127,13 @@ impl<'a> TypeChecker<'a> {
                                 match operand.borrow().symbol {
                                     Some(ref symbol) => match &symbol.borrow().kind {
                                         SymbolKind::Member { bit_field: Some(_) } => {
-                                            return Err(Error {
+                                            return Err(Diagnostic {
                                                 span: node.span,
-                                                kind: ErrorKind::Other(format!(
+                                                kind: DiagnosticKind::Error,
+                                                message: format!(
                                                     "cannot take address of bit-field"
-                                                )),
+                                                ),
+                                                notes: vec![],
                                             });
                                         }
                                         SymbolKind::Object { storage_classes }
@@ -1080,11 +1141,13 @@ impl<'a> TypeChecker<'a> {
                                             for storage_class in storage_classes {
                                                 match &storage_class.kind {
                                                     StorageClassKind::Register => {
-                                                        return Err(Error {
+                                                        return Err(Diagnostic {
                                                             span: node.span,
-                                                            kind: ErrorKind::Other(format!(
+                                                            kind: DiagnosticKind::Error,
+                                                            message: format!(
                                                                 "cannot take address of register variable"
-                                                            )),
+                                                            ),
+                                                            notes: vec![],
                                                         });
                                                     }
                                                     _ => {}
@@ -1102,9 +1165,13 @@ impl<'a> TypeChecker<'a> {
                                 }));
                                 node.r#type = r#type;
                             } else {
-                                return Err(Error {
+                                return Err(Diagnostic {
                                     span: operand.borrow().span,
-                                    kind: ErrorKind::Other(format!("invalid operand")),
+                                    kind: DiagnosticKind::Error,
+                                    message: format!(
+                                        "the operand of '&' must be a function, lvalue or dereference"
+                                    ),
+                                    notes: vec![],
                                 });
                             }
                         }
@@ -1118,18 +1185,19 @@ impl<'a> TypeChecker<'a> {
                                     } => target.borrow().is_lvalue,
                                     _ => operand.borrow().is_lvalue,
                                 };
-                                let r#type =
-                                    pointee_type(Rc::clone(&operand.borrow().r#type)).unwrap();
+                                let r#type = pointee(Rc::clone(&operand.borrow().r#type)).unwrap();
 
                                 node.r#type = r#type;
                                 node.is_lvalue = is_lvalue;
                             } else {
-                                return Err(Error {
+                                return Err(Diagnostic {
                                     span: operand.borrow().span,
-                                    kind: ErrorKind::Other(format!(
+                                    kind: DiagnosticKind::Error,
+                                    message: format!(
                                         "'{}' is not a pointer",
                                         operand.borrow().r#type.borrow().to_string()
-                                    )),
+                                    ),
+                                    notes: vec![],
                                 });
                             }
                         }
@@ -1142,14 +1210,22 @@ impl<'a> TypeChecker<'a> {
                     match op {
                         BinOpKind::And | BinOpKind::Or => {
                             if !left.borrow().r#type.borrow().is_scale() {
-                                return Err(Error {
+                                return Err(Diagnostic {
                                     span: left.borrow().span,
-                                    kind: ErrorKind::Other(format!("invalid operand")),
+                                    kind: DiagnosticKind::Error,
+                                    message: format!(
+                                        "the operator of '{op}' must have a scale type"
+                                    ),
+                                    notes: vec![],
                                 });
                             } else if !right.borrow().r#type.borrow().is_scale() {
-                                return Err(Error {
+                                return Err(Diagnostic {
                                     span: right.borrow().span,
-                                    kind: ErrorKind::Other(format!("invalid operand")),
+                                    kind: DiagnosticKind::Error,
+                                    message: format!(
+                                        "the operator of '{op}' must have a scale type"
+                                    ),
+                                    notes: vec![],
                                 });
                             } else {
                                 let (x, y) =
@@ -1199,18 +1275,38 @@ impl<'a> TypeChecker<'a> {
                                 && right.borrow().r#type.borrow().is_pointer()
                             {
                                 if !is_compatible(
-                                    pointee_type(Rc::clone(&left.borrow().r#type)).unwrap(),
-                                    pointee_type(Rc::clone(&right.borrow().r#type)).unwrap(),
+                                    pointee(Rc::clone(&left.borrow().r#type)).unwrap(),
+                                    pointee(Rc::clone(&right.borrow().r#type)).unwrap(),
                                 ) {
-                                    return Err(Error {
+                                    return Err(Diagnostic {
                                         span: left.borrow().span,
-                                        kind: ErrorKind::Other(format!("invalid operand")),
+                                        kind: DiagnosticKind::Error,
+                                        message: format!(
+                                            "'{}' is not compatible with '{}'",
+                                            left.borrow().r#type.borrow().to_string(),
+                                            right.borrow().r#type.borrow().to_string()
+                                        ),
+                                        notes: vec![Diagnostic {
+                                            span: right.borrow().span,
+                                            kind: DiagnosticKind::Note,
+                                            message: format!("right operand"),
+                                            notes: vec![],
+                                        }],
                                     });
                                 }
                             } else {
-                                return Err(Error {
+                                return Err(Diagnostic {
                                     span: left.borrow().span,
-                                    kind: ErrorKind::Other(format!("invalid operand")),
+                                    kind: DiagnosticKind::Error,
+                                    message: format!(
+                                        "the operator of '{op}' must have an real type or is a pointer"
+                                    ),
+                                    notes: vec![Diagnostic {
+                                        span: right.borrow().span,
+                                        kind: DiagnosticKind::Note,
+                                        message: format!("right operand"),
+                                        notes: vec![],
+                                    }],
                                 });
                             }
                             node.r#type = Rc::new(RefCell::new(Type {
@@ -1249,47 +1345,40 @@ impl<'a> TypeChecker<'a> {
                                     && right.borrow().r#type.borrow().is_pointer()
                                 || right.borrow().r#type.borrow().is_nullptr()
                             {
-                                if !is_compatible(
-                                    Rc::clone(&left.borrow().r#type),
-                                    Rc::clone(&right.borrow().r#type),
-                                ) {
-                                    match &mut node.kind {
-                                        ExprKind::BinOp { left, right, .. } => {
-                                            let new_left =
-                                                Rc::new(RefCell::new(self.wrap_implicit_cast(
-                                                    Rc::clone(left),
-                                                    Rc::new(RefCell::new(Type {
+                                match &mut node.kind {
+                                    ExprKind::BinOp { left, right, .. } => {
+                                        let new_left = self.try_implicit_cast(
+                                            Rc::clone(left),
+                                            Rc::new(RefCell::new(Type {
+                                                span: left.borrow().span,
+                                                attributes: vec![],
+                                                kind: TypeKind::Pointer(Rc::new(RefCell::new(
+                                                    Type {
                                                         span: left.borrow().span,
                                                         attributes: vec![],
-                                                        kind: TypeKind::Pointer(Rc::new(
-                                                            RefCell::new(Type {
-                                                                span: left.borrow().span,
-                                                                attributes: vec![],
-                                                                kind: TypeKind::Void,
-                                                            }),
-                                                        )),
-                                                    })),
-                                                )));
-                                            let new_right =
-                                                Rc::new(RefCell::new(self.wrap_implicit_cast(
-                                                    Rc::clone(right),
-                                                    Rc::new(RefCell::new(Type {
+                                                        kind: TypeKind::Void,
+                                                    },
+                                                ))),
+                                            })),
+                                        )?;
+                                        let new_right = self.try_implicit_cast(
+                                            Rc::clone(right),
+                                            Rc::new(RefCell::new(Type {
+                                                span: right.borrow().span,
+                                                attributes: vec![],
+                                                kind: TypeKind::Pointer(Rc::new(RefCell::new(
+                                                    Type {
                                                         span: right.borrow().span,
                                                         attributes: vec![],
-                                                        kind: TypeKind::Pointer(Rc::new(
-                                                            RefCell::new(Type {
-                                                                span: right.borrow().span,
-                                                                attributes: vec![],
-                                                                kind: TypeKind::Void,
-                                                            }),
-                                                        )),
-                                                    })),
-                                                )));
-                                            *left = new_left;
-                                            *right = new_right;
-                                        }
-                                        _ => unreachable!(),
+                                                        kind: TypeKind::Void,
+                                                    },
+                                                ))),
+                                            })),
+                                        )?;
+                                        *left = new_left;
+                                        *right = new_right;
                                     }
+                                    _ => unreachable!(),
                                 }
                                 node.r#type = Rc::new(RefCell::new(Type {
                                     span: node.span,
@@ -1301,9 +1390,18 @@ impl<'a> TypeChecker<'a> {
                                     }))),
                                 }));
                             } else {
-                                return Err(Error {
+                                return Err(Diagnostic {
                                     span: left.borrow().span,
-                                    kind: ErrorKind::Other(format!("invalid operand")),
+                                    kind: DiagnosticKind::Error,
+                                    message: format!(
+                                        "the operator of '{op}' must have an arithmetic type or is a pointer"
+                                    ),
+                                    notes: vec![Diagnostic {
+                                        span: right.borrow().span,
+                                        kind: DiagnosticKind::Note,
+                                        message: format!("right operand"),
+                                        notes: vec![],
+                                    }],
                                 });
                             }
                             node.r#type = Rc::new(RefCell::new(Type {
@@ -1340,7 +1438,9 @@ impl<'a> TypeChecker<'a> {
                                     _ => unreachable!(),
                                 }
                                 node.r#type = arith_result_type(a, b);
-                            } else if left.borrow().r#type.borrow().is_pointer()
+                            }
+                            //integer肯定是算术类型, 所以执行到这里时两个操作数要么一个是指针一个是整数, 要么都是指针
+                            else if left.borrow().r#type.borrow().is_pointer()
                                 || left.borrow().r#type.borrow().is_integer()
                                     && right.borrow().r#type.borrow().is_pointer()
                                 || right.borrow().r#type.borrow().is_integer()
@@ -1348,9 +1448,13 @@ impl<'a> TypeChecker<'a> {
                                 if let BinOpKind::Sub = op
                                     && left.borrow().r#type.borrow().is_integer()
                                 {
-                                    return Err(Error {
+                                    return Err(Diagnostic {
                                         span: left.borrow().span,
-                                        kind: ErrorKind::Other(format!("invalid operand")),
+                                        kind: DiagnosticKind::Error,
+                                        message: format!(
+                                            "the left operand of {op} cannot be an when the right operand is a pointer"
+                                        ),
+                                        notes: vec![],
                                     });
                                 }
 
@@ -1361,9 +1465,18 @@ impl<'a> TypeChecker<'a> {
                                 };
                                 node.r#type = r#type;
                             } else {
-                                return Err(Error {
+                                return Err(Diagnostic {
                                     span: left.borrow().span,
-                                    kind: ErrorKind::Other(format!("invalid operand")),
+                                    kind: DiagnosticKind::Error,
+                                    message: format!(
+                                        "the operator of '{op}' must have an arithmetic type or is a pointer"
+                                    ),
+                                    notes: vec![Diagnostic {
+                                        span: right.borrow().span,
+                                        kind: DiagnosticKind::Note,
+                                        message: format!("right operand"),
+                                        notes: vec![],
+                                    }],
                                 });
                             }
                         }
@@ -1398,9 +1511,18 @@ impl<'a> TypeChecker<'a> {
                                 }
                                 node.r#type = arith_result_type(a, b);
                             } else {
-                                return Err(Error {
+                                return Err(Diagnostic {
                                     span: left.borrow().span,
-                                    kind: ErrorKind::Other(format!("invalid operand")),
+                                    kind: DiagnosticKind::Error,
+                                    message: format!(
+                                        "the operator of '{op}' must have an arithmetic type"
+                                    ),
+                                    notes: vec![Diagnostic {
+                                        span: right.borrow().span,
+                                        kind: DiagnosticKind::Note,
+                                        message: format!("right operand"),
+                                        notes: vec![],
+                                    }],
                                 });
                             }
                         }
@@ -1434,9 +1556,18 @@ impl<'a> TypeChecker<'a> {
                                 }
                                 node.r#type = arith_result_type(a, b);
                             } else {
-                                return Err(Error {
+                                return Err(Diagnostic {
                                     span: left.borrow().span,
-                                    kind: ErrorKind::Other(format!("invalid operand")),
+                                    kind: DiagnosticKind::Error,
+                                    message: format!(
+                                        "the operator of '{op}' must have an integer type"
+                                    ),
+                                    notes: vec![Diagnostic {
+                                        span: right.borrow().span,
+                                        kind: DiagnosticKind::Note,
+                                        message: format!("right operand"),
+                                        notes: vec![],
+                                    }],
                                 });
                             }
                         }
@@ -1467,23 +1598,32 @@ impl<'a> TypeChecker<'a> {
                                 }
                                 node.r#type = a;
                             } else {
-                                return Err(Error {
+                                return Err(Diagnostic {
                                     span: left.borrow().span,
-                                    kind: ErrorKind::Other(format!("invalid operand")),
+                                    kind: DiagnosticKind::Error,
+                                    message: format!(
+                                        "the operator of '{op}' must have an integer type"
+                                    ),
+                                    notes: vec![Diagnostic {
+                                        span: right.borrow().span,
+                                        kind: DiagnosticKind::Note,
+                                        message: format!("right operand"),
+                                        notes: vec![],
+                                    }],
                                 });
                             }
                         }
                         BinOpKind::Assign => {
                             if left.borrow().is_lvalue && left.borrow().r#type.borrow().can_modify()
                             {
-                                let r#type = Rc::clone(&left.borrow().r#type);
+                                let r#type = remove_qualifier(Rc::clone(&left.borrow().r#type));
                                 let value = right.borrow().value.clone();
 
                                 match &mut node.kind {
                                     ExprKind::BinOp { left, right, .. } => {
                                         *right = self.try_implicit_cast(
                                             Rc::clone(right),
-                                            Rc::clone(&left.borrow().r#type),
+                                            remove_qualifier(Rc::clone(&left.borrow().r#type)),
                                         )?;
                                     }
                                     _ => unreachable!(),
@@ -1491,10 +1631,24 @@ impl<'a> TypeChecker<'a> {
 
                                 node.value = value;
                                 node.r#type = r#type;
-                            } else {
-                                return Err(Error {
+                            } else if !left.borrow().r#type.borrow().is_complete() {
+                                return Err(Diagnostic {
                                     span: left.borrow().span,
-                                    kind: ErrorKind::Other(format!("invalid operand")),
+                                    kind: DiagnosticKind::Error,
+                                    message: format!(
+                                        "'{}' is not complete",
+                                        left.borrow().r#type.borrow().to_string()
+                                    ),
+                                    notes: vec![],
+                                });
+                            } else {
+                                return Err(Diagnostic {
+                                    span: left.borrow().span,
+                                    kind: DiagnosticKind::Error,
+                                    message: format!(
+                                        "the operator of '{op}' must be a lvalue and can be modified"
+                                    ),
+                                    notes: vec![],
                                 });
                             }
                         }
@@ -1529,7 +1683,7 @@ impl<'a> TypeChecker<'a> {
                                 },
                                 ..Expr::new(node.span)
                             }));
-                            let r#type = Rc::clone(&left.borrow().r#type);
+                            let r#type = remove_qualifier(Rc::clone(&left.borrow().r#type));
 
                             self.visit_expr(Rc::clone(&eq_expr))?;
                             match (&eq_expr.borrow().kind, &mut node.kind) {
@@ -1654,9 +1808,18 @@ impl<'a> TypeChecker<'a> {
                             }))),
                         }));
                     } else {
-                        return Err(Error {
+                        return Err(Diagnostic {
                             span: true_expr.borrow().span,
-                            kind: ErrorKind::Other(format!("invalid operand")),
+                            kind: DiagnosticKind::Error,
+                            message: format!(
+                                "the operand of conditional expression must have an arithmetic or void type or is a pointer"
+                            ),
+                            notes: vec![Diagnostic {
+                                span: false_expr.borrow().span,
+                                kind: DiagnosticKind::Note,
+                                message: format!("false expression"),
+                                notes: vec![],
+                            }],
                         });
                     }
                 }
@@ -1665,12 +1828,11 @@ impl<'a> TypeChecker<'a> {
                     match r#type.borrow().size() {
                         Some(t) => value = Variant::Int(BigInt::from(t)),
                         None => {
-                            return Err(Error {
+                            return Err(Diagnostic {
                                 span: r#type.borrow().span,
-                                kind: ErrorKind::Other(format!(
-                                    "'{}' is incomplete",
-                                    r#type.borrow().to_string()
-                                )),
+                                kind: DiagnosticKind::Error,
+                                message: format!("'{}' is incomplete", r#type.borrow().to_string()),
+                                notes: vec![],
                             });
                         }
                     }
@@ -1695,9 +1857,13 @@ impl<'a> TypeChecker<'a> {
                             | StorageClassKind::Register
                             | StorageClassKind::ThreadLocal => {}
                             _ => {
-                                return Err(Error {
+                                return Err(Diagnostic {
                                     span: storage_class.span,
-                                    kind: ErrorKind::Other(format!("unexpected storage class")),
+                                    kind: DiagnosticKind::Error,
+                                    message: format!(
+                                        "only constexpr, static, register, thread_local are allowed in compound literal"
+                                    ),
+                                    notes: vec![],
                                 });
                             }
                         }

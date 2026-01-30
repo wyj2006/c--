@@ -28,6 +28,7 @@ test_template!(
 int main()
 {
     int a[3][4][5]={[0][1]={1,2},3,4};
+    int b[3][4]={[1]=1,2,3};
 }
 "
 );
@@ -50,6 +51,19 @@ int main()
     struct{
         int x[3][4][5];
     }a={1,2,3,4};
+}
+"
+);
+
+test_template!(
+    init_with_string,
+    "
+int main()
+{
+    char a[2]=\"fdas\";
+    char b[]={\"fdsa\"};
+    char c[][4][5]={[1]=\"fdas\",\"f\",1};
+    struct A{char a[5];}d={\"fdsa\"};
 }
 "
 );

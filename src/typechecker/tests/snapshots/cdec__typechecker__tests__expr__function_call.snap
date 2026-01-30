@@ -225,7 +225,7 @@ RefCell {
                                                                                                 },
                                                                                             },
                                                                                         },
-                                                                                        value: Undefined,
+                                                                                        value: Unknown,
                                                                                         is_lvalue: false,
                                                                                         symbol: Some(
                                                                                             RefCell {
@@ -341,7 +341,7 @@ RefCell {
                                                                                     ),
                                                                                 },
                                                                             },
-                                                                            value: Undefined,
+                                                                            value: Unknown,
                                                                             is_lvalue: false,
                                                                             symbol: None,
                                                                         },
@@ -418,7 +418,7 @@ RefCell {
                                                                         kind: Int,
                                                                     },
                                                                 },
-                                                                value: Undefined,
+                                                                value: Unknown,
                                                                 is_lvalue: false,
                                                                 symbol: None,
                                                             },

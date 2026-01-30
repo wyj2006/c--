@@ -173,12 +173,24 @@ impl<'a> Type<'a> {
         self.kind.is_union()
     }
 
+    pub fn is_object(&self) -> bool {
+        self.kind.is_object()
+    }
+
+    pub fn is_char(&self) -> bool {
+        self.kind.is_char()
+    }
+
     pub fn can_modify(&self) -> bool {
         self.kind.can_modify()
     }
 
     pub fn size(&self) -> Option<usize> {
         self.kind.size()
+    }
+
+    pub fn is_complete(&self) -> bool {
+        self.kind.is_complete()
     }
 }
 
@@ -282,6 +294,20 @@ impl TypeKind<'_> {
         }
     }
 
+    pub fn is_object(&self) -> bool {
+        match self {
+            TypeKind::Function { .. } => false,
+            _ => true,
+        }
+    }
+
+    pub fn is_char(&self) -> bool {
+        match self {
+            TypeKind::Char | TypeKind::UnsignedChar | TypeKind::SignedChar => true,
+            _ => false,
+        }
+    }
+
     pub fn can_modify(&self) -> bool {
         match self {
             TypeKind::Qualified { qualifiers, .. } => !qualifiers.contains(&TypeQual::Const),
@@ -290,12 +316,15 @@ impl TypeKind<'_> {
     }
 
     pub fn size(&self) -> Option<usize> {
+        //TODO 对齐
         match &self {
-            TypeKind::Char => Some(1),
-            TypeKind::Short | TypeKind::UShort => Some(6),
+            //TODO 根据平台决定
+            TypeKind::Char | TypeKind::SignedChar | TypeKind::UnsignedChar => Some(1),
+            TypeKind::Short | TypeKind::UShort => Some(2),
             TypeKind::Unsigned | TypeKind::Signed | TypeKind::Int | TypeKind::UInt => Some(4),
             TypeKind::Long | TypeKind::ULong => Some(4),
             TypeKind::LongLong | TypeKind::ULongLong => Some(8),
+            TypeKind::Pointer(_) | TypeKind::Nullptr => Some(8),
             TypeKind::BitInt { width_expr, .. } => {
                 if let Variant::Int(n) = &width_expr.borrow().value {
                     Some(n.to_usize()?.div_ceil(8))
@@ -303,8 +332,81 @@ impl TypeKind<'_> {
                     None
                 }
             }
+            TypeKind::Bool => Some(1),
+            TypeKind::Float => Some(4),
+            TypeKind::Double => Some(8),
+            TypeKind::LongDouble => Some(16),
+            TypeKind::Complex(Some(t)) => match t.borrow().size() {
+                Some(t) => Some(t * 2),
+                None => None,
+            },
+            TypeKind::Decimal32 => Some(4),
+            TypeKind::Decimal64 => Some(8),
+            TypeKind::Decimal128 => Some(16),
             TypeKind::Enum { underlying, .. } => underlying.borrow().size(),
-            _ => unimplemented!(), //TODO 其它类型的大小
+            TypeKind::Array {
+                element_type,
+                len_expr: Some(len_expr),
+                ..
+            } => match &len_expr.borrow().value {
+                Variant::Int(value) => match (value.to_usize(), element_type.borrow().size()) {
+                    (Some(len), Some(element_size)) => Some(len * element_size),
+                    _ => None,
+                },
+                _ => None,
+            },
+            TypeKind::Record {
+                kind: RecordKind::Struct,
+                members: Some(members),
+                ..
+            } => {
+                let mut size = 0;
+                for (_, member) in members {
+                    match member.borrow().r#type.borrow().size() {
+                        Some(t) => size += t,
+                        None => return None,
+                    }
+                }
+                Some(size)
+            }
+            TypeKind::Record {
+                kind: RecordKind::Union,
+                members: Some(members),
+                ..
+            } => {
+                let mut size = 0;
+                for (_, member) in members {
+                    match member.borrow().r#type.borrow().size() {
+                        Some(t) => size = size.max(t),
+                        None => return None,
+                    }
+                }
+                Some(size)
+            }
+            TypeKind::Auto(Some(t))
+            | TypeKind::Atomic(t)
+            | TypeKind::Qualified { r#type: t, .. }
+            | TypeKind::Typedef {
+                r#type: Some(t), ..
+            } => t.borrow().size(),
+            TypeKind::Typeof {
+                expr: Some(t),
+                r#type: None,
+                ..
+            } => t.borrow().r#type.borrow().size(),
+            TypeKind::Typeof {
+                expr: None,
+                r#type: Some(t),
+                ..
+            } => t.borrow().size(),
+            _ => None,
+        }
+    }
+
+    pub fn is_complete(&self) -> bool {
+        match self.size() {
+            Some(_) => true,
+            None => false,
         }
     }
 }
@@ -327,213 +429,191 @@ pub fn as_parameter_type<'a>(a: Rc<RefCell<Type<'a>>>) -> Rc<RefCell<Type<'a>>> 
 }
 
 pub fn is_compatible<'a>(a: Rc<RefCell<Type<'a>>>, b: Rc<RefCell<Type<'a>>>) -> bool {
-    //避免出现递归
-    let mut queue = IndexMap::new();
-
-    let add =
-        |queue: &mut IndexMap<(usize, usize), (Rc<RefCell<Type<'a>>>, Rc<RefCell<Type<'a>>>)>,
-         a: Rc<RefCell<Type<'a>>>,
-         b: Rc<RefCell<Type<'a>>>| {
-            let key = (a.as_ptr() as usize, b.as_ptr() as usize);
-            if !queue.contains_key(&key) {
-                queue.insert(key, (a, b));
+    if Rc::ptr_eq(&a, &b) {
+        return true;
+    }
+    match (&a.borrow().kind, &b.borrow().kind) {
+        (_, TypeKind::Typedef { r#type, .. }) => {
+            if let Some(t) = r#type {
+                is_compatible(Rc::clone(&a), Rc::clone(t))
+            } else {
+                false
             }
-        };
-    add(&mut queue, a, b);
-
-    let mut i = 0;
-    while i < queue.len() {
-        let (_, (a, b)) = queue.get_index(i).unwrap();
-        let a = Rc::clone(a);
-        let b = Rc::clone(b);
-        if Rc::ptr_eq(&a, &b) {
-            i += 1;
-            continue;
         }
-        match (&a.borrow().kind, &b.borrow().kind) {
-            (_, TypeKind::Typedef { r#type, .. }) => {
-                if let Some(t) = r#type {
-                    add(&mut queue, Rc::clone(&a), Rc::clone(t));
-                } else {
-                    return false;
-                }
+        (TypeKind::Typedef { r#type, .. }, _) => {
+            if let Some(t) = r#type {
+                is_compatible(Rc::clone(t), Rc::clone(&b))
+            } else {
+                return false;
             }
-            (TypeKind::Typedef { r#type, .. }, _) => {
-                if let Some(t) = r#type {
-                    add(&mut queue, Rc::clone(t), Rc::clone(&b));
-                } else {
-                    return false;
-                }
-            }
-            (_, TypeKind::Qualified { r#type, .. }) => {
-                add(&mut queue, Rc::clone(&a), Rc::clone(r#type));
-            }
-            (TypeKind::Qualified { r#type, .. }, _) => {
-                add(&mut queue, Rc::clone(r#type), Rc::clone(&b));
-            }
-            (TypeKind::Pointer(a_pointee), TypeKind::Pointer(b_pointee)) => {
-                add(&mut queue, Rc::clone(a_pointee), Rc::clone(b_pointee));
-            }
-            (
-                TypeKind::Array {
-                    element_type: a_element_type,
-                    len_expr: a_len_expr,
-                    ..
-                },
-                TypeKind::Array {
-                    element_type: b_element_type,
-                    len_expr: b_len_expr,
-                    ..
-                },
-            ) => {
-                if !is_compatible(Rc::clone(a_element_type), Rc::clone(b_element_type)) {
-                    return false;
-                } else if let Some(a_len_expr) = a_len_expr
+        }
+        (_, TypeKind::Qualified { r#type, .. }) => is_compatible(Rc::clone(&a), Rc::clone(r#type)),
+        (TypeKind::Qualified { r#type, .. }, _) => is_compatible(Rc::clone(r#type), Rc::clone(&b)),
+        (TypeKind::Pointer(a_pointee), TypeKind::Pointer(b_pointee)) => {
+            is_compatible(Rc::clone(a_pointee), Rc::clone(b_pointee))
+        }
+        (
+            TypeKind::Array {
+                element_type: a_element_type,
+                len_expr: a_len_expr,
+                ..
+            },
+            TypeKind::Array {
+                element_type: b_element_type,
+                len_expr: b_len_expr,
+                ..
+            },
+        ) => {
+            if !is_compatible(Rc::clone(a_element_type), Rc::clone(b_element_type)) {
+                false
+            } else if let Some(a_len_expr) = a_len_expr
                     && let Some(b_len_expr) = b_len_expr
                     //长度不相等
                     && a_len_expr.borrow().value!=b_len_expr.borrow().value
-                {
-                    return false;
-                }
+            {
+                false
+            } else {
+                true
             }
-            (
-                TypeKind::Record {
-                    name: a_name,
-                    kind: a_kind,
-                    members: a_members,
-                },
-                TypeKind::Record {
-                    name: b_name,
-                    kind: b_kind,
-                    members: b_members,
-                },
-            ) => {
-                if a_kind != b_kind || a_name != b_name {
-                    return false;
-                } else if let Some(a_members) = a_members
-                    && let Some(b_members) = b_members
-                {
-                    if a_members.len() != b_members.len() {
-                        return false;
-                    } else {
-                        for (name, a_member) in a_members {
-                            let Some(b_member) = b_members.get(name) else {
-                                return false;
-                            };
-                            let a_member = a_member.borrow();
-                            let b_member = b_member.borrow();
-                            if a_member.name != b_member.name {
-                                return false;
-                            }
-                            add(
-                                &mut queue,
-                                Rc::clone(&a_member.r#type),
-                                Rc::clone(&b_member.r#type),
-                            );
-
-                            if let RecordKind::Struct = a_kind
-                                && a_members.get_index_of(name) != b_members.get_index_of(name)
-                            {
-                                return false;
-                            }
-                            match (&a_member.kind, &b_member.kind) {
-                                (
-                                    SymbolKind::Member {
-                                        bit_field: Some(a_bit_field),
-                                    },
-                                    SymbolKind::Member {
-                                        bit_field: Some(b_bit_field),
-                                    },
-                                ) if a_bit_field != b_bit_field => return false,
-                                _ => {}
-                            }
-                        }
-                    }
-                }
-            }
-            (
-                TypeKind::Enum {
-                    name: a_name,
-                    enum_consts: a_enum_consts,
-                    ..
-                },
-                TypeKind::Enum {
-                    name: b_name,
-                    enum_consts: b_enum_consts,
-                    ..
-                },
-            ) => {
-                if a_name != b_name {
-                    return false;
-                } else if let Some(a_enum_consts) = a_enum_consts
-                    && let Some(b_enum_consts) = b_enum_consts
-                {
-                    if a_enum_consts.len() != b_enum_consts.len() {
-                        return false;
-                    } else {
-                        for (name, a_enum_const) in a_enum_consts {
-                            let Some(b_enum_const) = b_enum_consts.get(name) else {
-                                return false;
-                            };
-                            let a_enum_const = a_enum_const.borrow();
-                            let b_enum_const = b_enum_const.borrow();
-                            match (&a_enum_const.kind, &b_enum_const.kind) {
-                                (
-                                    SymbolKind::EnumConst { value: a_value },
-                                    SymbolKind::EnumConst { value: b_value },
-                                ) if a_value != b_value => return false,
-                                _ => {}
-                            }
-                        }
-                    }
-                }
-            }
-            (_, TypeKind::Enum { underlying, .. }) => {
-                add(&mut queue, Rc::clone(&a), Rc::clone(underlying))
-            }
-            (TypeKind::Enum { underlying, .. }, _) => {
-                add(&mut queue, Rc::clone(underlying), Rc::clone(&b))
-            }
-            (
-                TypeKind::Function {
-                    return_type: a_return_type,
-                    parameters_type: a_parameters_type,
-                    has_varparam: a_has_varparam,
-                },
-                TypeKind::Function {
-                    return_type: b_return_type,
-                    parameters_type: b_parameters_type,
-                    has_varparam: b_has_varparam,
-                },
-            ) => {
-                if *a_has_varparam != *b_has_varparam {
-                    return false;
-                } else if a_parameters_type.len() != b_parameters_type.len() {
-                    return false;
-                } else if !is_compatible(Rc::clone(a_return_type), Rc::clone(b_return_type)) {
+        }
+        (
+            TypeKind::Record {
+                name: a_name,
+                kind: a_kind,
+                members: a_members,
+            },
+            TypeKind::Record {
+                name: b_name,
+                kind: b_kind,
+                members: b_members,
+            },
+        ) => {
+            if a_kind != b_kind || a_name != b_name {
+                return false;
+            } else if let Some(a_members) = a_members
+                && let Some(b_members) = b_members
+            {
+                if a_members.len() != b_members.len() {
                     return false;
                 } else {
-                    for (a_parameter, b_parameter) in zip(a_parameters_type, b_parameters_type) {
-                        add(
-                            &mut queue,
-                            as_parameter_type(Rc::clone(a_parameter)),
-                            as_parameter_type(Rc::clone(b_parameter)),
-                        );
+                    for (name, a_member) in a_members {
+                        let Some(b_member) = b_members.get(name) else {
+                            return false;
+                        };
+                        let a_member = a_member.borrow();
+                        let b_member = b_member.borrow();
+                        if !is_compatible(Rc::clone(&a_member.r#type), Rc::clone(&b_member.r#type))
+                        {
+                            return false;
+                        }
+
+                        if let RecordKind::Struct = a_kind
+                            && a_members.get_index_of(name) != b_members.get_index_of(name)
+                        {
+                            return false;
+                        }
+                        match (&a_member.kind, &b_member.kind) {
+                            (
+                                SymbolKind::Member {
+                                    bit_field: Some(a_bit_field),
+                                },
+                                SymbolKind::Member {
+                                    bit_field: Some(b_bit_field),
+                                },
+                            ) if a_bit_field != b_bit_field => return false,
+                            _ => {}
+                        }
+                    }
+                    true
+                }
+            } else {
+                true
+            }
+        }
+        (
+            TypeKind::Enum {
+                name: a_name,
+                enum_consts: a_enum_consts,
+                ..
+            },
+            TypeKind::Enum {
+                name: b_name,
+                enum_consts: b_enum_consts,
+                ..
+            },
+        ) => {
+            if a_name != b_name {
+                return false;
+            } else if let Some(a_enum_consts) = a_enum_consts
+                && let Some(b_enum_consts) = b_enum_consts
+            {
+                if a_enum_consts.len() != b_enum_consts.len() {
+                    return false;
+                } else {
+                    for (name, a_enum_const) in a_enum_consts {
+                        let Some(b_enum_const) = b_enum_consts.get(name) else {
+                            return false;
+                        };
+                        let a_enum_const = a_enum_const.borrow();
+                        let b_enum_const = b_enum_const.borrow();
+                        match (&a_enum_const.kind, &b_enum_const.kind) {
+                            (
+                                SymbolKind::EnumConst { value: a_value },
+                                SymbolKind::EnumConst { value: b_value },
+                            ) if a_value != b_value => return false,
+                            _ => {}
+                        }
+                    }
+                    true
+                }
+            } else {
+                true
+            }
+        }
+        (_, TypeKind::Enum { underlying, .. }) => {
+            is_compatible(Rc::clone(&a), Rc::clone(underlying))
+        }
+        (TypeKind::Enum { underlying, .. }, _) => {
+            is_compatible(Rc::clone(underlying), Rc::clone(&b))
+        }
+        (
+            TypeKind::Function {
+                return_type: a_return_type,
+                parameters_type: a_parameters_type,
+                has_varparam: a_has_varparam,
+            },
+            TypeKind::Function {
+                return_type: b_return_type,
+                parameters_type: b_parameters_type,
+                has_varparam: b_has_varparam,
+            },
+        ) => {
+            if *a_has_varparam != *b_has_varparam {
+                return false;
+            } else if a_parameters_type.len() != b_parameters_type.len() {
+                return false;
+            } else if !is_compatible(Rc::clone(a_return_type), Rc::clone(b_return_type)) {
+                return false;
+            } else {
+                for (a_parameter, b_parameter) in zip(a_parameters_type, b_parameters_type) {
+                    if !is_compatible(
+                        as_parameter_type(Rc::clone(a_parameter)),
+                        as_parameter_type(Rc::clone(b_parameter)),
+                    ) {
+                        return false;
                     }
                 }
+                true
             }
-            (a, b) if discriminant(a) != discriminant(b) => return false,
-            _ => {}
         }
-        i += 1;
+        (a, b) => discriminant(a) == discriminant(b),
     }
-    true
 }
 
-pub fn pointee_type(a: Rc<RefCell<Type>>) -> Option<Rc<RefCell<Type>>> {
+pub fn pointee(a: Rc<RefCell<Type>>) -> Option<Rc<RefCell<Type>>> {
     match &a.borrow().kind {
         TypeKind::Pointer(pointee) => Some(Rc::clone(pointee)),
-        TypeKind::Qualified { r#type, .. } => pointee_type(Rc::clone(r#type)),
+        TypeKind::Qualified { r#type, .. } => pointee(Rc::clone(r#type)),
         _ => None,
     }
 }

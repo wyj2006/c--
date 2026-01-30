@@ -1,16 +1,17 @@
 use num::{BigInt, BigUint, ToPrimitive};
 use pest::Span;
 
-use crate::ast::expr::{Expr, ExprKind};
+use crate::ast::expr::{EncodePrefix, Expr, ExprKind};
 use crate::ast::{Designation, DesignationKind};
-use crate::ctype::TypeKind;
-use crate::diagnostic::ErrorKind;
+use crate::ctype::cast::remove_qualifier;
+use crate::ctype::{TypeKind, is_compatible};
+use crate::diagnostic::warning;
 use crate::typechecker::{Context, TypeChecker};
 use crate::variant::Variant;
 use crate::{
     ast::{Initializer, InitializerKind},
     ctype::Type,
-    diagnostic::Error,
+    diagnostic::{Diagnostic, DiagnosticKind},
 };
 use std::{cell::RefCell, rc::Rc};
 
@@ -29,8 +30,9 @@ enum SimpleDesignation {
 
 impl<'a> DesignationNode<'a> {
     //该节点的第index个子节点, 不存在返回None
-    pub fn child(&self, index: usize) -> Result<Option<DesignationNode<'a>>, String> {
-        match &self.r#type.borrow().kind {
+    pub fn child(&self, index: usize) -> Result<Option<DesignationNode<'a>>, Diagnostic<'a>> {
+        let r#type = self.r#type.borrow();
+        match &r#type.kind {
             TypeKind::Array {
                 element_type,
                 len_expr: Some(len_expr),
@@ -47,7 +49,12 @@ impl<'a> DesignationNode<'a> {
                         Ok(None)
                     }
                 }
-                _ => Err(format!("invalid len")),
+                _ => Err(Diagnostic {
+                    span: r#type.span,
+                    kind: DiagnosticKind::Error,
+                    message: format!("the size of array must has integer type"),
+                    notes: vec![],
+                }),
             },
             TypeKind::Array {
                 element_type,
@@ -72,7 +79,12 @@ impl<'a> DesignationNode<'a> {
                     Ok(None)
                 }
             }
-            TypeKind::Record { members: None, .. } => Err(format!("incomplte type")),
+            TypeKind::Record { members: None, .. } => Err(Diagnostic {
+                span: r#type.span,
+                kind: DiagnosticKind::Error,
+                message: format!("incomplete type"),
+                notes: vec![],
+            }),
             _ => Ok(None),
         }
     }
@@ -111,7 +123,7 @@ impl<'a> TypeChecker<'a> {
         &self,
         mut i: usize,
         path: &mut Vec<DesignationNode<'a>>,
-    ) -> Result<(), String> {
+    ) -> Result<(), Diagnostic<'a>> {
         while i < path.len() - 1 {
             path.pop();
         }
@@ -143,7 +155,7 @@ impl<'a> TypeChecker<'a> {
     fn new_designation_path(
         &self,
         r#type: Rc<RefCell<Type<'a>>>,
-    ) -> Result<Vec<DesignationNode<'a>>, String> {
+    ) -> Result<Vec<DesignationNode<'a>>, Diagnostic<'a>> {
         let mut path = vec![DesignationNode {
             index: 0,
             r#type: Rc::clone(&r#type),
@@ -160,7 +172,7 @@ impl<'a> TypeChecker<'a> {
         &mut self,
         node: Rc<RefCell<Initializer<'a>>>,
         r#type: Rc<RefCell<Type<'a>>>, //这个初始化的类型
-    ) -> Result<(), Error<'a>> {
+    ) -> Result<(), Diagnostic<'a>> {
         self.contexts
             .push(Context::Init(node.borrow().kind.clone()));
 
@@ -169,37 +181,36 @@ impl<'a> TypeChecker<'a> {
 
         let mut max_index: usize = 0; //用于补全数组类型
 
-        match &mut node.kind {
+        match &node.kind {
             InitializerKind::Braced(initializers) => {
-                let mut path = match self.new_designation_path(Rc::clone(&r#type)) {
-                    Ok(t) => t,
-                    Err(e) => {
-                        return Err(Error {
-                            span: node.span,
-                            kind: ErrorKind::Other(e),
-                        });
-                    }
-                };
+                let mut path = self.new_designation_path(Rc::clone(&r#type))?;
 
                 for (i, initializer) in initializers.iter().enumerate() {
                     //标量或者union只能有一个初始化器
-                    if i > 0 && (path.len() <= 1 || r#type.borrow().is_union()) {
-                        //TODO warning
-                        continue;
+                    if i > 0 {
+                        if r#type.borrow().is_union() {
+                            warning(
+                                format!("excess element in union initializer"),
+                                initializer.borrow().span,
+                                self.file_path,
+                            );
+                            continue;
+                        } else if path.len() <= 1 {
+                            warning(
+                                format!("excess element in scale initializer"),
+                                initializer.borrow().span,
+                                self.file_path,
+                            );
+                            continue;
+                        }
                     }
+
+                    let span = initializer.borrow().span;
+                    let mut keep_num = 2; //保留的节点数
+
                     if initializer.borrow().designation.len() > 0 {
                         //从头开始匹配
-                        path = match self.new_designation_path(Rc::clone(&r#type)) {
-                            Ok(t) => t,
-                            Err(e) => {
-                                return Err(Error {
-                                    span: node.span,
-                                    kind: ErrorKind::Other(e),
-                                });
-                            }
-                        };
-
-                        let span = initializer.borrow().span;
+                        path = self.new_designation_path(Rc::clone(&r#type))?;
                         let designations = &initializer.borrow().designation;
                         let mut i = 0;
                         //尝试匹配
@@ -211,12 +222,7 @@ impl<'a> TypeChecker<'a> {
                             match (&a.kind, &b.kind) {
                                 (DesignationKind::Subscript(x), DesignationKind::Subscript(y)) => {
                                     if x.borrow().value != y.borrow().value {
-                                        if let Err(e) = self.next_designation(j, &mut path) {
-                                            return Err(Error {
-                                                span: b.span,
-                                                kind: ErrorKind::Other(e),
-                                            });
-                                        }
+                                        self.next_designation(j, &mut path)?;
                                     } else {
                                         i += 1;
                                     }
@@ -226,114 +232,188 @@ impl<'a> TypeChecker<'a> {
                                     DesignationKind::MemberAccess(y),
                                 ) => {
                                     if *x != *y {
-                                        if let Err(e) = self.next_designation(j, &mut path) {
-                                            return Err(Error {
-                                                span: b.span,
-                                                kind: ErrorKind::Other(e),
-                                            });
-                                        }
+                                        self.next_designation(j, &mut path)?;
                                     } else {
                                         i += 1;
                                     }
                                 }
-                                _ => {
-                                    if let Err(e) = self.next_designation(j, &mut path) {
-                                        return Err(Error {
-                                            span: b.span,
-                                            kind: ErrorKind::Other(e),
-                                        });
-                                    }
-                                }
+                                _ => self.next_designation(j, &mut path)?,
                             }
                         }
                         if i < designations.len() {
                             let b = &designations[i];
                             return match &b.kind {
-                                DesignationKind::Subscript(index) => Err(Error {
+                                DesignationKind::Subscript(index) => Err(Diagnostic {
                                     span: b.span,
-                                    kind: ErrorKind::Other(format!(
+                                    kind: DiagnosticKind::Error,
+                                    message: format!(
                                         "array designator index ({}) exceeds array bounds",
                                         index.borrow().unparse()
-                                    )),
+                                    ),
+                                    notes: vec![],
                                 }),
-                                DesignationKind::MemberAccess(name) => Err(Error {
+                                DesignationKind::MemberAccess(name) => Err(Diagnostic {
                                     span: b.span,
-                                    kind: ErrorKind::Other(format!(
+                                    kind: DiagnosticKind::Error,
+                                    message: format!(
                                         "field designator '{}' does not refer to any field",
                                         name
-                                    )),
+                                    ),
+                                    notes: vec![],
                                 }),
                             };
                         }
-                        i += 1;
-                        while i < path.len() {
-                            path.remove(i);
-                        }
-                    } else {
-                        match &initializer.borrow().kind {
-                            InitializerKind::Braced(_) => {
-                                //只保留顶层的
-                                while path.len() >= 3 {
-                                    path.remove(2);
-                                }
-                            }
-                            InitializerKind::Expr(_) => {}
-                        }
-
-                        initializer.borrow_mut().designation = {
-                            let mut designation = vec![];
-                            //忽略root(也就是path[0])
-                            for node in &path[1..] {
-                                designation.push(
-                                    node.designation.to_designation(initializer.borrow().span),
-                                );
-                            }
-                            designation
-                        };
+                        //designations的长度 + 一个root(path[0])
+                        keep_num = i + 1;
                     }
 
-                    match path.get(1) {
-                        Some(t) => match &t.designation {
-                            SimpleDesignation::Subscript(index) => {
-                                max_index = max_index.max(*index)
+                    match &initializer.borrow().kind {
+                        InitializerKind::Braced(_) => {
+                            while keep_num < path.len() {
+                                path.remove(keep_num);
+                            }
+                        }
+                        InitializerKind::Expr(expr) => match &expr.borrow().kind {
+                            ExprKind::String { .. } => {
+                                //字符串字面量匹配一个数组
+                                path.pop();
                             }
                             _ => {}
                         },
-                        None => {}
+                    }
+
+                    let start = initializer.borrow().designation.len() + 1;
+                    for node in &path[start..] {
+                        initializer
+                            .borrow_mut()
+                            .designation
+                            .push(node.designation.to_designation(span));
+                    }
+
+                    match path.get(1) {
+                        Some(DesignationNode {
+                            designation: SimpleDesignation::Subscript(index),
+                            ..
+                        }) => {
+                            max_index = max_index.max(*index);
+
+                            match &r#type.borrow().kind {
+                                TypeKind::Array {
+                                    len_expr: Some(len_expr),
+                                    ..
+                                } => match &len_expr.borrow().value {
+                                    Variant::Int(len) if *len < BigInt::from(max_index + 1) => {
+                                        warning(
+                                            format!("excess element in array initializer"),
+                                            span,
+                                            self.file_path,
+                                        );
+                                    }
+                                    _ => {}
+                                },
+                                _ => {}
+                            }
+                        }
+                        _ => {}
                     }
 
                     self.visit_initializer(
                         Rc::clone(&initializer),
-                        Rc::clone(&path.last().unwrap().r#type),
+                        if path.len() > 1 {
+                            Rc::clone(&path.last().unwrap().r#type)
+                        } else {
+                            //标量初始化
+                            remove_qualifier(Rc::clone(&path.last().unwrap().r#type))
+                        },
                     )?;
-                    if let Err(e) = self.next_designation(path.len() - 1, &mut path) {
-                        return Err(Error {
-                            span: initializer.borrow().span,
-                            kind: ErrorKind::Other(e),
-                        });
-                    }
+                    self.next_designation(path.len() - 1, &mut path)?;
                 }
             }
             InitializerKind::Expr(expr) => {
                 self.visit_expr(Rc::clone(expr))?;
 
-                match &expr.borrow().r#type.borrow().kind {
-                    TypeKind::Array {
-                        len_expr: Some(len_expr),
-                        ..
-                    } => match &len_expr.borrow().value {
-                        Variant::Int(value) => {
-                            max_index = match value.to_usize() {
-                                //这里的t是长度不是索引
-                                Some(t) => max_index.max(t - 1),
-                                None => max_index,
+                let mut string_prefix = None;
+                let mut string_array = None;
+
+                match &expr.borrow().kind {
+                    ExprKind::String { prefix, .. } => {
+                        //字符串字面量匹配数组
+                        string_prefix = Some(prefix.clone());
+                        let expr = expr.borrow();
+                        string_array = Some(expr.r#type.borrow().kind.clone());
+                        let TypeKind::Array {
+                            len_expr: Some(len_expr),
+                            ..
+                        } = &expr.r#type.borrow().kind
+                        else {
+                            unreachable!();
+                        };
+                        match &len_expr.borrow().value {
+                            Variant::Int(value) => {
+                                max_index = match value.to_usize() {
+                                    Some(len) => max_index.max(len - 1),
+                                    None => max_index,
+                                }
                             }
+                            _ => {}
                         }
-                        _ => {}
-                    },
+                    }
                     _ => {}
                 }
-                *expr = self.try_implicit_cast(Rc::clone(expr), Rc::clone(&r#type))?;
+
+                if let TypeKind::Array {
+                    element_type,
+                    len_expr,
+                    ..
+                } = &node.r#type.borrow().kind
+                    && let Some(TypeKind::Array {
+                        element_type: string_element_type,
+                        len_expr: string_len_expr,
+                        ..
+                    }) = string_array
+                    && let Some(expr_prefix) = string_prefix
+                {
+                    if !match expr_prefix {
+                        EncodePrefix::Default | EncodePrefix::UTF8 => {
+                            element_type.borrow().is_char()
+                        }
+                        _ => {
+                            is_compatible(Rc::clone(element_type), Rc::clone(&string_element_type))
+                        }
+                    } {
+                        return Err(Diagnostic {
+                            span: node.span,
+                            kind: DiagnosticKind::Error,
+                            message: format!(
+                                "cannot initializer array of '{}' with array of '{}'(from string literal)",
+                                element_type.borrow().to_string(),
+                                string_element_type.borrow().to_string()
+                            ),
+                            notes: vec![],
+                        });
+                    }
+                    if let Some(len_expr) = len_expr
+                        && let Some(string_len_expr) = string_len_expr
+                    {
+                        if len_expr.borrow().value < string_len_expr.borrow().value {
+                            warning(
+                                format!("initializer-string is too large"),
+                                node.span,
+                                self.file_path,
+                            );
+                        }
+                    }
+                } else {
+                    match &mut node.kind {
+                        InitializerKind::Expr(expr) => {
+                            *expr = self.try_implicit_cast(
+                                Rc::clone(expr),
+                                remove_qualifier(Rc::clone(&r#type)),
+                            )?;
+                        }
+                        _ => {}
+                    }
+                }
             }
         }
 
@@ -366,7 +446,10 @@ impl<'a> TypeChecker<'a> {
         Ok(())
     }
 
-    pub fn visit_designation(&mut self, designation: &Designation<'a>) -> Result<(), Error<'a>> {
+    pub fn visit_designation(
+        &mut self,
+        designation: &Designation<'a>,
+    ) -> Result<(), Diagnostic<'a>> {
         match &designation.kind {
             DesignationKind::Subscript(index) => self.visit_expr(Rc::clone(index)),
             DesignationKind::MemberAccess(_) => Ok(()),

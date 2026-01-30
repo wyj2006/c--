@@ -11,7 +11,7 @@ macro_rules! test_template {
             let ast = parser.parse_to_ast().unwrap();
 
             let symtab = Rc::new(RefCell::new(SymbolTable::new()));
-            let mut type_checker = TypeChecker::new(Rc::clone(&symtab));
+            let mut type_checker = TypeChecker::new("<string>", Rc::clone(&symtab));
             type_checker.check(Rc::clone(&ast)).unwrap();
 
             assert_debug_snapshot!(ast);

@@ -105,6 +105,7 @@ int main()
 }
 "
 );
+
 test_template!(
     deref_lvalue,
     "
@@ -112,6 +113,20 @@ int main()
 {
     int *a;
     *a;
+}
+"
+);
+
+test_template!(
+    varparam_function_call,
+    "
+void printf(char* message,...);
+
+int main()
+{
+    float a;
+    const char b;
+    printf(\"Hello,World\",a,b);
 }
 "
 );
@@ -134,6 +149,6 @@ int main()
     let ast = parser.parse_to_ast().unwrap();
 
     let symtab = Rc::new(RefCell::new(SymbolTable::new()));
-    let mut type_checker = TypeChecker::new(Rc::clone(&symtab));
+    let mut type_checker = TypeChecker::new("<string>", Rc::clone(&symtab));
     type_checker.check(Rc::clone(&ast)).unwrap();
 }
