@@ -4,7 +4,8 @@ use crate::{
     ctype::{Type, TypeKind},
 };
 use pest::{
-    error::Error,
+    Span,
+    error::{Error, ErrorVariant},
     iterators::Pair,
     pratt_parser::{Assoc, Op, PrattParser},
 };
@@ -360,7 +361,7 @@ impl<'a> CParser<'a> {
                     })));
                 }
                 Rule::constant => return self.parse_constant(rule),
-                Rule::string_literal => return self.parse_string_literal(rule),
+                Rule::string_group => return self.parse_string_group(rule),
                 Rule::expression => return self.parse_expression(rule),
                 _ => unreachable!(),
             }
@@ -639,7 +640,6 @@ impl<'a> CParser<'a> {
         }
         let text = text.iter().collect::<String>();
         Ok(Rc::new(RefCell::new(Expr {
-            span,
             kind: ExprKind::String {
                 prefix: match encode_prefix {
                     "u8" => EncodePrefix::UTF8,
@@ -650,6 +650,53 @@ impl<'a> CParser<'a> {
                 },
                 text,
             },
+            ..Expr::new(span)
+        })))
+    }
+
+    pub fn parse_string_group(
+        &self,
+        rule: Pair<'a, Rule>,
+    ) -> Result<Rc<RefCell<Expr<'a>>>, Error<Rule>> {
+        let mut span = rule.as_span();
+        let mut prefix = EncodePrefix::Default;
+        let mut text = String::new();
+        for rule in rule.into_inner() {
+            match rule.as_rule() {
+                Rule::string_literal => {
+                    let cur_span = rule.as_span();
+                    match &self.parse_string_literal(rule)?.borrow().kind {
+                        ExprKind::String {
+                            prefix: cur_prefix,
+                            text: cur_text,
+                        } => {
+                            match (cur_prefix, &prefix) {
+                                (EncodePrefix::Default, a) | (a, EncodePrefix::Default) => {
+                                    prefix = a.clone()
+                                }
+                                _ => {
+                                    return Err(Error::new_from_span(
+                                        ErrorVariant::CustomError {
+                                            message: format!(
+                                                "cannot contact strings with different encoding prefix"
+                                            ),
+                                        },
+                                        cur_span,
+                                    ));
+                                }
+                            }
+                            text += cur_text.as_str();
+                            span =
+                                Span::new(span.get_input(), span.start(), cur_span.end()).unwrap();
+                        }
+                        _ => {}
+                    }
+                }
+                _ => unreachable!(),
+            }
+        }
+        Ok(Rc::new(RefCell::new(Expr {
+            kind: ExprKind::String { prefix, text },
             ..Expr::new(span)
         })))
     }

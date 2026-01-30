@@ -27,7 +27,7 @@ fn main() {
     };
     println!("{result}");
 
-    let parser = CParser::new(&file_content);
+    let parser = CParser::new(&result);
     let ast = match parser.parse_to_ast() {
         Ok(t) => t,
         Err(e) => {

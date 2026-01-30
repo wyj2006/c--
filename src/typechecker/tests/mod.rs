@@ -3,7 +3,7 @@ pub mod expr;
 pub mod init;
 
 #[macro_export]
-macro_rules! test_template {
+macro_rules! typechecker_test_template {
     ($name:ident,$code:expr) => {
         #[test]
         pub fn $name() {

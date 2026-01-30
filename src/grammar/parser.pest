@@ -43,14 +43,15 @@ member_access      =  { "." ~ identifier | "->" ~ identifier }
 postfix_increment  =  { "++" }
 postfix_decrement  =  { "--" }
 
-primary = {
+primary      = {
     compound_literal
   | generic_selection
   | constant
-  | string_literal
+  | string_group
   | identifier
   | "(" ~ expression ~ ")"
 }
+string_group = { string_literal+ }
 
 generic_selection   = { "_Generic" ~ "(" ~ assignment_expression ~ ("," ~ generic_association)+ ~ ")" }
 generic_association = { (type_name | "default") ~ ":" ~ assignment_expression }

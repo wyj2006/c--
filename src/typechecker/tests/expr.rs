@@ -1,8 +1,10 @@
-use crate::{parser::CParser, symtab::SymbolTable, test_template, typechecker::TypeChecker};
+use crate::{
+    parser::CParser, symtab::SymbolTable, typechecker::TypeChecker, typechecker_test_template,
+};
 use insta::assert_debug_snapshot;
 use std::{cell::RefCell, rc::Rc};
 
-test_template!(
+typechecker_test_template!(
     builtin_constant,
     "
 int main()
@@ -14,24 +16,24 @@ int main()
 "
 );
 
-test_template!(
+typechecker_test_template!(
     string_and_char,
-    "
+    r#"
 int main()
 {
     '猫';
     u'猫';
     U'猫';
     L'猫';
-    \"猫我\";
-    u\"猫我\";
-    U\"猫我\";
-    L\"猫我\";
+    "猫我";
+    u"猫我";
+    U"猫我";
+    L"猫我";
 }
-"
+"#
 );
 
-test_template!(
+typechecker_test_template!(
     integer_literal,
     "
 int main()
@@ -42,7 +44,7 @@ int main()
 "
 );
 
-test_template!(
+typechecker_test_template!(
     float_literal,
     "
 int main()
@@ -56,7 +58,7 @@ int main()
 "
 );
 
-test_template!(
+typechecker_test_template!(
     generic_selection,
     "
 int main()
@@ -67,7 +69,7 @@ int main()
 "
 );
 
-test_template!(
+typechecker_test_template!(
     function_call,
     "
 int f(long long n)
@@ -82,20 +84,20 @@ int main()
 "
 );
 
-test_template!(
+typechecker_test_template!(
     subscript,
-    "
+    r#"
 int main()
 {
     int a;
     int b[3];
     b[a];
-    a[\"1\"];
+    a["1"];
 }
-"
+"#
 );
 
-test_template!(
+typechecker_test_template!(
     member_access,
     "
 int main()
@@ -106,7 +108,7 @@ int main()
 "
 );
 
-test_template!(
+typechecker_test_template!(
     deref_lvalue,
     "
 int main()
@@ -117,18 +119,18 @@ int main()
 "
 );
 
-test_template!(
+typechecker_test_template!(
     varparam_function_call,
-    "
+    r#"
 void printf(char* message,...);
 
 int main()
 {
     float a;
     const char b;
-    printf(\"Hello,World\",a,b);
+    printf("Hello,World",a,b);
 }
-"
+"#
 );
 
 #[test]
