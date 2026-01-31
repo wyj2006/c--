@@ -178,6 +178,7 @@ RefCell {
                                                                                         ),
                                                                                     },
                                                                                 },
+                                                                                decls: [],
                                                                             },
                                                                             type: RefCell {
                                                                                 value: Type {
@@ -245,6 +246,7 @@ RefCell {
                                                                                         symbol: None,
                                                                                     },
                                                                                 },
+                                                                                decls: [],
                                                                             },
                                                                         },
                                                                         RefCell {
@@ -298,6 +300,7 @@ RefCell {
                                                                                         symbol: None,
                                                                                     },
                                                                                 },
+                                                                                decls: [],
                                                                             },
                                                                         },
                                                                         RefCell {
@@ -337,6 +340,7 @@ RefCell {
                                                                                         symbol: None,
                                                                                     },
                                                                                 },
+                                                                                decls: [],
                                                                             },
                                                                         },
                                                                     ],

@@ -6,7 +6,7 @@ use crate::{
         expr::{BinOpKind, EncodePrefix, Expr, ExprKind, UnaryOpKind},
     },
     ctype::{
-        Type, TypeKind, TypeQual, arith_result_type,
+        Type, TypeKind, TypeQual, arith_result_type, array_element,
         cast::{
             array_to_ptr, func_to_ptr, integer_promote, lvalue_cast, remove_qualifier,
             usual_arith_cast,
@@ -32,6 +32,7 @@ impl<'a> TypeChecker<'a> {
             kind: ExprKind::Cast {
                 is_implicit: true,
                 target: Rc::clone(&expr),
+                decls: Vec::new(),
             },
             r#type,
             value: expr.borrow().value.clone(),
@@ -134,7 +135,33 @@ impl<'a> TypeChecker<'a> {
 
         self.contexts
             .push(Context::Expr(node.borrow().kind.clone()));
-        self.reassign(&mut node.borrow_mut().r#type)?;
+
+        //先处理完表达式中的类型再对表达式进行类型检查
+        match &mut node.borrow_mut().kind {
+            ExprKind::SizeOf { r#type, decls } | ExprKind::Alignof { r#type, decls } => {
+                for decl in decls {
+                    self.visit_declaration(Rc::clone(decl))?;
+                }
+                self.check_type(r#type)?;
+            }
+            ExprKind::CompoundLiteral { decls, .. } | ExprKind::Cast { decls, .. } => {
+                for decl in decls {
+                    self.visit_declaration(Rc::clone(decl))?;
+                }
+            }
+            ExprKind::GenericSelection { assocs, .. } => {
+                for assoc in assocs {
+                    for decl in &assoc.borrow().decls {
+                        self.visit_declaration(Rc::clone(decl))?;
+                    }
+                    if let Some(t) = &mut assoc.borrow_mut().r#type {
+                        self.check_type(t)?;
+                    }
+                }
+            }
+            _ => {}
+        }
+        self.check_type(&mut node.borrow_mut().r#type)?;
 
         {
             let mut node = node.borrow_mut();
@@ -740,6 +767,7 @@ impl<'a> TypeChecker<'a> {
                                 ExprKind::Cast {
                                     is_implicit: true,
                                     target,
+                                    ..
                                 } => origin = Rc::clone(target),
                                 _ => origin = Rc::clone(argument),
                             }
@@ -749,7 +777,15 @@ impl<'a> TypeChecker<'a> {
                                     len_expr: Some(len_expr),
                                     ..
                                 } => {
-                                    for attribute in &parameter_type.borrow().attributes {
+                                    let mut attributes = parameter_type.borrow().attributes.clone();
+                                    match &parameter_type.borrow().kind {
+                                        //针对 T[const static C] 之类的情况
+                                        TypeKind::Qualified { r#type, .. } => {
+                                            attributes.extend(r#type.borrow().attributes.clone())
+                                        }
+                                        _ => {}
+                                    }
+                                    for attribute in &attributes {
                                         let AttributeKind::PtrFromArray { array_type } =
                                             &attribute.borrow().kind
                                         else {
@@ -1182,6 +1218,7 @@ impl<'a> TypeChecker<'a> {
                                     ExprKind::Cast {
                                         is_implicit: true,
                                         target,
+                                        ..
                                     } => target.borrow().is_lvalue,
                                     _ => operand.borrow().is_lvalue,
                                 };
@@ -1823,7 +1860,7 @@ impl<'a> TypeChecker<'a> {
                         });
                     }
                 }
-                ExprKind::SizeOf(r#type) => {
+                ExprKind::SizeOf { r#type, .. } => {
                     let value;
                     match r#type.borrow().size() {
                         Some(t) => value = Variant::Int(BigInt::from(t)),
@@ -1841,14 +1878,55 @@ impl<'a> TypeChecker<'a> {
                         span: node.span,
                         attributes: vec![],
                         kind: TypeKind::ULongLong,
-                    }))
+                    }));
                 }
-                ExprKind::Alignof(_type) => {
-                    //TODO Alignof
+                ExprKind::Alignof { r#type, .. } => {
+                    if r#type.borrow().is_function() {
+                        return Err(Diagnostic {
+                            span: node.span,
+                            kind: DiagnosticKind::Error,
+                            message: format!("the operand of alignof cannot be a function"),
+                            notes: vec![],
+                        });
+                    }
+                    if !r#type.borrow().is_complete() {
+                        return Err(Diagnostic {
+                            span: node.span,
+                            kind: DiagnosticKind::Error,
+                            message: format!("the operand of alignof is not complete"),
+                            notes: vec![],
+                        });
+                    }
+
+                    match if r#type.borrow().is_array() {
+                        array_element(Rc::clone(r#type)).unwrap().borrow().align()?
+                    } else {
+                        r#type.borrow().align()?
+                    } {
+                        Some(t) => node.value = Variant::Int(BigInt::from(t)),
+                        None => {
+                            return Err(Diagnostic {
+                                span: node.span,
+                                kind: DiagnosticKind::Error,
+                                message: format!(
+                                    "cannot get alignof '{}'",
+                                    r#type.borrow().to_string()
+                                ),
+                                notes: vec![],
+                            });
+                        }
+                    }
+
+                    node.r#type = Rc::new(RefCell::new(Type {
+                        span: node.span,
+                        attributes: vec![],
+                        kind: TypeKind::ULongLong,
+                    }));
                 }
                 ExprKind::CompoundLiteral {
                     storage_classes,
                     initializer,
+                    ..
                 } => {
                     for storage_class in storage_classes {
                         match &storage_class.kind {

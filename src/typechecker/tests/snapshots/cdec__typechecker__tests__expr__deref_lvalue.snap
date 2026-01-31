@@ -224,6 +224,7 @@ RefCell {
                                                                                                     ),
                                                                                                 },
                                                                                             },
+                                                                                            decls: [],
                                                                                         },
                                                                                         type: RefCell {
                                                                                             value: Type {
@@ -270,6 +271,7 @@ RefCell {
                                                                             symbol: None,
                                                                         },
                                                                     },
+                                                                    decls: [],
                                                                 },
                                                                 type: RefCell {
                                                                     value: Type {

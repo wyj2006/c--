@@ -294,7 +294,7 @@ impl Print for Expr<'_> {
         format!(
             "{} <{:?},{:?}> {} {} {}",
             match &self.kind {
-                ExprKind::Alignof(t) => &format!("Alignof {}", t.borrow()),
+                ExprKind::Alignof { r#type, .. } => &format!("Alignof {}", r#type.borrow()),
                 ExprKind::BinOp { op, .. } => &format!("BinOp {:?}", op),
                 ExprKind::Cast {
                     is_implicit: false, ..
@@ -333,7 +333,7 @@ impl Print for Expr<'_> {
                 ),
                 ExprKind::Name(name) => &format!("Name {name}"),
                 ExprKind::Nullptr => "Nullptr",
-                ExprKind::SizeOf(t) => &format!("SizeOf {}", t.borrow()),
+                ExprKind::SizeOf { r#type, .. } => &format!("SizeOf {}", r#type.borrow()),
                 ExprKind::String { prefix, text } => &format!("String {prefix:?} {text:?}"),
                 ExprKind::True => "True",
                 ExprKind::GenericSelection { .. } => "GenericSelection",
@@ -363,8 +363,11 @@ impl Print for Expr<'_> {
                 lines.extend(right.print_line(indent));
             }
             ExprKind::Cast { target, .. } => lines.extend(target.print_line(indent)),
-            ExprKind::CompoundLiteral { initializer, .. } => {
-                lines.extend(initializer.print_line(indent))
+            ExprKind::CompoundLiteral {
+                initializer, decls, ..
+            } => {
+                lines.extend(decls.print_line(indent));
+                lines.extend(initializer.print_line(indent));
             }
             ExprKind::Conditional {
                 condition,
@@ -396,6 +399,9 @@ impl Print for Expr<'_> {
             ExprKind::MemberAccess { target, .. } => {
                 lines.extend(target.print_line(indent));
             }
+            ExprKind::SizeOf { decls, .. } | ExprKind::Alignof { decls, .. } => {
+                lines.extend(decls.print_line(indent));
+            }
             _ => {}
         }
 
@@ -419,7 +425,10 @@ impl Print for GenericAssoc<'_> {
     }
 
     fn children_display(&self, indent: usize) -> Vec<String> {
-        self.expr.print_line(indent)
+        let mut lines = Vec::new();
+        lines.extend(self.decls.print_line(indent));
+        lines.extend(self.expr.print_line(indent));
+        lines
     }
 }
 

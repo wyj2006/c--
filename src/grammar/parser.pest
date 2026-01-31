@@ -2,17 +2,18 @@ WHITESPACE = _{ " " | "\t" | NEWLINE }
 identifier = @{ !keyword ~ identifier_start ~ identifier_continue* }
 COMMENT    = _{ "//" ~ (!(NEWLINE | EOI) ~ ANY)* ~ NEWLINE? | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 
-prefix           = _{ positve | negative | bit_not | not | dereference | addressof | prefix_increment | prefix_decrement | cast | sizeof }
-positve          =  { "+" }
-negative         =  { "-" }
-bit_not          =  { "~" }
-not              =  { "!" }
-dereference      =  { "*" }
-addressof        =  { "&" }
-cast             =  { "(" ~ type_name ~ ")" }
-sizeof           =  { "sizeof" }
-prefix_increment =  { "++" }
-prefix_decrement =  { "--" }
+prefix      = _{ positve | negative | bit_not | not | dereference | addressof | prefix_increment | prefix_decrement | cast | sizeof }
+positve     =  { "+" }
+negative    =  { "-" }
+bit_not     =  { "~" }
+not         =  { "!" }
+dereference =  { "*" }
+addressof   =  { "&" }
+// 如果后面跟的是'{', 那么这个就应该属于复合字面量
+cast             = { "(" ~ type_name ~ ")" ~ !"{" }
+sizeof           = { "sizeof" }
+prefix_increment = { "++" }
+prefix_decrement = { "--" }
 
 infix   = _{ add | sub | mul | div | mod | lshift | rshift | lt | le | gt | ge | eq | neq | and | or | bit_and | bit_xor | bit_or }
 add     =  { "+" }
@@ -138,9 +139,9 @@ specifier_qualifier_list  =  {
     type_specifier_qualifier ~ (!attribute_specifier_sequence ~ type_specifier_qualifier)* ~ attribute_specifier_sequence?
 }
 type_specifier_qualifier  = _{
-    type_qualifier
+    type_specifier
+  | type_qualifier
   | alignment_specifier
-  | type_specifier
 }
 member_declarator_list    = _{
     member_declarator ~ ("," ~ member_declarator)*

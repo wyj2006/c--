@@ -463,6 +463,7 @@ RefCell {
                                                                             ),
                                                                         },
                                                                     },
+                                                                    decls: [],
                                                                 },
                                                                 type: RefCell {
                                                                     value: Type {

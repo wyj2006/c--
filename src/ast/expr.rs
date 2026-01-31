@@ -1,5 +1,5 @@
 use super::Initializer;
-use crate::ast::decl::StorageClass;
+use crate::ast::decl::{Declaration, StorageClass};
 use crate::ctype::{Type, TypeKind};
 use crate::symtab::Symbol;
 use crate::variant::Variant;
@@ -49,6 +49,7 @@ pub enum ExprKind<'a> {
         assocs: Vec<Rc<RefCell<GenericAssoc<'a>>>>,
     },
     CompoundLiteral {
+        decls: Vec<Rc<RefCell<Declaration<'a>>>>,
         storage_classes: Vec<StorageClass<'a>>,
         initializer: Rc<RefCell<Initializer<'a>>>,
     },
@@ -64,6 +65,7 @@ pub enum ExprKind<'a> {
     Cast {
         is_implicit: bool,
         target: Rc<RefCell<Expr<'a>>>,
+        decls: Vec<Rc<RefCell<Declaration<'a>>>>,
     },
     Subscript {
         target: Rc<RefCell<Expr<'a>>>,
@@ -78,8 +80,15 @@ pub enum ExprKind<'a> {
         target: Rc<RefCell<Expr<'a>>>,
         arguments: Vec<Rc<RefCell<Expr<'a>>>>,
     },
-    SizeOf(Rc<RefCell<Type<'a>>>), //这里sizeof的对象是类型, UnaryOp中的sizeof的对象是表达式
-    Alignof(Rc<RefCell<Type<'a>>>),
+    //这里sizeof的对象是类型, UnaryOp中的sizeof的对象是表达式
+    SizeOf {
+        r#type: Rc<RefCell<Type<'a>>>,
+        decls: Vec<Rc<RefCell<Declaration<'a>>>>,
+    },
+    Alignof {
+        r#type: Rc<RefCell<Type<'a>>>,
+        decls: Vec<Rc<RefCell<Declaration<'a>>>>,
+    },
     Conditional {
         condition: Rc<RefCell<Expr<'a>>>,
         true_expr: Rc<RefCell<Expr<'a>>>,
@@ -93,6 +102,7 @@ pub struct GenericAssoc<'a> {
     pub is_selected: bool,
     pub r#type: Option<Rc<RefCell<Type<'a>>>>, //为None的就是default
     pub expr: Rc<RefCell<Expr<'a>>>,
+    pub decls: Vec<Rc<RefCell<Declaration<'a>>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -183,7 +193,7 @@ impl<'a> Expr<'a> {
 
     pub fn priority(&self) -> usize {
         match &self.kind {
-            ExprKind::Alignof(..) => 95,
+            ExprKind::Alignof { .. } => 95,
             ExprKind::BinOp { op, .. } => match op {
                 BinOpKind::Mul | BinOpKind::Div | BinOpKind::Mod => 90,
                 BinOpKind::Add | BinOpKind::Sub => 85,
@@ -220,7 +230,7 @@ impl<'a> Expr<'a> {
             ExprKind::MemberAccess { .. } => 95,
             ExprKind::Name(..) => 100,
             ExprKind::Nullptr => 100,
-            ExprKind::SizeOf(..) => 95,
+            ExprKind::SizeOf { .. } => 95,
             ExprKind::String { .. } => 100,
             ExprKind::Subscript { .. } => 95,
             ExprKind::True => 100,
@@ -230,7 +240,7 @@ impl<'a> Expr<'a> {
 
     pub fn unparse(&self) -> String {
         match &self.kind {
-            ExprKind::Alignof(r#type) => format!("alignof({})", r#type.borrow().to_string()),
+            ExprKind::Alignof { r#type, .. } => format!("alignof({})", r#type.borrow().to_string()),
             ExprKind::BinOp { op, left, right } => format!(
                 "{}{op}{}",
                 unparse_with_priority!(left, self),
@@ -245,6 +255,7 @@ impl<'a> Expr<'a> {
             ExprKind::CompoundLiteral {
                 storage_classes,
                 initializer,
+                ..
             } => format!(
                 "({storage_classes:?} {}){}",
                 self.r#type.borrow().to_string(),
@@ -328,7 +339,7 @@ impl<'a> Expr<'a> {
             ),
             ExprKind::Name(name) => name.to_string(),
             ExprKind::Nullptr => "nullptr".to_string(),
-            ExprKind::SizeOf(r#type) => format!("sizeof({})", r#type.borrow().to_string()),
+            ExprKind::SizeOf { r#type, .. } => format!("sizeof({})", r#type.borrow().to_string()),
             ExprKind::String { prefix, text } => format!("{prefix}\"{text}\""),
             ExprKind::Subscript { target, index } => format!(
                 "{}[{}]",

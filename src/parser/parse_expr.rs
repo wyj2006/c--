@@ -172,28 +172,46 @@ impl<'a> CParser<'a> {
         if rule.as_str().starts_with("sizeof") {
             let span = rule.as_span();
             let mut r#type = None;
+            let mut decls = Vec::new();
             for rule in rule.into_inner() {
                 match rule.as_rule() {
-                    Rule::type_name => r#type = Some(self.parse_type_name(rule)?),
+                    Rule::type_name => match self.parse_type_name(rule)? {
+                        (type_name_type, type_name_decls) => {
+                            r#type = Some(type_name_type);
+                            decls.extend(type_name_decls);
+                        }
+                    },
                     _ => unreachable!(),
                 }
             }
             return Ok(Rc::new(RefCell::new(Expr {
-                kind: ExprKind::SizeOf(r#type.unwrap()),
+                kind: ExprKind::SizeOf {
+                    r#type: r#type.unwrap(),
+                    decls,
+                },
                 ..Expr::new(span)
             })));
         }
         if rule.as_str().starts_with("alignof") {
             let span = rule.as_span();
             let mut r#type = None;
+            let mut decls = Vec::new();
             for rule in rule.into_inner() {
                 match rule.as_rule() {
-                    Rule::type_name => r#type = Some(self.parse_type_name(rule)?),
+                    Rule::type_name => match self.parse_type_name(rule)? {
+                        (type_name_type, type_name_decls) => {
+                            r#type = Some(type_name_type);
+                            decls.extend(type_name_decls);
+                        }
+                    },
                     _ => unreachable!(),
                 }
             }
             return Ok(Rc::new(RefCell::new(Expr {
-                kind: ExprKind::Alignof(r#type.unwrap()),
+                kind: ExprKind::Alignof {
+                    r#type: r#type.unwrap(),
+                    decls,
+                },
                 ..Expr::new(span)
             })));
         }
@@ -202,13 +220,38 @@ impl<'a> CParser<'a> {
             .map_primary(|rule| self.parse_primary(rule))
             .map_prefix(|rule, operand| {
                 let span = rule.as_span();
-                Ok(Rc::new(RefCell::new(Expr {
-                    kind: match rule.as_rule() {
-                        Rule::cast => ExprKind::Cast {
-                            is_implicit: false,
-                            target: operand?,
-                        },
-                        _ => ExprKind::UnaryOp {
+                match rule.as_rule() {
+                    Rule::cast => {
+                        let span = rule.as_span();
+                        let mut r#type = None;
+                        let mut decls = Vec::new();
+                        for rule in rule.into_inner() {
+                            match rule.as_rule() {
+                                Rule::type_name => match self.parse_type_name(rule)? {
+                                    (type_name_type, type_name_decls) => {
+                                        r#type = Some(type_name_type);
+                                        decls.extend(type_name_decls);
+                                    }
+                                },
+                                _ => unreachable!(),
+                            }
+                        }
+                        Ok(Rc::new(RefCell::new(Expr {
+                            kind: ExprKind::Cast {
+                                is_implicit: false,
+                                target: operand?,
+                                decls,
+                            },
+                            r#type: r#type.unwrap_or(Rc::new(RefCell::new(Type {
+                                span,
+                                attributes: vec![],
+                                kind: TypeKind::Error,
+                            }))),
+                            ..Expr::new(span)
+                        })))
+                    }
+                    _ => Ok(Rc::new(RefCell::new(Expr {
+                        kind: ExprKind::UnaryOp {
                             op: match rule.as_rule() {
                                 Rule::positve => UnaryOpKind::Positive,
                                 Rule::negative => UnaryOpKind::Negative,
@@ -223,24 +266,9 @@ impl<'a> CParser<'a> {
                             },
                             operand: operand?,
                         },
-                    },
-                    r#type: {
-                        let span = rule.as_span();
-                        let mut r#type = None;
-                        for rule in rule.into_inner() {
-                            match rule.as_rule() {
-                                Rule::type_name => r#type = Some(self.parse_type_name(rule)?),
-                                _ => {}
-                            }
-                        }
-                        r#type.unwrap_or(Rc::new(RefCell::new(Type {
-                            span,
-                            attributes: vec![],
-                            kind: TypeKind::Error,
-                        })))
-                    },
-                    ..Expr::new(span)
-                })))
+                        ..Expr::new(span)
+                    }))),
+                }
             })
             .map_postfix(|operand, rule| {
                 let span = rule.as_span();
@@ -377,12 +405,18 @@ impl<'a> CParser<'a> {
         let mut storage_classes = Vec::new();
         let mut r#type = None;
         let mut initializer = None;
+        let mut decls = Vec::new();
         for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::storage_class_specifier => {
                     storage_classes.push(self.parse_storage_class_specifier(rule)?);
                 }
-                Rule::type_name => r#type = Some(self.parse_type_name(rule)?),
+                Rule::type_name => match self.parse_type_name(rule)? {
+                    (type_name_type, type_name_decls) => {
+                        r#type = Some(type_name_type);
+                        decls.extend(type_name_decls);
+                    }
+                },
                 Rule::braced_initializer => {
                     initializer = Some(self.parse_braced_initializer(rule)?)
                 }
@@ -393,6 +427,7 @@ impl<'a> CParser<'a> {
             kind: ExprKind::CompoundLiteral {
                 storage_classes,
                 initializer: initializer.unwrap(),
+                decls,
             },
             r#type: r#type.unwrap(),
             ..Expr::new(span)
@@ -429,10 +464,15 @@ impl<'a> CParser<'a> {
         let span = rule.as_span();
         let mut r#type = None;
         let mut expr = None;
-
+        let mut decls = Vec::new();
         for rule in rule.into_inner() {
             match rule.as_rule() {
-                Rule::type_name => r#type = Some(self.parse_type_name(rule)?),
+                Rule::type_name => match self.parse_type_name(rule)? {
+                    (type_name_type, type_name_decls) => {
+                        r#type = Some(type_name_type);
+                        decls.extend(type_name_decls);
+                    }
+                },
                 Rule::assignment_expression => expr = Some(self.parse_assignment_expression(rule)?),
                 _ => unreachable!(),
             }
@@ -442,6 +482,7 @@ impl<'a> CParser<'a> {
             is_selected: false,
             r#type,
             expr: expr.unwrap(),
+            decls,
         })))
     }
 

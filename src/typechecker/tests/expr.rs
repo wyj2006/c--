@@ -133,6 +133,26 @@ int main()
 "#
 );
 
+typechecker_test_template!(
+    decls_in_expr,
+    "
+int main()
+{
+    alignas(8) int a;
+    (struct A{int a;}){1};
+    sizeof(struct B{int a;});
+    typeof(struct C{int a;});
+    struct C b;
+    b.a;
+    _Atomic(struct D{int a;});
+    struct D c;
+    c.a;
+    struct A d;
+    d.a;
+}
+"
+);
+
 #[test]
 #[should_panic]
 pub fn addressof_bitfield() {

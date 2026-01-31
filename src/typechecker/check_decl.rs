@@ -1,7 +1,10 @@
 use super::TypeChecker;
 use crate::{
-    ast::decl::{Declaration, DeclarationKind, StorageClassKind},
-    ctype::{Type, TypeKind, TypeQual, as_parameter_type},
+    ast::{
+        AttributeKind,
+        decl::{Declaration, DeclarationKind, StorageClassKind},
+    },
+    ctype::{Type, TypeKind, TypeQual, as_parameter_type, cast::remove_qualifier},
     diagnostic::{Diagnostic, DiagnosticKind},
     symtab::{Namespace, Symbol, SymbolKind, SymbolTable},
     typechecker::Context,
@@ -12,7 +15,7 @@ use num::BigInt;
 use std::{cell::RefCell, rc::Rc};
 
 impl<'a> TypeChecker<'a> {
-    pub fn reassign(&mut self, r#type: &mut Rc<RefCell<Type<'a>>>) -> Result<(), Diagnostic<'a>> {
+    pub fn check_type(&mut self, r#type: &mut Rc<RefCell<Type<'a>>>) -> Result<(), Diagnostic<'a>> {
         let mut new_type = None;
         {
             let mut r#type = r#type.borrow_mut();
@@ -36,9 +39,17 @@ impl<'a> TypeChecker<'a> {
                     parameters_type,
                     has_varparam,
                 } => {
+                    if return_type.borrow().is_array() {
+                        return Err(Diagnostic {
+                            span: return_type.borrow().span,
+                            kind: DiagnosticKind::Error,
+                            message: format!("function cannot return array type"),
+                            notes: vec![],
+                        });
+                    }
                     new_type = Some(Rc::new(RefCell::new(Type {
                         kind: TypeKind::Function {
-                            return_type: Rc::clone(return_type),
+                            return_type: remove_qualifier(Rc::clone(return_type)),
                             parameters_type: {
                                 let mut t = Vec::new();
                                 for p in parameters_type {
@@ -57,20 +68,20 @@ impl<'a> TypeChecker<'a> {
                     len_expr,
                     ..
                 } => {
-                    self.reassign(element_type)?;
+                    self.check_type(element_type)?;
                     if let Some(len_expr) = len_expr {
                         self.visit_expr(Rc::clone(&len_expr))?;
                     }
                 }
-                TypeKind::Atomic(r#type) => self.reassign(r#type)?,
+                TypeKind::Atomic(r#type) => self.check_type(r#type)?,
                 TypeKind::Auto(r#type) => {
                     if let Some(t) = r#type {
-                        self.reassign(t)?;
+                        self.check_type(t)?;
                     }
                 }
-                TypeKind::Pointer(r#type) => self.reassign(r#type)?,
+                TypeKind::Pointer(r#type) => self.check_type(r#type)?,
                 TypeKind::Qualified { qualifiers, r#type } => {
-                    self.reassign(r#type)?;
+                    self.check_type(r#type)?;
                     if qualifiers.contains(&TypeQual::Restrict) {
                         if !match &r#type.borrow().kind {
                             TypeKind::Pointer(t) => t.borrow().is_object(),
@@ -90,7 +101,7 @@ impl<'a> TypeChecker<'a> {
                 }
                 TypeKind::Typeof { r#type, expr, .. } => {
                     if let Some(t) = r#type {
-                        self.reassign(t)?;
+                        self.check_type(t)?;
                     }
                     if let Some(expr) = expr {
                         self.contexts.push(Context::Typeof);
@@ -106,6 +117,20 @@ impl<'a> TypeChecker<'a> {
             *r#type = new_type;
         }
 
+        for attribute in r#type.borrow_mut().attributes.iter_mut() {
+            match &mut attribute.borrow_mut().kind {
+                AttributeKind::AlignAs {
+                    r#type: Some(r#type),
+                    expr: None,
+                } => self.check_type(r#type)?,
+                AttributeKind::AlignAs {
+                    r#type: None,
+                    expr: Some(expr),
+                } => self.visit_expr(Rc::clone(expr))?,
+                _ => {}
+            }
+        }
+
         Ok(())
     }
 
@@ -118,7 +143,7 @@ impl<'a> TypeChecker<'a> {
 
         {
             let mut node = node.borrow_mut();
-            self.reassign(&mut node.r#type)?;
+            self.check_type(&mut node.r#type)?;
 
             match &node.kind {
                 DeclarationKind::Parameter => {
@@ -138,10 +163,38 @@ impl<'a> TypeChecker<'a> {
                 notes: vec![],
             });
         }
+
+        if node.r#type.borrow().has_alignas() {
+            for storage_class in &node.storage_classes {
+                match &storage_class.kind {
+                    StorageClassKind::Register => {
+                        return Err(Diagnostic {
+                            span: storage_class.span,
+                            kind: DiagnosticKind::Error,
+                            message: format!(
+                                "alignas cannot be applied to an object with 'register' storage class specifier"
+                            ),
+                            notes: vec![],
+                        });
+                    }
+                    StorageClassKind::Typedef => {
+                        return Err(Diagnostic {
+                            span: storage_class.span,
+                            kind: DiagnosticKind::Error,
+                            message: format!("alignas cannot be applied to a type"),
+                            notes: vec![],
+                        });
+                    }
+                    _ => {}
+                }
+            }
+        }
+
         if node.name.len() == 0 {
             self.contexts.pop();
             return Ok(());
         }
+
         match &node.kind {
             DeclarationKind::Var { initializer } => {
                 self.cur_symtab.borrow_mut().add(
@@ -212,6 +265,14 @@ impl<'a> TypeChecker<'a> {
                 }
             }
             DeclarationKind::Parameter => {
+                if node.r#type.borrow().has_alignas() {
+                    return Err(Diagnostic {
+                        span: node.span,
+                        kind: DiagnosticKind::Error,
+                        message: format!("alignas cannot be applied to a parameter"),
+                        notes: vec![],
+                    });
+                }
                 for storage_class in &node.storage_classes {
                     if storage_class.kind != StorageClassKind::Register {
                         return Err(Diagnostic {
@@ -300,6 +361,17 @@ impl<'a> TypeChecker<'a> {
                 }
             }
             DeclarationKind::Member { bit_field } => {
+                if let Some(_) = bit_field
+                    && node.r#type.borrow().has_alignas()
+                {
+                    return Err(Diagnostic {
+                        span: node.span,
+                        kind: DiagnosticKind::Error,
+                        message: format!("alignas cannot be applied to a member with bit-field"),
+                        notes: vec![],
+                    });
+                }
+
                 if node.storage_classes.len() > 0 {
                     return Err(Diagnostic {
                         span: node.storage_classes[0].span,

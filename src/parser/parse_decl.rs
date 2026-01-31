@@ -18,6 +18,7 @@ impl<'a> CParser<'a> {
     ) -> Result<Vec<Rc<RefCell<Declaration<'a>>>>, Error<Rule>> {
         let mut decls = Vec::new();
         let mut attributes = Vec::new();
+        let mut type_attrs = Vec::new();
         let mut spec_type = None;
         let mut storage_classes = Vec::new();
         let mut function_specs = Vec::new();
@@ -27,34 +28,35 @@ impl<'a> CParser<'a> {
                 Rule::attribute_specifier_sequence => {
                     attributes.extend(self.parse_attribute_specifier_sequence(rule)?);
                 }
-                Rule::declaration_specifiers => {
-                    let mut parse_result = self.parse_declaration_specifiers(rule)?;
-                    if let Some(t) = parse_result.0.attributes.iter().position(|x| {
-                        if let AttributeKind::AlignAs { r#type: _, expr: _ } = &x.borrow().kind {
-                            true
-                        } else {
-                            false
-                        }
-                    }) {
-                        attributes.push(parse_result.0.attributes.remove(t));
+                Rule::declaration_specifiers => match self.parse_declaration_specifiers(rule)? {
+                    (
+                        r#type,
+                        extern_storage_classes,
+                        extern_function_specs,
+                        spec_decls,
+                        extern_attrs,
+                    ) => {
+                        spec_type = Some(r#type);
+                        storage_classes = extern_storage_classes;
+                        function_specs = extern_function_specs;
+                        decls.extend(spec_decls);
+                        type_attrs.extend(extern_attrs);
                     }
-                    spec_type = Some(parse_result.0);
-                    storage_classes = parse_result.1;
-                    function_specs = parse_result.2;
-                    let spec_decl = parse_result.3;
-                    decls.extend(spec_decl);
-                }
+                },
                 Rule::declarator => {
                     let span = rule.as_span();
                     let decl = self.parse_declarator(spec_type.clone().unwrap(), rule)?;
+                    decl.borrow_mut()
+                        .r#type
+                        .borrow_mut()
+                        .attributes
+                        .extend(type_attrs.clone());
                     decl.borrow_mut().attributes.extend(attributes.clone());
                     decl.borrow_mut()
                         .storage_classes
                         .extend(storage_classes.clone());
                     if let DeclarationKind::Function {
-                        parameter_decls: _,
-                        function_specs: t,
-                        body: _,
+                        function_specs: t, ..
                     } = &mut decl.borrow_mut().kind
                     {
                         t.extend(function_specs.clone());
@@ -70,11 +72,8 @@ impl<'a> CParser<'a> {
                 }
                 Rule::compound_statement => {
                     if let Some(function_decl) = &function_decl {
-                        if let DeclarationKind::Function {
-                            parameter_decls: _,
-                            function_specs: _,
-                            body,
-                        } = &mut function_decl.borrow_mut().kind
+                        if let DeclarationKind::Function { body, .. } =
+                            &mut function_decl.borrow_mut().kind
                         {
                             *body = Some(self.parse_compound_statement(rule)?);
                         }
@@ -93,7 +92,10 @@ impl<'a> CParser<'a> {
     ) -> Result<Vec<Rc<RefCell<Declaration<'a>>>>, Error<Rule>> {
         let span = rule.as_span();
         let mut decls = Vec::new();
+        //对象的属性
         let mut attributes = Vec::new();
+        //对象的类型的属性
+        let mut type_attrs = Vec::new();
         let mut spec_type = None;
         let mut storage_classes = Vec::new();
         let mut function_specs = Vec::new();
@@ -102,23 +104,21 @@ impl<'a> CParser<'a> {
                 Rule::attribute_specifier_sequence => {
                     attributes.extend(self.parse_attribute_specifier_sequence(rule)?);
                 }
-                Rule::declaration_specifiers => {
-                    let mut parse_result = self.parse_declaration_specifiers(rule)?;
-                    if let Some(t) = parse_result.0.attributes.iter().position(|x| {
-                        if let AttributeKind::AlignAs { r#type: _, expr: _ } = &x.borrow().kind {
-                            true
-                        } else {
-                            false
-                        }
-                    }) {
-                        attributes.push(parse_result.0.attributes.remove(t));
+                Rule::declaration_specifiers => match self.parse_declaration_specifiers(rule)? {
+                    (
+                        r#type,
+                        extern_storage_classes,
+                        extern_function_specs,
+                        spec_decls,
+                        extern_attrs,
+                    ) => {
+                        spec_type = Some(r#type);
+                        storage_classes = extern_storage_classes;
+                        function_specs = extern_function_specs;
+                        decls.extend(spec_decls);
+                        type_attrs.extend(extern_attrs);
                     }
-                    spec_type = Some(parse_result.0);
-                    storage_classes = parse_result.1;
-                    function_specs = parse_result.2;
-                    let spec_decl = parse_result.3;
-                    decls.extend(spec_decl);
-                }
+                },
                 Rule::initializer => {
                     let initializer = self.parse_initializer(rule)?;
                     let decl = decls.last_mut().unwrap();
@@ -135,9 +135,17 @@ impl<'a> CParser<'a> {
                     }
                     decl_borrow.attributes.extend(attributes.clone());
                 }
-                Rule::declarator => {
+                Rule::declarator | Rule::abstract_declarator => {
                     let decl = self.parse_declarator(spec_type.clone().unwrap(), rule)?;
+                    decl.borrow_mut()
+                        .r#type
+                        .borrow_mut()
+                        .attributes
+                        .extend(type_attrs.clone());
                     decl.borrow_mut().attributes.extend(attributes.clone());
+                    decl.borrow_mut()
+                        .storage_classes
+                        .extend(storage_classes.clone());
                     if storage_classes
                         .iter()
                         .map(|x| &x.kind)
@@ -147,9 +155,7 @@ impl<'a> CParser<'a> {
                         decl.borrow_mut().kind = DeclarationKind::Type;
                     }
                     if let DeclarationKind::Function {
-                        parameter_decls: _,
-                        function_specs: t,
-                        body: _,
+                        function_specs: t, ..
                     } = &mut decl.borrow_mut().kind
                     {
                         t.extend(function_specs.clone());
@@ -176,7 +182,7 @@ impl<'a> CParser<'a> {
                         r#type: Rc::new(RefCell::new(Type {
                             span,
                             attributes: attributes.clone(),
-                            kind: TypeKind::Void,
+                            kind: TypeKind::Error,
                         })),
                         storage_classes: storage_classes.clone(),
                         kind: DeclarationKind::Attribute,
@@ -185,16 +191,18 @@ impl<'a> CParser<'a> {
                 _ => unreachable!(),
             }
         }
-        if let Some(spec_type) = spec_type
+        if let Some(mut spec_type) = spec_type
             && decls.len() == 0
         {
             //没有declarator时的情况
-            //主要是针对abstract declaration的
             decls.push(Rc::new(RefCell::new(Declaration {
                 span,
                 attributes,
                 name: String::new(),
-                r#type: Rc::new(RefCell::new(spec_type)),
+                r#type: Rc::new(RefCell::new({
+                    spec_type.attributes.extend(type_attrs);
+                    spec_type
+                })),
                 storage_classes,
                 kind: DeclarationKind::Var { initializer: None },
             })));
@@ -213,11 +221,14 @@ impl<'a> CParser<'a> {
             Vec<FunctionSpec<'a>>,
             //可能有record或enum的定义
             Vec<Rc<RefCell<Declaration<'a>>>>,
+            //就可能有AlignAs一种属性
+            Vec<Rc<RefCell<Attribute<'a>>>>,
         ),
         Error<Rule>,
     > {
         let span = rule.as_span();
         let mut attributes = Vec::new();
+        let mut extern_attrs = Vec::new();
         let mut types = Vec::new();
         let mut qualifiers = Vec::new();
         let mut storage_classes = Vec::new();
@@ -261,13 +272,16 @@ impl<'a> CParser<'a> {
                             Rule::constant_expression => {
                                 expr = Some(self.parse_constant_expression(rule)?)
                             }
-                            Rule::type_name => {
-                                r#type = Some(self.parse_type_name(rule)?);
-                            }
+                            Rule::type_name => match self.parse_type_name(rule)? {
+                                (type_name_type, type_name_decls) => {
+                                    decls.extend(type_name_decls);
+                                    r#type = Some(type_name_type);
+                                }
+                            },
                             _ => unreachable!(),
                         }
                     }
-                    attributes.push(Rc::new(RefCell::new(Attribute {
+                    extern_attrs.push(Rc::new(RefCell::new(Attribute {
                         span,
                         prefix_name: None,
                         name: "alignas".to_string(),
@@ -464,7 +478,13 @@ impl<'a> CParser<'a> {
             final_type.span = span;
             final_type.attributes.extend(attributes);
         }
-        Ok((final_type, storage_classes, function_specs, decls))
+        Ok((
+            final_type,
+            storage_classes,
+            function_specs,
+            decls,
+            extern_attrs,
+        ))
     }
 
     pub fn parse_type_specifier(
@@ -507,7 +527,12 @@ impl<'a> CParser<'a> {
                         Rule::atomic_type_specifier => {
                             for rule in rule.into_inner() {
                                 if let Rule::type_name = rule.as_rule() {
-                                    kind = Some(TypeKind::Atomic(self.parse_type_name(rule)?));
+                                    match self.parse_type_name(rule)? {
+                                        (r#type, type_name_decls) => {
+                                            decls.extend(type_name_decls);
+                                            kind = Some(TypeKind::Atomic(r#type))
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -532,31 +557,34 @@ impl<'a> CParser<'a> {
                                             r#type: None,
                                         })
                                     }
-                                    Rule::type_name => {
-                                        kind = Some(TypeKind::Typeof {
-                                            unqual,
-                                            expr: None,
-                                            r#type: Some(self.parse_type_name(rule)?),
-                                        });
-                                    }
+                                    Rule::type_name => match self.parse_type_name(rule)? {
+                                        (r#type, type_name_decls) => {
+                                            decls.extend(type_name_decls);
+                                            kind = Some(TypeKind::Typeof {
+                                                unqual,
+                                                expr: None,
+                                                r#type: Some(r#type),
+                                            });
+                                        }
+                                    },
                                     _ => unreachable!(),
                                 }
                             }
                         }
                         Rule::struct_or_union_specifier => {
-                            let parse_result = self.parse_struct_or_union_specifier(rule)?;
-                            kind = Some(parse_result.0.kind);
-                            if let Some(t) = parse_result.1 {
-                                decls.push(t);
+                            match self.parse_struct_or_union_specifier(rule)? {
+                                (r#type, record_decl) => {
+                                    kind = Some(r#type.kind);
+                                    decls.push(record_decl);
+                                }
                             }
                         }
-                        Rule::enum_specifier => {
-                            let parse_result = self.parse_enum_specifier(rule)?;
-                            kind = Some(parse_result.0.kind);
-                            if let Some(t) = parse_result.1 {
-                                decls.push(t);
+                        Rule::enum_specifier => match self.parse_enum_specifier(rule)? {
+                            (r#type, enum_decl) => {
+                                kind = Some(r#type.kind);
+                                decls.push(enum_decl);
                             }
-                        }
+                        },
                         _ => unreachable!(),
                     }
                 }
@@ -605,7 +633,7 @@ impl<'a> CParser<'a> {
     pub fn parse_struct_or_union_specifier(
         &self,
         rule: Pair<'a, Rule>,
-    ) -> Result<(Type<'a>, Option<Rc<RefCell<Declaration<'a>>>>), Error<Rule>> {
+    ) -> Result<(Type<'a>, Rc<RefCell<Declaration<'a>>>), Error<Rule>> {
         let record_kind = if rule.as_str().starts_with("struct") {
             RecordKind::Struct
         } else {
@@ -638,7 +666,7 @@ impl<'a> CParser<'a> {
         };
         Ok((
             record_type.clone(),
-            Some(Rc::new(RefCell::new(Declaration {
+            Rc::new(RefCell::new(Declaration {
                 span,
                 attributes: attributes.clone(),
                 name: name,
@@ -652,14 +680,14 @@ impl<'a> CParser<'a> {
                         None
                     },
                 },
-            }))),
+            })),
         ))
     }
 
     pub fn parse_enum_specifier(
         &self,
         rule: Pair<'a, Rule>,
-    ) -> Result<(Type<'a>, Option<Rc<RefCell<Declaration<'a>>>>), Error<Rule>> {
+    ) -> Result<(Type<'a>, Rc<RefCell<Declaration<'a>>>), Error<Rule>> {
         let span = rule.as_span();
         let mut name = format!("<unnamed enum {:?}>", span.start_pos().line_col());
         let mut attributes = Vec::new();
@@ -673,7 +701,13 @@ impl<'a> CParser<'a> {
                 }
                 Rule::enumerator => enumerators.push(self.parse_enumerator(rule)?),
                 Rule::specifier_qualifier_list => {
-                    underlying_type = Some(self.parse_specifier_qualifier_list(rule)?.0);
+                    match self.parse_specifier_qualifier_list(rule)? {
+                        //decls一定为空
+                        (mut r#type, _decls, extern_attrs) => {
+                            r#type.attributes.extend(extern_attrs);
+                            underlying_type = Some(r#type);
+                        }
+                    }
                 }
                 _ => unreachable!(),
             }
@@ -693,7 +727,7 @@ impl<'a> CParser<'a> {
         };
         Ok((
             enum_type.clone(),
-            Some(Rc::new(RefCell::new(Declaration {
+            Rc::new(RefCell::new(Declaration {
                 span,
                 attributes: attributes.clone(),
                 name,
@@ -707,7 +741,7 @@ impl<'a> CParser<'a> {
                         None
                     },
                 },
-            }))),
+            })),
         ))
     }
 
@@ -890,8 +924,10 @@ impl<'a> CParser<'a> {
         &self,
         rule: Pair<'a, Rule>,
     ) -> Result<Vec<Rc<RefCell<Declaration<'a>>>>, Error<Rule>> {
+        let span = rule.as_span();
         let mut decls = Vec::new();
         let mut attributes = Vec::new();
+        let mut type_attrs = Vec::new();
         let mut spec_type = None;
         for rule in rule.into_inner() {
             match rule.as_rule() {
@@ -899,22 +935,21 @@ impl<'a> CParser<'a> {
                     attributes.extend(self.parse_attribute_specifier_sequence(rule)?);
                 }
                 Rule::specifier_qualifier_list => {
-                    let mut parse_result = self.parse_specifier_qualifier_list(rule)?;
-                    if let Some(t) = parse_result.0.attributes.iter().position(|x| {
-                        if let AttributeKind::AlignAs { r#type: _, expr: _ } = &x.borrow().kind {
-                            true
-                        } else {
-                            false
+                    match self.parse_specifier_qualifier_list(rule)? {
+                        (r#type, spec_decls, extern_attrs) => {
+                            type_attrs.extend(extern_attrs);
+                            spec_type = Some(r#type);
+                            decls.extend(spec_decls);
                         }
-                    }) {
-                        attributes.push(parse_result.0.attributes.remove(t));
                     }
-                    spec_type = Some(parse_result.0);
-                    let spec_decl = parse_result.1;
-                    decls.extend(spec_decl);
                 }
                 Rule::member_declarator => {
                     let decl = self.parse_member_declarator(spec_type.clone().unwrap(), rule)?;
+                    decl.borrow_mut()
+                        .r#type
+                        .borrow_mut()
+                        .attributes
+                        .extend(type_attrs.clone());
                     decl.borrow_mut().attributes.extend(attributes.clone());
                     decls.push(decl);
                 }
@@ -923,6 +958,22 @@ impl<'a> CParser<'a> {
                 }
                 _ => unreachable!(),
             }
+        }
+        if let Some(mut spec_type) = spec_type
+            && decls.len() == 0
+        {
+            //没有declarator时的情况
+            decls.push(Rc::new(RefCell::new(Declaration {
+                span,
+                attributes,
+                name: String::new(),
+                r#type: Rc::new(RefCell::new({
+                    spec_type.attributes.extend(type_attrs);
+                    spec_type
+                })),
+                storage_classes: Vec::new(),
+                kind: DeclarationKind::Member { bit_field: None },
+            })));
         }
         Ok(decls)
     }
@@ -948,11 +999,8 @@ impl<'a> CParser<'a> {
             {
                 let Declaration {
                     span: part_span,
-                    attributes: _,
-                    name: _,
-                    r#type: _,
-                    storage_classes: _,
                     kind,
+                    ..
                 } = &mut *t.borrow_mut();
                 *part_span = span;
                 *kind = DeclarationKind::Member { bit_field };
@@ -973,10 +1021,20 @@ impl<'a> CParser<'a> {
     pub fn parse_specifier_qualifier_list(
         &self,
         rule: Pair<'a, Rule>,
-    ) -> Result<(Type<'a>, Vec<Rc<RefCell<Declaration<'a>>>>), Error<Rule>> {
-        //两者结构相同
-        let parse_result = self.parse_declaration_specifiers(rule)?;
-        Ok((parse_result.0, parse_result.3))
+    ) -> Result<
+        (
+            Type<'a>,
+            Vec<Rc<RefCell<Declaration<'a>>>>,
+            Vec<Rc<RefCell<Attribute<'a>>>>,
+        ),
+        Error<Rule>,
+    > {
+        //两者结构相同, 但specifier_qualifier_list内容要少一点
+        Ok(match self.parse_declaration_specifiers(rule)? {
+            (r#type, _storage_classes, _function_specs, decls, attributes) => {
+                (r#type, decls, attributes)
+            }
+        })
     }
 
     pub fn parse_enumerator(
@@ -1001,10 +1059,11 @@ impl<'a> CParser<'a> {
             span,
             attributes,
             name,
+            //不需要type字段
             r#type: Rc::new(RefCell::new(Type {
                 span,
                 attributes: Vec::new(),
-                kind: TypeKind::Void, //真正的类型在类型检查时确定
+                kind: TypeKind::Error,
             })),
             storage_classes: Vec::new(),
             kind: DeclarationKind::Enumerator { value: expr },
@@ -1019,16 +1078,9 @@ impl<'a> CParser<'a> {
         //两者结构相同
         for decl in self.parse_declaration(rule)? {
             {
-                let Declaration {
-                    span: _,
-                    attributes: _,
-                    name: _,
-                    r#type: _,
-                    storage_classes: _,
-                    kind,
-                } = &mut *decl.borrow_mut();
+                let Declaration { kind, .. } = &mut *decl.borrow_mut();
                 match kind {
-                    DeclarationKind::Var { initializer: _ } => *kind = DeclarationKind::Parameter,
+                    DeclarationKind::Var { .. } => *kind = DeclarationKind::Parameter,
                     _ => {}
                 }
             }
@@ -1054,37 +1106,45 @@ impl<'a> CParser<'a> {
     pub fn parse_type_name(
         &self,
         rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Type<'a>>>, Error<Rule>> {
+    ) -> Result<(Rc<RefCell<Type<'a>>>, Vec<Rc<RefCell<Declaration<'a>>>>), Error<Rule>> {
         let mut spec_type = None;
-        let mut attributes = Vec::new();
+        let mut type_attrs = Vec::new();
         let mut r#type = None;
+        let mut decls = Vec::new();
         for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::specifier_qualifier_list => {
-                    let mut parse_result = self.parse_specifier_qualifier_list(rule)?;
-                    if let Some(t) = parse_result.0.attributes.iter().position(|x| {
-                        if let AttributeKind::AlignAs { r#type: _, expr: _ } = &x.borrow().kind {
-                            true
-                        } else {
-                            false
+                    match self.parse_specifier_qualifier_list(rule)? {
+                        (r#type, spec_decls, extern_attrs) => {
+                            spec_type = Some(r#type);
+                            type_attrs.extend(extern_attrs);
+                            decls.extend(spec_decls);
                         }
-                    }) {
-                        attributes.push(parse_result.0.attributes.remove(t));
                     }
-                    spec_type = Some(parse_result.0);
                 }
                 Rule::abstract_declarator => {
                     let decl = self.parse_declarator(spec_type.clone().unwrap(), rule)?;
-                    decl.borrow_mut().attributes.extend(attributes.clone());
+                    decl.borrow_mut()
+                        .r#type
+                        .borrow_mut()
+                        .attributes
+                        .extend(type_attrs.clone());
                     r#type = Some(decl.borrow().r#type.clone());
                 }
                 _ => unreachable!(),
             }
         }
-        Ok(match r#type {
-            Some(t) => t,
-            None => Rc::new(RefCell::new(spec_type.unwrap())),
-        })
+        Ok((
+            match r#type {
+                Some(t) => t,
+                None => {
+                    let mut spec_type = spec_type.unwrap();
+                    spec_type.attributes.extend(type_attrs);
+                    Rc::new(RefCell::new(spec_type))
+                }
+            },
+            decls,
+        ))
     }
 
     pub fn parse_static_assert_declaration(
