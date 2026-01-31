@@ -55,6 +55,6 @@ pub enum StmtKind<'a> {
         stmt: Option<Rc<RefCell<Stmt<'a>>>>,
     },
     Default(Option<Rc<RefCell<Stmt<'a>>>>),
-    Decl(Rc<RefCell<Declaration<'a>>>),
+    Decl(Vec<Rc<RefCell<Declaration<'a>>>>),
     Null,
 }

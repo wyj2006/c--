@@ -81,6 +81,7 @@ RefCell {
                                     },
                                     storage_classes: [],
                                     kind: Parameter,
+                                    children: [],
                                 },
                             },
                         ],
@@ -101,6 +102,7 @@ RefCell {
                             },
                         ),
                     },
+                    children: [],
                 },
             },
             RefCell {
@@ -434,6 +436,7 @@ RefCell {
                             },
                         ),
                     },
+                    children: [],
                 },
             },
         ],

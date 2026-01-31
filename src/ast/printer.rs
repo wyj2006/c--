@@ -88,9 +88,7 @@ impl Print for TranslationUnit<'_> {
 
     fn children_display(&self, indent: usize) -> Vec<String> {
         let mut lines = Vec::new();
-        for decl in &self.decls {
-            lines.extend(decl.print_line(indent));
-        }
+        lines.extend(self.decls.print_line(indent));
         lines
     }
 }
@@ -139,6 +137,7 @@ impl Print for Declaration<'_> {
         let mut lines = Vec::new();
 
         lines.extend(self.attributes.print_line(indent));
+        lines.extend(self.children.print_line(indent));
 
         match &self.kind {
             DeclarationKind::Var { initializer } => {
@@ -232,6 +231,8 @@ impl Print for Stmt<'_> {
 
     fn children_display(&self, indent: usize) -> Vec<String> {
         let mut lines = Vec::new();
+
+        lines.extend(self.attributes.print_line(indent));
 
         match &self.kind {
             StmtKind::Case { expr, stmt } => {

@@ -14,6 +14,7 @@ pub struct Declaration<'a> {
     pub r#type: Rc<RefCell<Type<'a>>>,
     pub storage_classes: Vec<StorageClass<'a>>,
     pub kind: DeclarationKind<'a>,
+    pub children: Vec<Rc<RefCell<Declaration<'a>>>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

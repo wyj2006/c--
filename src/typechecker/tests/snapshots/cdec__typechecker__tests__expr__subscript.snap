@@ -68,32 +68,35 @@ RefCell {
                                                     },
                                                     attributes: [],
                                                     kind: Decl(
-                                                        RefCell {
-                                                            value: Declaration {
-                                                                span: Span {
-                                                                    str: "a",
-                                                                    start: 22,
-                                                                    end: 23,
-                                                                },
-                                                                attributes: [],
-                                                                name: "a",
-                                                                type: RefCell {
-                                                                    value: Type {
-                                                                        span: Span {
-                                                                            str: "int ",
-                                                                            start: 18,
-                                                                            end: 22,
-                                                                        },
-                                                                        attributes: [],
-                                                                        kind: Int,
+                                                        [
+                                                            RefCell {
+                                                                value: Declaration {
+                                                                    span: Span {
+                                                                        str: "a",
+                                                                        start: 22,
+                                                                        end: 23,
                                                                     },
-                                                                },
-                                                                storage_classes: [],
-                                                                kind: Var {
-                                                                    initializer: None,
+                                                                    attributes: [],
+                                                                    name: "a",
+                                                                    type: RefCell {
+                                                                        value: Type {
+                                                                            span: Span {
+                                                                                str: "int ",
+                                                                                start: 18,
+                                                                                end: 22,
+                                                                            },
+                                                                            attributes: [],
+                                                                            kind: Int,
+                                                                        },
+                                                                    },
+                                                                    storage_classes: [],
+                                                                    kind: Var {
+                                                                        initializer: None,
+                                                                    },
+                                                                    children: [],
                                                                 },
                                                             },
-                                                        },
+                                                        ],
                                                     ),
                                                 },
                                             },
@@ -106,78 +109,81 @@ RefCell {
                                                     },
                                                     attributes: [],
                                                     kind: Decl(
-                                                        RefCell {
-                                                            value: Declaration {
-                                                                span: Span {
-                                                                    str: "b[3]",
-                                                                    start: 33,
-                                                                    end: 37,
-                                                                },
-                                                                attributes: [],
-                                                                name: "b",
-                                                                type: RefCell {
-                                                                    value: Type {
-                                                                        span: Span {
-                                                                            str: "[3]",
-                                                                            start: 34,
-                                                                            end: 37,
-                                                                        },
-                                                                        attributes: [],
-                                                                        kind: Array {
-                                                                            has_static: false,
-                                                                            has_star: false,
-                                                                            element_type: RefCell {
-                                                                                value: Type {
-                                                                                    span: Span {
-                                                                                        str: "int ",
-                                                                                        start: 29,
-                                                                                        end: 33,
-                                                                                    },
-                                                                                    attributes: [],
-                                                                                    kind: Int,
-                                                                                },
+                                                        [
+                                                            RefCell {
+                                                                value: Declaration {
+                                                                    span: Span {
+                                                                        str: "b[3]",
+                                                                        start: 33,
+                                                                        end: 37,
+                                                                    },
+                                                                    attributes: [],
+                                                                    name: "b",
+                                                                    type: RefCell {
+                                                                        value: Type {
+                                                                            span: Span {
+                                                                                str: "[3]",
+                                                                                start: 34,
+                                                                                end: 37,
                                                                             },
-                                                                            len_expr: Some(
-                                                                                RefCell {
-                                                                                    value: Expr {
+                                                                            attributes: [],
+                                                                            kind: Array {
+                                                                                has_static: false,
+                                                                                has_star: false,
+                                                                                element_type: RefCell {
+                                                                                    value: Type {
                                                                                         span: Span {
-                                                                                            str: "3",
-                                                                                            start: 35,
-                                                                                            end: 36,
+                                                                                            str: "int ",
+                                                                                            start: 29,
+                                                                                            end: 33,
                                                                                         },
-                                                                                        kind: Integer {
-                                                                                            base: 10,
-                                                                                            text: "3",
-                                                                                            type_suffix: [],
-                                                                                        },
-                                                                                        type: RefCell {
-                                                                                            value: Type {
-                                                                                                span: Span {
-                                                                                                    str: "3",
-                                                                                                    start: 35,
-                                                                                                    end: 36,
-                                                                                                },
-                                                                                                attributes: [],
-                                                                                                kind: Int,
-                                                                                            },
-                                                                                        },
-                                                                                        value: Int(
-                                                                                            3,
-                                                                                        ),
-                                                                                        is_lvalue: false,
-                                                                                        symbol: None,
+                                                                                        attributes: [],
+                                                                                        kind: Int,
                                                                                     },
                                                                                 },
-                                                                            ),
+                                                                                len_expr: Some(
+                                                                                    RefCell {
+                                                                                        value: Expr {
+                                                                                            span: Span {
+                                                                                                str: "3",
+                                                                                                start: 35,
+                                                                                                end: 36,
+                                                                                            },
+                                                                                            kind: Integer {
+                                                                                                base: 10,
+                                                                                                text: "3",
+                                                                                                type_suffix: [],
+                                                                                            },
+                                                                                            type: RefCell {
+                                                                                                value: Type {
+                                                                                                    span: Span {
+                                                                                                        str: "3",
+                                                                                                        start: 35,
+                                                                                                        end: 36,
+                                                                                                    },
+                                                                                                    attributes: [],
+                                                                                                    kind: Int,
+                                                                                                },
+                                                                                            },
+                                                                                            value: Int(
+                                                                                                3,
+                                                                                            ),
+                                                                                            is_lvalue: false,
+                                                                                            symbol: None,
+                                                                                        },
+                                                                                    },
+                                                                                ),
+                                                                            },
                                                                         },
                                                                     },
-                                                                },
-                                                                storage_classes: [],
-                                                                kind: Var {
-                                                                    initializer: None,
+                                                                    storage_classes: [],
+                                                                    kind: Var {
+                                                                        initializer: None,
+                                                                    },
+                                                                    children: [],
                                                                 },
                                                             },
-                                                        },
+                                                        ],
                                                     ),
                                                 },
                                             },
@@ -997,6 +1003,7 @@ RefCell {
                             },
                         ),
                     },
+                    children: [],
                 },
             },
         ],

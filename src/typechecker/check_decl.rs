@@ -47,12 +47,14 @@ impl<'a> TypeChecker<'a> {
                             notes: vec![],
                         });
                     }
+                    self.check_type(return_type)?;
                     new_type = Some(Rc::new(RefCell::new(Type {
                         kind: TypeKind::Function {
                             return_type: remove_qualifier(Rc::clone(return_type)),
                             parameters_type: {
                                 let mut t = Vec::new();
                                 for p in parameters_type {
+                                    self.check_type(p)?;
                                     t.push(as_parameter_type(Rc::clone(p)));
                                 }
                                 t
@@ -190,9 +192,10 @@ impl<'a> TypeChecker<'a> {
             }
         }
 
-        if node.name.len() == 0 {
-            self.contexts.pop();
-            return Ok(());
+        //node.name.len()==0时, 并没有声明任何变量, 但仍要进行类型检查
+
+        for child in &node.children {
+            self.visit_declaration(Rc::clone(child))?;
         }
 
         match &node.kind {
@@ -255,6 +258,37 @@ impl<'a> TypeChecker<'a> {
                 )?;
 
                 if let Some(body) = body {
+                    match &node.r#type.borrow().kind {
+                        TypeKind::Function {
+                            return_type,
+                            parameters_type,
+                            ..
+                        } => {
+                            if !return_type.borrow().is_void()
+                                && !return_type.borrow().is_complete()
+                            {
+                                return Err(Diagnostic {
+                                    span: return_type.borrow().span,
+                                    kind: DiagnosticKind::Error,
+                                    message: format!("return type must be complete"),
+                                    notes: vec![],
+                                });
+                            }
+                            for parameter_type in parameters_type {
+                                if !parameter_type.borrow().is_void()//这种情况检查参数声明时已经处理过了
+                                    && !parameter_type.borrow().is_complete()
+                                {
+                                    return Err(Diagnostic {
+                                        span: parameter_type.borrow().span,
+                                        kind: DiagnosticKind::Error,
+                                        message: format!("parameter type must be complete"),
+                                        notes: vec![],
+                                    });
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
                     self.visit_stmt(Rc::clone(body))?;
 
                     self.funcs.pop();
@@ -284,6 +318,14 @@ impl<'a> TypeChecker<'a> {
                             notes: vec![],
                         });
                     }
+                }
+                if node.name.len() > 0 && node.r#type.borrow().is_void() {
+                    return Err(Diagnostic {
+                        span: node.span,
+                        kind: DiagnosticKind::Error,
+                        message: format!("parameter cannot have a void type"),
+                        notes: vec![],
+                    });
                 }
                 self.cur_symtab.borrow_mut().add(
                     Namespace::Ordinary,

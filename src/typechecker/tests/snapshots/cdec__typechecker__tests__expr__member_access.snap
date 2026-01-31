@@ -68,181 +68,174 @@ RefCell {
                                                     },
                                                     attributes: [],
                                                     kind: Decl(
-                                                        RefCell {
-                                                            value: Declaration {
-                                                                span: Span {
-                                                                    str: "struct A{int a;}",
-                                                                    start: 18,
-                                                                    end: 34,
-                                                                },
-                                                                attributes: [],
-                                                                name: "A",
-                                                                type: RefCell {
-                                                                    value: Type {
-                                                                        span: Span {
-                                                                            str: "struct A{int a;}",
-                                                                            start: 18,
-                                                                            end: 34,
-                                                                        },
-                                                                        attributes: [],
-                                                                        kind: Record {
-                                                                            name: "A",
-                                                                            kind: Struct,
-                                                                            members: Some(
-                                                                                {
-                                                                                    "a": RefCell {
-                                                                                        value: Symbol {
-                                                                                            define_span: Some(
-                                                                                                Span {
-                                                                                                    str: "a",
-                                                                                                    start: 31,
-                                                                                                    end: 32,
-                                                                                                },
-                                                                                            ),
-                                                                                            declare_spans: [
-                                                                                                Span {
-                                                                                                    str: "a",
-                                                                                                    start: 31,
-                                                                                                    end: 32,
-                                                                                                },
-                                                                                            ],
-                                                                                            name: "a",
-                                                                                            kind: Member {
-                                                                                                bit_field: None,
-                                                                                            },
-                                                                                            type: RefCell {
-                                                                                                value: Type {
-                                                                                                    span: Span {
-                                                                                                        str: "int ",
-                                                                                                        start: 27,
-                                                                                                        end: 31,
-                                                                                                    },
-                                                                                                    attributes: [],
-                                                                                                    kind: Int,
-                                                                                                },
-                                                                                            },
-                                                                                            attributes: [],
-                                                                                        },
-                                                                                    },
-                                                                                },
-                                                                            ),
-                                                                        },
+                                                        [
+                                                            RefCell {
+                                                                value: Declaration {
+                                                                    span: Span {
+                                                                        str: "struct A{int a;}",
+                                                                        start: 18,
+                                                                        end: 34,
                                                                     },
-                                                                },
-                                                                storage_classes: [],
-                                                                kind: Record {
-                                                                    members_decl: Some(
-                                                                        [
-                                                                            RefCell {
-                                                                                value: Declaration {
-                                                                                    span: Span {
-                                                                                        str: "a",
-                                                                                        start: 31,
-                                                                                        end: 32,
-                                                                                    },
-                                                                                    attributes: [],
-                                                                                    name: "a",
-                                                                                    type: RefCell {
-                                                                                        value: Type {
-                                                                                            span: Span {
-                                                                                                str: "int ",
-                                                                                                start: 27,
-                                                                                                end: 31,
-                                                                                            },
-                                                                                            attributes: [],
-                                                                                            kind: Int,
-                                                                                        },
-                                                                                    },
-                                                                                    storage_classes: [],
-                                                                                    kind: Member {
-                                                                                        bit_field: None,
-                                                                                    },
-                                                                                },
+                                                                    attributes: [],
+                                                                    name: "A",
+                                                                    type: RefCell {
+                                                                        value: Type {
+                                                                            span: Span {
+                                                                                str: "struct A{int a;}",
+                                                                                start: 18,
+                                                                                end: 34,
                                                                             },
-                                                                        ],
-                                                                    ),
-                                                                },
-                                                            },
-                                                        },
-                                                    ),
-                                                },
-                                            },
-                                            RefCell {
-                                                value: Stmt {
-                                                    span: Span {
-                                                        str: "struct A{int a;} a;",
-                                                        start: 18,
-                                                        end: 37,
-                                                    },
-                                                    attributes: [],
-                                                    kind: Decl(
-                                                        RefCell {
-                                                            value: Declaration {
-                                                                span: Span {
-                                                                    str: "a",
-                                                                    start: 35,
-                                                                    end: 36,
-                                                                },
-                                                                attributes: [],
-                                                                name: "a",
-                                                                type: RefCell {
-                                                                    value: Type {
-                                                                        span: Span {
-                                                                            str: "struct A{int a;}",
-                                                                            start: 18,
-                                                                            end: 34,
-                                                                        },
-                                                                        attributes: [],
-                                                                        kind: Record {
-                                                                            name: "A",
-                                                                            kind: Struct,
-                                                                            members: Some(
-                                                                                {
-                                                                                    "a": RefCell {
-                                                                                        value: Symbol {
-                                                                                            define_span: Some(
-                                                                                                Span {
-                                                                                                    str: "a",
-                                                                                                    start: 31,
-                                                                                                    end: 32,
-                                                                                                },
-                                                                                            ),
-                                                                                            declare_spans: [
-                                                                                                Span {
-                                                                                                    str: "a",
-                                                                                                    start: 31,
-                                                                                                    end: 32,
-                                                                                                },
-                                                                                            ],
-                                                                                            name: "a",
-                                                                                            kind: Member {
-                                                                                                bit_field: None,
-                                                                                            },
-                                                                                            type: RefCell {
-                                                                                                value: Type {
-                                                                                                    span: Span {
-                                                                                                        str: "int ",
-                                                                                                        start: 27,
-                                                                                                        end: 31,
+                                                                            attributes: [],
+                                                                            kind: Record {
+                                                                                name: "A",
+                                                                                kind: Struct,
+                                                                                members: Some(
+                                                                                    {
+                                                                                        "a": RefCell {
+                                                                                            value: Symbol {
+                                                                                                define_span: Some(
+                                                                                                    Span {
+                                                                                                        str: "a",
+                                                                                                        start: 31,
+                                                                                                        end: 32,
                                                                                                     },
-                                                                                                    attributes: [],
-                                                                                                    kind: Int,
+                                                                                                ),
+                                                                                                declare_spans: [
+                                                                                                    Span {
+                                                                                                        str: "a",
+                                                                                                        start: 31,
+                                                                                                        end: 32,
+                                                                                                    },
+                                                                                                ],
+                                                                                                name: "a",
+                                                                                                kind: Member {
+                                                                                                    bit_field: None,
                                                                                                 },
+                                                                                                type: RefCell {
+                                                                                                    value: Type {
+                                                                                                        span: Span {
+                                                                                                            str: "int ",
+                                                                                                            start: 27,
+                                                                                                            end: 31,
+                                                                                                        },
+                                                                                                        attributes: [],
+                                                                                                        kind: Int,
+                                                                                                    },
+                                                                                                },
+                                                                                                attributes: [],
                                                                                             },
-                                                                                            attributes: [],
                                                                                         },
                                                                                     },
-                                                                                },
-                                                                            ),
+                                                                                ),
+                                                                            },
                                                                         },
                                                                     },
-                                                                },
-                                                                storage_classes: [],
-                                                                kind: Var {
-                                                                    initializer: None,
+                                                                    storage_classes: [],
+                                                                    kind: Record {
+                                                                        members_decl: Some(
+                                                                            [
+                                                                                RefCell {
+                                                                                    value: Declaration {
+                                                                                        span: Span {
+                                                                                            str: "a",
+                                                                                            start: 31,
+                                                                                            end: 32,
+                                                                                        },
+                                                                                        attributes: [],
+                                                                                        name: "a",
+                                                                                        type: RefCell {
+                                                                                            value: Type {
+                                                                                                span: Span {
+                                                                                                    str: "int ",
+                                                                                                    start: 27,
+                                                                                                    end: 31,
+                                                                                                },
+                                                                                                attributes: [],
+                                                                                                kind: Int,
+                                                                                            },
+                                                                                        },
+                                                                                        storage_classes: [],
+                                                                                        kind: Member {
+                                                                                            bit_field: None,
+                                                                                        },
+                                                                                        children: [],
+                                                                                    },
+                                                                                },
+                                                                            ],
+                                                                        ),
+                                                                    },
+                                                                    children: [],
                                                                 },
                                                             },
-                                                        },
+                                                            RefCell {
+                                                                value: Declaration {
+                                                                    span: Span {
+                                                                        str: "a",
+                                                                        start: 35,
+                                                                        end: 36,
+                                                                    },
+                                                                    attributes: [],
+                                                                    name: "a",
+                                                                    type: RefCell {
+                                                                        value: Type {
+                                                                            span: Span {
+                                                                                str: "struct A{int a;}",
+                                                                                start: 18,
+                                                                                end: 34,
+                                                                            },
+                                                                            attributes: [],
+                                                                            kind: Record {
+                                                                                name: "A",
+                                                                                kind: Struct,
+                                                                                members: Some(
+                                                                                    {
+                                                                                        "a": RefCell {
+                                                                                            value: Symbol {
+                                                                                                define_span: Some(
+                                                                                                    Span {
+                                                                                                        str: "a",
+                                                                                                        start: 31,
+                                                                                                        end: 32,
+                                                                                                    },
+                                                                                                ),
+                                                                                                declare_spans: [
+                                                                                                    Span {
+                                                                                                        str: "a",
+                                                                                                        start: 31,
+                                                                                                        end: 32,
+                                                                                                    },
+                                                                                                ],
+                                                                                                name: "a",
+                                                                                                kind: Member {
+                                                                                                    bit_field: None,
+                                                                                                },
+                                                                                                type: RefCell {
+                                                                                                    value: Type {
+                                                                                                        span: Span {
+                                                                                                            str: "int ",
+                                                                                                            start: 27,
+                                                                                                            end: 31,
+                                                                                                        },
+                                                                                                        attributes: [],
+                                                                                                        kind: Int,
+                                                                                                    },
+                                                                                                },
+                                                                                                attributes: [],
+                                                                                            },
+                                                                                        },
+                                                                                    },
+                                                                                ),
+                                                                            },
+                                                                        },
+                                                                    },
+                                                                    storage_classes: [],
+                                                                    kind: Var {
+                                                                        initializer: None,
+                                                                    },
+                                                                    children: [],
+                                                                },
+                                                            },
+                                                        ],
                                                     ),
                                                 },
                                             },
@@ -490,6 +483,7 @@ RefCell {
                             },
                         ),
                     },
+                    children: [],
                 },
             },
         ],

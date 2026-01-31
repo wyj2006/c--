@@ -16,13 +16,11 @@ impl<'a> CParser<'a> {
             match rule.as_rule() {
                 Rule::declaration => {
                     let span = rule.as_span();
-                    stmts.extend(self.parse_declaration(rule)?.into_iter().map(|x| {
-                        Rc::new(RefCell::new(Stmt {
-                            span,
-                            attributes: Vec::new(),
-                            kind: StmtKind::Decl(x),
-                        }))
-                    }))
+                    stmts.push(Rc::new(RefCell::new(Stmt {
+                        span,
+                        attributes: vec![],
+                        kind: StmtKind::Decl(self.parse_declaration(rule)?),
+                    })));
                 }
                 Rule::unlabeled_statement => stmts.push(self.parse_unlabeled_statement(rule)?),
                 Rule::label => stmts.push(self.parse_label(rule)?),

@@ -43,7 +43,11 @@ impl<'a> TypeChecker<'a> {
                     self.leave_scope();
                 }
             }
-            StmtKind::Decl(decl) => self.visit_declaration(Rc::clone(decl))?,
+            StmtKind::Decl(decls) => {
+                for decl in decls {
+                    self.visit_declaration(Rc::clone(decl))?;
+                }
+            }
             StmtKind::Expr(expr) => self.visit_expr(Rc::clone(expr))?,
             StmtKind::Goto(name) => {
                 if let None = self

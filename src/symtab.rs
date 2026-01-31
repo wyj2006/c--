@@ -145,6 +145,9 @@ impl<'a> SymbolTable<'a> {
         symbol: Rc<RefCell<Symbol<'a>>>,
     ) -> Result<(), Diagnostic<'a>> {
         let name = symbol.borrow().name.clone();
+        if name.len() == 0 {
+            return Ok(());
+        }
         if let Some(symbols) = self.namespaces.get_mut(&namespace) {
             match symbols.get(&name) {
                 Some(pre_symbol) => {

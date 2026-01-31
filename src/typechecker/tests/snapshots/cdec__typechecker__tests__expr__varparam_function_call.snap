@@ -105,12 +105,14 @@ RefCell {
                                     },
                                     storage_classes: [],
                                     kind: Parameter,
+                                    children: [],
                                 },
                             },
                         ],
                         function_specs: [],
                         body: None,
                     },
+                    children: [],
                 },
             },
             RefCell {
@@ -171,32 +173,35 @@ RefCell {
                                                     },
                                                     attributes: [],
                                                     kind: Decl(
-                                                        RefCell {
-                                                            value: Declaration {
-                                                                span: Span {
-                                                                    str: "a",
-                                                                    start: 57,
-                                                                    end: 58,
-                                                                },
-                                                                attributes: [],
-                                                                name: "a",
-                                                                type: RefCell {
-                                                                    value: Type {
-                                                                        span: Span {
-                                                                            str: "float ",
-                                                                            start: 51,
-                                                                            end: 57,
-                                                                        },
-                                                                        attributes: [],
-                                                                        kind: Float,
+                                                        [
+                                                            RefCell {
+                                                                value: Declaration {
+                                                                    span: Span {
+                                                                        str: "a",
+                                                                        start: 57,
+                                                                        end: 58,
                                                                     },
-                                                                },
-                                                                storage_classes: [],
-                                                                kind: Var {
-                                                                    initializer: None,
+                                                                    attributes: [],
+                                                                    name: "a",
+                                                                    type: RefCell {
+                                                                        value: Type {
+                                                                            span: Span {
+                                                                                str: "float ",
+                                                                                start: 51,
+                                                                                end: 57,
+                                                                            },
+                                                                            attributes: [],
+                                                                            kind: Float,
+                                                                        },
+                                                                    },
+                                                                    storage_classes: [],
+                                                                    kind: Var {
+                                                                        initializer: None,
+                                                                    },
+                                                                    children: [],
                                                                 },
                                                             },
-                                                        },
+                                                        ],
                                                     ),
                                                 },
                                             },
@@ -209,47 +214,50 @@ RefCell {
                                                     },
                                                     attributes: [],
                                                     kind: Decl(
-                                                        RefCell {
-                                                            value: Declaration {
-                                                                span: Span {
-                                                                    str: "b",
-                                                                    start: 75,
-                                                                    end: 76,
-                                                                },
-                                                                attributes: [],
-                                                                name: "b",
-                                                                type: RefCell {
-                                                                    value: Type {
-                                                                        span: Span {
-                                                                            str: "const char ",
-                                                                            start: 64,
-                                                                            end: 75,
-                                                                        },
-                                                                        attributes: [],
-                                                                        kind: Qualified {
-                                                                            qualifiers: [
-                                                                                Const,
-                                                                            ],
-                                                                            type: RefCell {
-                                                                                value: Type {
-                                                                                    span: Span {
-                                                                                        str: "char",
-                                                                                        start: 70,
-                                                                                        end: 74,
+                                                        [
+                                                            RefCell {
+                                                                value: Declaration {
+                                                                    span: Span {
+                                                                        str: "b",
+                                                                        start: 75,
+                                                                        end: 76,
+                                                                    },
+                                                                    attributes: [],
+                                                                    name: "b",
+                                                                    type: RefCell {
+                                                                        value: Type {
+                                                                            span: Span {
+                                                                                str: "const char ",
+                                                                                start: 64,
+                                                                                end: 75,
+                                                                            },
+                                                                            attributes: [],
+                                                                            kind: Qualified {
+                                                                                qualifiers: [
+                                                                                    Const,
+                                                                                ],
+                                                                                type: RefCell {
+                                                                                    value: Type {
+                                                                                        span: Span {
+                                                                                            str: "char",
+                                                                                            start: 70,
+                                                                                            end: 74,
+                                                                                        },
+                                                                                        attributes: [],
+                                                                                        kind: Char,
                                                                                     },
-                                                                                    attributes: [],
-                                                                                    kind: Char,
                                                                                 },
                                                                             },
                                                                         },
                                                                     },
-                                                                },
-                                                                storage_classes: [],
-                                                                kind: Var {
-                                                                    initializer: None,
+                                                                    storage_classes: [],
+                                                                    kind: Var {
+                                                                        initializer: None,
+                                                                    },
+                                                                    children: [],
                                                                 },
                                                             },
-                                                        },
+                                                        ],
                                                     ),
                                                 },
                                             },
@@ -1060,6 +1068,7 @@ RefCell {
                             },
                         ),
                     },
+                    children: [],
                 },
             },
         ],

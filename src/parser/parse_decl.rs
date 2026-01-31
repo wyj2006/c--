@@ -159,6 +159,13 @@ impl<'a> CParser<'a> {
                     } = &mut decl.borrow_mut().kind
                     {
                         t.extend(function_specs.clone());
+                    } else if function_specs.len() > 0 {
+                        return Err(Error::new_from_span(
+                            ErrorVariant::CustomError {
+                                message: format!("function specifier can only appear on functions"),
+                            },
+                            function_specs[0].span,
+                        ));
                     }
                     decls.push(decl);
                 }
@@ -186,6 +193,7 @@ impl<'a> CParser<'a> {
                         })),
                         storage_classes: storage_classes.clone(),
                         kind: DeclarationKind::Attribute,
+                        children: vec![],
                     })))
                 }
                 _ => unreachable!(),
@@ -205,6 +213,7 @@ impl<'a> CParser<'a> {
                 })),
                 storage_classes,
                 kind: DeclarationKind::Var { initializer: None },
+                children: vec![],
             })));
         }
         Ok(decls)
@@ -680,6 +689,7 @@ impl<'a> CParser<'a> {
                         None
                     },
                 },
+                children: vec![],
             })),
         ))
     }
@@ -741,6 +751,7 @@ impl<'a> CParser<'a> {
                         None
                     },
                 },
+                children: vec![],
             })),
         ))
     }
@@ -756,6 +767,7 @@ impl<'a> CParser<'a> {
         let mut final_type = spec_type.clone();
         let mut child_declarator = None;
         let mut parameter_decls = Vec::new();
+        let mut function_decls = Vec::new();
         for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::direct_declarator | Rule::direct_abstract_declarator => {
@@ -778,17 +790,17 @@ impl<'a> CParser<'a> {
                                 child_declarator = Some(rule)
                             }
                             Rule::function_declarator | Rule::function_abstract_declarator => {
+                                //避免冲突
+                                parameter_decls.clear();
+
                                 let span = rule.as_span();
                                 let mut attributes = Vec::new();
                                 let has_varparam = rule.as_str().contains("...");
                                 let mut parameters_type = Vec::new();
                                 for rule in rule.into_inner() {
                                     match rule.as_rule() {
-                                        Rule::parameter_declaration => {
-                                            //因为不能返回函数类型, 所以这里不会冲突
-                                            parameter_decls
-                                                .extend(self.parse_parameter_declaration(rule)?)
-                                        }
+                                        Rule::parameter_declaration => parameter_decls
+                                            .extend(self.parse_parameter_declaration(rule)?),
                                         Rule::attribute_specifier_sequence => {
                                             attributes.extend(
                                                 self.parse_attribute_specifier_sequence(rule)?,
@@ -810,7 +822,22 @@ impl<'a> CParser<'a> {
                                         parameters_type,
                                         has_varparam,
                                     },
-                                }
+                                };
+
+                                //需要额外保存函数声明, 以便之后对其进行类型检查
+                                function_decls.push(Rc::new(RefCell::new(Declaration {
+                                    span,
+                                    attributes: Vec::new(),
+                                    name: String::new(),
+                                    r#type: Rc::new(RefCell::new(final_type.clone())),
+                                    storage_classes: Vec::new(),
+                                    kind: DeclarationKind::Function {
+                                        parameter_decls: parameter_decls.clone(),
+                                        function_specs: vec![],
+                                        body: None,
+                                    },
+                                    children: vec![],
+                                })));
                             }
                             Rule::array_declarator | Rule::array_abstract_declarator => {
                                 let span = rule.as_span();
@@ -899,25 +926,32 @@ impl<'a> CParser<'a> {
             }
         }
         if let Some(rule) = child_declarator {
-            //这么做可能会忽略当前的parameter_decls
-            return self.parse_declarator(final_type, rule);
+            let parent = self.parse_declarator(final_type, rule)?;
+            parent.borrow_mut().children.extend(function_decls);
+            Ok(parent)
+        } else {
+            let kind = match &final_type.kind {
+                TypeKind::Function { .. } => {
+                    function_decls.pop(); //此时最后一个元素一定与接下来要返回的Declaration相同
+                    DeclarationKind::Function {
+                        parameter_decls,
+                        function_specs: Vec::new(),
+                        body: None,
+                    }
+                }
+                _ => DeclarationKind::Var { initializer: None },
+            };
+
+            Ok(Rc::new(RefCell::new(Declaration {
+                span,
+                attributes,
+                name,
+                r#type: Rc::new(RefCell::new(final_type.clone())),
+                storage_classes: Vec::new(),
+                kind,
+                children: function_decls,
+            })))
         }
-        let kind = match &final_type.kind {
-            TypeKind::Function { .. } => DeclarationKind::Function {
-                parameter_decls,
-                function_specs: Vec::new(),
-                body: None,
-            },
-            _ => DeclarationKind::Var { initializer: None },
-        };
-        Ok(Rc::new(RefCell::new(Declaration {
-            span,
-            attributes,
-            name,
-            r#type: Rc::new(RefCell::new(final_type)),
-            storage_classes: Vec::new(),
-            kind,
-        })))
     }
 
     pub fn parse_member_declaration(
@@ -973,6 +1007,7 @@ impl<'a> CParser<'a> {
                 })),
                 storage_classes: Vec::new(),
                 kind: DeclarationKind::Member { bit_field: None },
+                children: vec![],
             })));
         }
         Ok(decls)
@@ -1014,6 +1049,7 @@ impl<'a> CParser<'a> {
                 r#type: Rc::new(RefCell::new(spec_type)),
                 storage_classes: Vec::new(),
                 kind: DeclarationKind::Member { bit_field },
+                children: vec![],
             })))
         }
     }
@@ -1067,6 +1103,7 @@ impl<'a> CParser<'a> {
             })),
             storage_classes: Vec::new(),
             kind: DeclarationKind::Enumerator { value: expr },
+            children: vec![],
         })))
     }
 
@@ -1077,12 +1114,14 @@ impl<'a> CParser<'a> {
         let mut decls = Vec::new();
         //两者结构相同
         for decl in self.parse_declaration(rule)? {
-            {
-                let Declaration { kind, .. } = &mut *decl.borrow_mut();
-                match kind {
-                    DeclarationKind::Var { .. } => *kind = DeclarationKind::Parameter,
-                    _ => {}
+            match &mut *decl.borrow_mut() {
+                Declaration {
+                    kind: kind @ DeclarationKind::Var { .. },
+                    ..
+                } => {
+                    *kind = DeclarationKind::Parameter;
                 }
+                _ => {}
             }
             decls.push(decl);
         }
@@ -1182,6 +1221,7 @@ impl<'a> CParser<'a> {
             kind: DeclarationKind::StaticAssert {
                 expr: expr.unwrap(),
             },
+            children: vec![],
         })))
     }
 }
