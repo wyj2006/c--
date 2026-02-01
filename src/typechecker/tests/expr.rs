@@ -153,6 +153,20 @@ int main()
 "
 );
 
+typechecker_test_template!(
+    sizeof,
+    "
+int main()
+{
+    typedef int A;
+    int a;
+    sizeof(a);
+    sizeof(A);
+    sizeof a;
+}
+"
+);
+
 #[test]
 #[should_panic]
 pub fn addressof_bitfield() {

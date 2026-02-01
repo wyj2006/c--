@@ -4,6 +4,7 @@ use crate::ast::stmt::Stmt;
 use crate::ctype::Type;
 use pest::Span;
 use std::cell::RefCell;
+use std::fmt::Display;
 use std::rc::Rc;
 
 #[derive(Debug, Clone)]
@@ -77,4 +78,35 @@ pub enum DeclarationKind<'a> {
     Member {
         bit_field: Option<Rc<RefCell<Expr<'a>>>>,
     },
+}
+
+impl Display for StorageClassKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                StorageClassKind::Auto => "auto",
+                StorageClassKind::Constexpr => "constexpr",
+                StorageClassKind::Extern => "extern",
+                StorageClassKind::Register => "register",
+                StorageClassKind::Static => "static",
+                StorageClassKind::ThreadLocal => "thread_local",
+                StorageClassKind::Typedef => "typedef",
+            }
+        )
+    }
+}
+
+impl Display for FunctionSpecKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                FunctionSpecKind::Inline => "inline",
+                FunctionSpecKind::Noreturn => "_Noreturn",
+            }
+        )
+    }
 }

@@ -3,8 +3,28 @@ use crate::{
     parser::CParser,
     symtab::{Namespace, SymbolTable},
     typechecker::TypeChecker,
+    typechecker_test_template,
 };
+use insta::assert_debug_snapshot;
 use std::{cell::RefCell, rc::Rc};
+
+typechecker_test_template!(
+    ambiguity,
+    "
+typedef int A;
+void f(A);
+void g(A a);
+void scanf(char* format,...);
+int main()
+{
+    typedef int A;
+    typedef A B;
+    A;
+    A a;
+    B b;
+}
+"
+);
 
 #[test]
 pub fn reassign() {

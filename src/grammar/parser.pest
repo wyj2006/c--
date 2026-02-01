@@ -1,5 +1,5 @@
 WHITESPACE = _{ " " | "\t" | NEWLINE }
-identifier = @{ !keyword ~ identifier_start ~ identifier_continue* }
+identifier = @{ !(keyword ~ !identifier_continue) ~ identifier_start ~ identifier_continue* }
 COMMENT    = _{ "//" ~ (!(NEWLINE | EOI) ~ ANY)* ~ NEWLINE? | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 
 prefix      = _{ positve | negative | bit_not | not | dereference | addressof | prefix_increment | prefix_decrement | cast | sizeof }
@@ -59,9 +59,11 @@ generic_association = { (type_name | "default") ~ ":" ~ assignment_expression }
 
 compound_literal = { "(" ~ storage_class_specifier* ~ type_name ~ ")" ~ braced_initializer }
 
+sizeof_type      = { "sizeof" ~ "(" ~ type_name ~ ")" }
+alignof          = { "alignof" ~ "(" ~ type_name ~ ")" }
 unary_expression = {
-    "sizeof" ~ "(" ~ type_name ~ ")"
-  | "alignof" ~ "(" ~ type_name ~ ")"
+    sizeof_type
+  | alignof
   | prefix* ~ primary ~ postfix*
 }
 
@@ -76,23 +78,28 @@ expression = { assignment_expression ~ (comma ~ assignment_expression)* }
 
 constant_expression = { conditional_expression }
 
-declaration            =  {
-    attribute_specifier_sequence ~ declaration_specifiers ~ init_declarator_list ~ ";"
-  | declaration_specifiers ~ init_declarator_list? ~ ";"
+declaration                            =  {
+    attribute_specifier_sequence ~ declaration_specifiers_without_typedef ~ init_declarator_list ~ ";"
+  | attribute_specifier_sequence ~ declaration_specifiers_with_typedef ~ init_declarator_list ~ ";"
+  | declaration_specifiers_without_typedef ~ init_declarator_list? ~ ";"
+  | declaration_specifiers_with_typedef ~ init_declarator_list? ~ ";"
   | static_assert_declaration
   | attribute_declaration
 }
-declaration_specifiers =  {
-    declaration_specifier ~ (!attribute_specifier_sequence ~ declaration_specifier)* ~ attribute_specifier_sequence?
+declaration_specifiers_without_typedef =  {
+    declaration_specifier+ ~ attribute_specifier_sequence?
 }
-declaration_specifier  = _{
+declaration_specifiers_with_typedef    =  {
+    declaration_specifier* ~ typedef_name ~ declaration_specifier* ~ attribute_specifier_sequence?
+}
+declaration_specifier                  = _{
     storage_class_specifier
   | type_specifier_qualifier
   | function_specifier
 }
-init_declarator_list   = _{ init_declarator ~ ("," ~ init_declarator)* }
-init_declarator        = _{ declarator ~ "=" ~ initializer | declarator }
-attribute_declaration  =  { attribute_specifier_sequence ~ ";" }
+init_declarator_list                   = _{ init_declarator ~ ("," ~ init_declarator)* }
+init_declarator                        = _{ declarator ~ "=" ~ initializer | declarator }
+attribute_declaration                  =  { attribute_specifier_sequence ~ ";" }
 
 storage_class_specifier = {
     "auto"
@@ -124,29 +131,33 @@ type_specifier = {
   | struct_or_union_specifier
   | enum_specifier
   | typeof_specifier
-  | typedef_name
 }
 
-struct_or_union_specifier =  {
+struct_or_union_specifier                =  {
     ("struct" | "union") ~ attribute_specifier_sequence? ~ identifier? ~ "{" ~ member_declaration+ ~ "}"
   | ("struct" | "union") ~ attribute_specifier_sequence? ~ identifier
 }
-member_declaration        =  {
-    attribute_specifier_sequence? ~ specifier_qualifier_list ~ member_declarator_list? ~ ";"
+member_declaration                       =  {
+    attribute_specifier_sequence? ~ specifier_qualifier_list_without_typedef ~ member_declarator_list? ~ ";"
+  | attribute_specifier_sequence? ~ specifier_qualifier_list_with_typedef ~ member_declarator_list? ~ ";"
   | static_assert_declaration
 }
-specifier_qualifier_list  =  {
-    type_specifier_qualifier ~ (!attribute_specifier_sequence ~ type_specifier_qualifier)* ~ attribute_specifier_sequence?
+specifier_qualifier_list_without_typedef =  {
+    type_specifier_qualifier+ ~ attribute_specifier_sequence?
+  | type_specifier_qualifier* ~ typedef_name ~ type_specifier_qualifier* ~ attribute_specifier_sequence?
 }
-type_specifier_qualifier  = _{
+specifier_qualifier_list_with_typedef    =  {
+    type_specifier_qualifier* ~ typedef_name ~ type_specifier_qualifier* ~ attribute_specifier_sequence?
+}
+type_specifier_qualifier                 = _{
     type_specifier
   | type_qualifier
   | alignment_specifier
 }
-member_declarator_list    = _{
+member_declarator_list                   = _{
     member_declarator ~ ("," ~ member_declarator)*
 }
-member_declarator         =  {
+member_declarator                        =  {
     declarator? ~ ":" ~ constant_expression
   | declarator
 }
@@ -159,7 +170,10 @@ enumerator_list     = _{ enumerator ~ ("," ~ enumerator)* }
 enumerator          =  {
     identifier ~ attribute_specifier_sequence? ~ ("=" ~ constant_expression)?
 }
-enum_type_specifier = _{ ":" ~ specifier_qualifier_list }
+enum_type_specifier = _{
+    ":" ~ specifier_qualifier_list_without_typedef
+  | ":" ~ specifier_qualifier_list_with_typedef
+}
 
 atomic_type_specifier = { "_Atomic" ~ "(" ~ type_name ~ ")" }
 
@@ -204,10 +218,14 @@ parameter_type_list   = _{
 }
 parameter_list        = _{ parameter_declaration ~ ("," ~ parameter_declaration)* }
 parameter_declaration =  {
-    attribute_specifier_sequence? ~ declaration_specifiers ~ (declarator | abstract_declarator?)
+    attribute_specifier_sequence? ~ declaration_specifiers_without_typedef ~ (declarator | abstract_declarator?)
+  | attribute_specifier_sequence? ~ declaration_specifiers_with_typedef ~ (declarator | abstract_declarator?)
 }
 
-type_name                    = { specifier_qualifier_list ~ abstract_declarator? }
+type_name                    = {
+    specifier_qualifier_list_without_typedef ~ abstract_declarator?
+  | specifier_qualifier_list_with_typedef ~ abstract_declarator?
+}
 abstract_declarator          = { pointer* ~ direct_abstract_declarator | pointer+ }
 direct_abstract_declarator   = {
     // 保证direct_abstract_declarator不为空
@@ -222,9 +240,7 @@ array_abstract_declarator    = {
 }
 function_abstract_declarator = { "(" ~ parameter_type_list? ~ ")" }
 
-// 造成二义性的一种情况是identifier既可以匹配typedef_name, 也可以参与匹配direct_declarator
-// 当可以参与匹配direct_declarator时, 这个identifier后面跟的就是下面列出来的字符
-typedef_name = { !(identifier ~ ("(" | "[" | ";" | ")" | "," | "=" | ":")) ~ identifier }
+typedef_name = { identifier }
 
 braced_initializer =  { "{" ~ (initializer_list ~ ","?)? ~ "}" }
 initializer        =  { braced_initializer | assignment_expression }
@@ -315,5 +331,8 @@ external_declaration = _{
   | declaration
 }
 
-function_definition =  { attribute_specifier_sequence? ~ declaration_specifiers ~ declarator ~ function_body }
+function_definition =  {
+    attribute_specifier_sequence? ~ declaration_specifiers_without_typedef ~ declarator ~ function_body
+  | attribute_specifier_sequence? ~ declaration_specifiers_with_typedef ~ declarator ~ function_body
+}
 function_body       = _{ compound_statement }

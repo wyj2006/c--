@@ -1,0 +1,728 @@
+---
+source: src/typechecker/tests/decl.rs
+expression: ast
+---
+RefCell {
+    value: TranslationUnit {
+        span: Span {
+            str: "\ntypedef int A;\nvoid f(A);\nvoid g(A a);\nvoid scanf(char* format,...);\nint main()\n{\n    typedef int A;\n    typedef A B;\n    A;\n    A a;\n    B b;\n}\n",
+            start: 0,
+            end: 146,
+        },
+        decls: [
+            RefCell {
+                value: Declaration {
+                    span: Span {
+                        str: "A",
+                        start: 13,
+                        end: 14,
+                    },
+                    attributes: [],
+                    name: "A",
+                    type: RefCell {
+                        value: Type {
+                            span: Span {
+                                str: "typedef int ",
+                                start: 1,
+                                end: 13,
+                            },
+                            attributes: [],
+                            kind: Int,
+                        },
+                    },
+                    storage_classes: [
+                        StorageClass {
+                            span: Span {
+                                str: "typedef",
+                                start: 1,
+                                end: 8,
+                            },
+                            kind: Typedef,
+                        },
+                    ],
+                    kind: Type,
+                    children: [],
+                },
+            },
+            RefCell {
+                value: Declaration {
+                    span: Span {
+                        str: "f(A)",
+                        start: 21,
+                        end: 25,
+                    },
+                    attributes: [],
+                    name: "f",
+                    type: RefCell {
+                        value: Type {
+                            span: Span {
+                                str: "(A)",
+                                start: 22,
+                                end: 25,
+                            },
+                            attributes: [],
+                            kind: Function {
+                                return_type: RefCell {
+                                    value: Type {
+                                        span: Span {
+                                            str: "void ",
+                                            start: 16,
+                                            end: 21,
+                                        },
+                                        attributes: [],
+                                        kind: Void,
+                                    },
+                                },
+                                parameters_type: [
+                                    RefCell {
+                                        value: Type {
+                                            span: Span {
+                                                str: "A",
+                                                start: 13,
+                                                end: 14,
+                                            },
+                                            attributes: [],
+                                            kind: Typedef {
+                                                name: "A",
+                                                type: Some(
+                                                    RefCell {
+                                                        value: Type {
+                                                            span: Span {
+                                                                str: "typedef int ",
+                                                                start: 1,
+                                                                end: 13,
+                                                            },
+                                                            attributes: [],
+                                                            kind: Int,
+                                                        },
+                                                    },
+                                                ),
+                                            },
+                                        },
+                                    },
+                                ],
+                                has_varparam: false,
+                            },
+                        },
+                    },
+                    storage_classes: [],
+                    kind: Function {
+                        parameter_decls: [
+                            RefCell {
+                                value: Declaration {
+                                    span: Span {
+                                        str: "A",
+                                        start: 23,
+                                        end: 24,
+                                    },
+                                    attributes: [],
+                                    name: "",
+                                    type: RefCell {
+                                        value: Type {
+                                            span: Span {
+                                                str: "A",
+                                                start: 13,
+                                                end: 14,
+                                            },
+                                            attributes: [],
+                                            kind: Typedef {
+                                                name: "A",
+                                                type: Some(
+                                                    RefCell {
+                                                        value: Type {
+                                                            span: Span {
+                                                                str: "typedef int ",
+                                                                start: 1,
+                                                                end: 13,
+                                                            },
+                                                            attributes: [],
+                                                            kind: Int,
+                                                        },
+                                                    },
+                                                ),
+                                            },
+                                        },
+                                    },
+                                    storage_classes: [],
+                                    kind: Parameter,
+                                    children: [],
+                                },
+                            },
+                        ],
+                        function_specs: [],
+                        body: None,
+                    },
+                    children: [],
+                },
+            },
+            RefCell {
+                value: Declaration {
+                    span: Span {
+                        str: "g(A a)",
+                        start: 32,
+                        end: 38,
+                    },
+                    attributes: [],
+                    name: "g",
+                    type: RefCell {
+                        value: Type {
+                            span: Span {
+                                str: "(A a)",
+                                start: 33,
+                                end: 38,
+                            },
+                            attributes: [],
+                            kind: Function {
+                                return_type: RefCell {
+                                    value: Type {
+                                        span: Span {
+                                            str: "void ",
+                                            start: 27,
+                                            end: 32,
+                                        },
+                                        attributes: [],
+                                        kind: Void,
+                                    },
+                                },
+                                parameters_type: [
+                                    RefCell {
+                                        value: Type {
+                                            span: Span {
+                                                str: "A",
+                                                start: 13,
+                                                end: 14,
+                                            },
+                                            attributes: [],
+                                            kind: Typedef {
+                                                name: "A",
+                                                type: Some(
+                                                    RefCell {
+                                                        value: Type {
+                                                            span: Span {
+                                                                str: "typedef int ",
+                                                                start: 1,
+                                                                end: 13,
+                                                            },
+                                                            attributes: [],
+                                                            kind: Int,
+                                                        },
+                                                    },
+                                                ),
+                                            },
+                                        },
+                                    },
+                                ],
+                                has_varparam: false,
+                            },
+                        },
+                    },
+                    storage_classes: [],
+                    kind: Function {
+                        parameter_decls: [
+                            RefCell {
+                                value: Declaration {
+                                    span: Span {
+                                        str: "a",
+                                        start: 36,
+                                        end: 37,
+                                    },
+                                    attributes: [],
+                                    name: "a",
+                                    type: RefCell {
+                                        value: Type {
+                                            span: Span {
+                                                str: "A",
+                                                start: 13,
+                                                end: 14,
+                                            },
+                                            attributes: [],
+                                            kind: Typedef {
+                                                name: "A",
+                                                type: Some(
+                                                    RefCell {
+                                                        value: Type {
+                                                            span: Span {
+                                                                str: "typedef int ",
+                                                                start: 1,
+                                                                end: 13,
+                                                            },
+                                                            attributes: [],
+                                                            kind: Int,
+                                                        },
+                                                    },
+                                                ),
+                                            },
+                                        },
+                                    },
+                                    storage_classes: [],
+                                    kind: Parameter,
+                                    children: [],
+                                },
+                            },
+                        ],
+                        function_specs: [],
+                        body: None,
+                    },
+                    children: [],
+                },
+            },
+            RefCell {
+                value: Declaration {
+                    span: Span {
+                        str: "scanf(char* format,...)",
+                        start: 45,
+                        end: 68,
+                    },
+                    attributes: [],
+                    name: "scanf",
+                    type: RefCell {
+                        value: Type {
+                            span: Span {
+                                str: "(char* format,...)",
+                                start: 50,
+                                end: 68,
+                            },
+                            attributes: [],
+                            kind: Function {
+                                return_type: RefCell {
+                                    value: Type {
+                                        span: Span {
+                                            str: "void ",
+                                            start: 40,
+                                            end: 45,
+                                        },
+                                        attributes: [],
+                                        kind: Void,
+                                    },
+                                },
+                                parameters_type: [
+                                    RefCell {
+                                        value: Type {
+                                            span: Span {
+                                                str: "* ",
+                                                start: 55,
+                                                end: 57,
+                                            },
+                                            attributes: [],
+                                            kind: Pointer(
+                                                RefCell {
+                                                    value: Type {
+                                                        span: Span {
+                                                            str: "char",
+                                                            start: 51,
+                                                            end: 55,
+                                                        },
+                                                        attributes: [],
+                                                        kind: Char,
+                                                    },
+                                                },
+                                            ),
+                                        },
+                                    },
+                                ],
+                                has_varparam: true,
+                            },
+                        },
+                    },
+                    storage_classes: [],
+                    kind: Function {
+                        parameter_decls: [
+                            RefCell {
+                                value: Declaration {
+                                    span: Span {
+                                        str: "* format",
+                                        start: 55,
+                                        end: 63,
+                                    },
+                                    attributes: [],
+                                    name: "format",
+                                    type: RefCell {
+                                        value: Type {
+                                            span: Span {
+                                                str: "* ",
+                                                start: 55,
+                                                end: 57,
+                                            },
+                                            attributes: [],
+                                            kind: Pointer(
+                                                RefCell {
+                                                    value: Type {
+                                                        span: Span {
+                                                            str: "char",
+                                                            start: 51,
+                                                            end: 55,
+                                                        },
+                                                        attributes: [],
+                                                        kind: Char,
+                                                    },
+                                                },
+                                            ),
+                                        },
+                                    },
+                                    storage_classes: [],
+                                    kind: Parameter,
+                                    children: [],
+                                },
+                            },
+                        ],
+                        function_specs: [],
+                        body: None,
+                    },
+                    children: [],
+                },
+            },
+            RefCell {
+                value: Declaration {
+                    span: Span {
+                        str: "main()\n",
+                        start: 74,
+                        end: 81,
+                    },
+                    attributes: [],
+                    name: "main",
+                    type: RefCell {
+                        value: Type {
+                            span: Span {
+                                str: "()\n",
+                                start: 78,
+                                end: 81,
+                            },
+                            attributes: [],
+                            kind: Function {
+                                return_type: RefCell {
+                                    value: Type {
+                                        span: Span {
+                                            str: "int ",
+                                            start: 70,
+                                            end: 74,
+                                        },
+                                        attributes: [],
+                                        kind: Int,
+                                    },
+                                },
+                                parameters_type: [],
+                                has_varparam: false,
+                            },
+                        },
+                    },
+                    storage_classes: [],
+                    kind: Function {
+                        parameter_decls: [],
+                        function_specs: [],
+                        body: Some(
+                            RefCell {
+                                value: Stmt {
+                                    span: Span {
+                                        str: "{\n    typedef int A;\n    typedef A B;\n    A;\n    A a;\n    B b;\n}",
+                                        start: 81,
+                                        end: 145,
+                                    },
+                                    attributes: [],
+                                    kind: Compound(
+                                        [
+                                            RefCell {
+                                                value: Stmt {
+                                                    span: Span {
+                                                        str: "typedef int A;",
+                                                        start: 87,
+                                                        end: 101,
+                                                    },
+                                                    attributes: [],
+                                                    kind: Decl(
+                                                        [
+                                                            RefCell {
+                                                                value: Declaration {
+                                                                    span: Span {
+                                                                        str: "A",
+                                                                        start: 99,
+                                                                        end: 100,
+                                                                    },
+                                                                    attributes: [],
+                                                                    name: "A",
+                                                                    type: RefCell {
+                                                                        value: Type {
+                                                                            span: Span {
+                                                                                str: "typedef int ",
+                                                                                start: 87,
+                                                                                end: 99,
+                                                                            },
+                                                                            attributes: [],
+                                                                            kind: Int,
+                                                                        },
+                                                                    },
+                                                                    storage_classes: [
+                                                                        StorageClass {
+                                                                            span: Span {
+                                                                                str: "typedef",
+                                                                                start: 87,
+                                                                                end: 94,
+                                                                            },
+                                                                            kind: Typedef,
+                                                                        },
+                                                                    ],
+                                                                    kind: Type,
+                                                                    children: [],
+                                                                },
+                                                            },
+                                                        ],
+                                                    ),
+                                                },
+                                            },
+                                            RefCell {
+                                                value: Stmt {
+                                                    span: Span {
+                                                        str: "typedef A B;",
+                                                        start: 106,
+                                                        end: 118,
+                                                    },
+                                                    attributes: [],
+                                                    kind: Decl(
+                                                        [
+                                                            RefCell {
+                                                                value: Declaration {
+                                                                    span: Span {
+                                                                        str: "B",
+                                                                        start: 116,
+                                                                        end: 117,
+                                                                    },
+                                                                    attributes: [],
+                                                                    name: "B",
+                                                                    type: RefCell {
+                                                                        value: Type {
+                                                                            span: Span {
+                                                                                str: "A",
+                                                                                start: 99,
+                                                                                end: 100,
+                                                                            },
+                                                                            attributes: [],
+                                                                            kind: Typedef {
+                                                                                name: "A",
+                                                                                type: Some(
+                                                                                    RefCell {
+                                                                                        value: Type {
+                                                                                            span: Span {
+                                                                                                str: "typedef int ",
+                                                                                                start: 87,
+                                                                                                end: 99,
+                                                                                            },
+                                                                                            attributes: [],
+                                                                                            kind: Int,
+                                                                                        },
+                                                                                    },
+                                                                                ),
+                                                                            },
+                                                                        },
+                                                                    },
+                                                                    storage_classes: [
+                                                                        StorageClass {
+                                                                            span: Span {
+                                                                                str: "typedef",
+                                                                                start: 106,
+                                                                                end: 113,
+                                                                            },
+                                                                            kind: Typedef,
+                                                                        },
+                                                                    ],
+                                                                    kind: Type,
+                                                                    children: [],
+                                                                },
+                                                            },
+                                                        ],
+                                                    ),
+                                                },
+                                            },
+                                            RefCell {
+                                                value: Stmt {
+                                                    span: Span {
+                                                        str: "A;",
+                                                        start: 123,
+                                                        end: 125,
+                                                    },
+                                                    attributes: [],
+                                                    kind: Decl(
+                                                        [
+                                                            RefCell {
+                                                                value: Declaration {
+                                                                    span: Span {
+                                                                        str: "A;",
+                                                                        start: 123,
+                                                                        end: 125,
+                                                                    },
+                                                                    attributes: [],
+                                                                    name: "",
+                                                                    type: RefCell {
+                                                                        value: Type {
+                                                                            span: Span {
+                                                                                str: "A",
+                                                                                start: 99,
+                                                                                end: 100,
+                                                                            },
+                                                                            attributes: [],
+                                                                            kind: Typedef {
+                                                                                name: "A",
+                                                                                type: Some(
+                                                                                    RefCell {
+                                                                                        value: Type {
+                                                                                            span: Span {
+                                                                                                str: "typedef int ",
+                                                                                                start: 87,
+                                                                                                end: 99,
+                                                                                            },
+                                                                                            attributes: [],
+                                                                                            kind: Int,
+                                                                                        },
+                                                                                    },
+                                                                                ),
+                                                                            },
+                                                                        },
+                                                                    },
+                                                                    storage_classes: [],
+                                                                    kind: Var {
+                                                                        initializer: None,
+                                                                    },
+                                                                    children: [],
+                                                                },
+                                                            },
+                                                        ],
+                                                    ),
+                                                },
+                                            },
+                                            RefCell {
+                                                value: Stmt {
+                                                    span: Span {
+                                                        str: "A a;",
+                                                        start: 130,
+                                                        end: 134,
+                                                    },
+                                                    attributes: [],
+                                                    kind: Decl(
+                                                        [
+                                                            RefCell {
+                                                                value: Declaration {
+                                                                    span: Span {
+                                                                        str: "a",
+                                                                        start: 132,
+                                                                        end: 133,
+                                                                    },
+                                                                    attributes: [],
+                                                                    name: "a",
+                                                                    type: RefCell {
+                                                                        value: Type {
+                                                                            span: Span {
+                                                                                str: "A",
+                                                                                start: 99,
+                                                                                end: 100,
+                                                                            },
+                                                                            attributes: [],
+                                                                            kind: Typedef {
+                                                                                name: "A",
+                                                                                type: Some(
+                                                                                    RefCell {
+                                                                                        value: Type {
+                                                                                            span: Span {
+                                                                                                str: "typedef int ",
+                                                                                                start: 87,
+                                                                                                end: 99,
+                                                                                            },
+                                                                                            attributes: [],
+                                                                                            kind: Int,
+                                                                                        },
+                                                                                    },
+                                                                                ),
+                                                                            },
+                                                                        },
+                                                                    },
+                                                                    storage_classes: [],
+                                                                    kind: Var {
+                                                                        initializer: None,
+                                                                    },
+                                                                    children: [],
+                                                                },
+                                                            },
+                                                        ],
+                                                    ),
+                                                },
+                                            },
+                                            RefCell {
+                                                value: Stmt {
+                                                    span: Span {
+                                                        str: "B b;",
+                                                        start: 139,
+                                                        end: 143,
+                                                    },
+                                                    attributes: [],
+                                                    kind: Decl(
+                                                        [
+                                                            RefCell {
+                                                                value: Declaration {
+                                                                    span: Span {
+                                                                        str: "b",
+                                                                        start: 141,
+                                                                        end: 142,
+                                                                    },
+                                                                    attributes: [],
+                                                                    name: "b",
+                                                                    type: RefCell {
+                                                                        value: Type {
+                                                                            span: Span {
+                                                                                str: "B",
+                                                                                start: 116,
+                                                                                end: 117,
+                                                                            },
+                                                                            attributes: [],
+                                                                            kind: Typedef {
+                                                                                name: "B",
+                                                                                type: Some(
+                                                                                    RefCell {
+                                                                                        value: Type {
+                                                                                            span: Span {
+                                                                                                str: "A",
+                                                                                                start: 99,
+                                                                                                end: 100,
+                                                                                            },
+                                                                                            attributes: [],
+                                                                                            kind: Typedef {
+                                                                                                name: "A",
+                                                                                                type: Some(
+                                                                                                    RefCell {
+                                                                                                        value: Type {
+                                                                                                            span: Span {
+                                                                                                                str: "typedef int ",
+                                                                                                                start: 87,
+                                                                                                                end: 99,
+                                                                                                            },
+                                                                                                            attributes: [],
+                                                                                                            kind: Int,
+                                                                                                        },
+                                                                                                    },
+                                                                                                ),
+                                                                                            },
+                                                                                        },
+                                                                                    },
+                                                                                ),
+                                                                            },
+                                                                        },
+                                                                    },
+                                                                    storage_classes: [],
+                                                                    kind: Var {
+                                                                        initializer: None,
+                                                                    },
+                                                                    children: [],
+                                                                },
+                                                            },
+                                                        ],
+                                                    ),
+                                                },
+                                            },
+                                        ],
+                                    ),
+                                },
+                            },
+                        ),
+                    },
+                    children: [],
+                },
+            },
+        ],
+    },
+}

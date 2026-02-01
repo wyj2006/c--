@@ -541,58 +541,61 @@ RefCell {
                                                                     end: 91,
                                                                 },
                                                                 kind: SizeOf {
-                                                                    type: RefCell {
-                                                                        value: Type {
-                                                                            span: Span {
-                                                                                str: "struct B{int a;}",
-                                                                                start: 74,
-                                                                                end: 90,
-                                                                            },
-                                                                            attributes: [],
-                                                                            kind: Record {
-                                                                                name: "B",
-                                                                                kind: Struct,
-                                                                                members: Some(
-                                                                                    {
-                                                                                        "a": RefCell {
-                                                                                            value: Symbol {
-                                                                                                define_span: Some(
-                                                                                                    Span {
-                                                                                                        str: "a",
-                                                                                                        start: 87,
-                                                                                                        end: 88,
-                                                                                                    },
-                                                                                                ),
-                                                                                                declare_spans: [
-                                                                                                    Span {
-                                                                                                        str: "a",
-                                                                                                        start: 87,
-                                                                                                        end: 88,
-                                                                                                    },
-                                                                                                ],
-                                                                                                name: "a",
-                                                                                                kind: Member {
-                                                                                                    bit_field: None,
-                                                                                                },
-                                                                                                type: RefCell {
-                                                                                                    value: Type {
-                                                                                                        span: Span {
-                                                                                                            str: "int ",
-                                                                                                            start: 83,
-                                                                                                            end: 87,
+                                                                    type: Some(
+                                                                        RefCell {
+                                                                            value: Type {
+                                                                                span: Span {
+                                                                                    str: "struct B{int a;}",
+                                                                                    start: 74,
+                                                                                    end: 90,
+                                                                                },
+                                                                                attributes: [],
+                                                                                kind: Record {
+                                                                                    name: "B",
+                                                                                    kind: Struct,
+                                                                                    members: Some(
+                                                                                        {
+                                                                                            "a": RefCell {
+                                                                                                value: Symbol {
+                                                                                                    define_span: Some(
+                                                                                                        Span {
+                                                                                                            str: "a",
+                                                                                                            start: 87,
+                                                                                                            end: 88,
                                                                                                         },
-                                                                                                        attributes: [],
-                                                                                                        kind: Int,
+                                                                                                    ),
+                                                                                                    declare_spans: [
+                                                                                                        Span {
+                                                                                                            str: "a",
+                                                                                                            start: 87,
+                                                                                                            end: 88,
+                                                                                                        },
+                                                                                                    ],
+                                                                                                    name: "a",
+                                                                                                    kind: Member {
+                                                                                                        bit_field: None,
                                                                                                     },
+                                                                                                    type: RefCell {
+                                                                                                        value: Type {
+                                                                                                            span: Span {
+                                                                                                                str: "int ",
+                                                                                                                start: 83,
+                                                                                                                end: 87,
+                                                                                                            },
+                                                                                                            attributes: [],
+                                                                                                            kind: Int,
+                                                                                                        },
+                                                                                                    },
+                                                                                                    attributes: [],
                                                                                                 },
-                                                                                                attributes: [],
                                                                                             },
                                                                                         },
-                                                                                    },
-                                                                                ),
+                                                                                    ),
+                                                                                },
                                                                             },
                                                                         },
-                                                                    },
+                                                                    ),
+                                                                    expr: None,
                                                                     decls: [
                                                                         RefCell {
                                                                             value: Declaration {

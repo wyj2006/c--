@@ -20,18 +20,119 @@ impl<'a> TypeChecker<'a> {
         {
             let mut r#type = r#type.borrow_mut();
             match &mut r#type.kind {
-                TypeKind::Record { name, .. } | TypeKind::Enum { name, .. } => {
+                //如果声明节点的类型中含有record/enum, 那么在它之前一定有record/enum声明节点
+                TypeKind::Record { name, kind, .. } => {
+                    //这个type所属的node可能正好就是record声明, 所以如果找不到也不报错
+                    let name = name.clone();
                     if let Some(t) = &self
                         .cur_symtab
                         .borrow()
-                        .lookup_current(Namespace::Tag, name)
+                        .lookup_current(Namespace::Tag, &name)
                     {
-                        new_type = Some(Rc::clone(&t.borrow().r#type));
+                        match &t.borrow().kind {
+                            SymbolKind::Record => {
+                                match &t.borrow().r#type.borrow().kind {
+                                    TypeKind::Record {
+                                        kind: symbol_kind, ..
+                                    } if *kind != *symbol_kind => {
+                                        let kind = kind.clone();
+                                        return Err(Diagnostic {
+                                            span: r#type.span,
+                                            kind: DiagnosticKind::Error,
+                                            message: format!("'{name}' is not a '{kind}'"),
+                                            notes: vec![Diagnostic {
+                                                span: t
+                                                    .borrow()
+                                                    .define_span
+                                                    .unwrap_or(t.borrow().declare_spans[0]),
+                                                kind: DiagnosticKind::Note,
+                                                message: format!("previous symbol"),
+                                                notes: vec![],
+                                            }],
+                                        });
+                                    }
+                                    _ => {}
+                                }
+                                new_type = Some(Rc::clone(&t.borrow().r#type));
+                            }
+                            _ => {
+                                return Err(Diagnostic {
+                                    span: r#type.span,
+                                    kind: DiagnosticKind::Error,
+                                    message: format!("'{name}' is not a record"),
+                                    notes: vec![Diagnostic {
+                                        span: t
+                                            .borrow()
+                                            .define_span
+                                            .unwrap_or(t.borrow().declare_spans[0]),
+                                        kind: DiagnosticKind::Note,
+                                        message: format!("previous symbol"),
+                                        notes: vec![],
+                                    }],
+                                });
+                            }
+                        }
+                    }
+                }
+                TypeKind::Enum { name, .. } => {
+                    //这个type所属的node可能正好就是enum声明, 所以如果找不到也不报错
+                    let name = name.clone();
+                    if let Some(t) = &self
+                        .cur_symtab
+                        .borrow()
+                        .lookup_current(Namespace::Tag, &name)
+                    {
+                        match t.borrow().kind {
+                            SymbolKind::Enum => new_type = Some(Rc::clone(&t.borrow().r#type)),
+                            _ => {
+                                return Err(Diagnostic {
+                                    span: r#type.span,
+                                    kind: DiagnosticKind::Error,
+                                    message: format!("'{name}' is not a enum"),
+                                    notes: vec![Diagnostic {
+                                        span: t
+                                            .borrow()
+                                            .define_span
+                                            .unwrap_or(t.borrow().declare_spans[0]),
+                                        kind: DiagnosticKind::Note,
+                                        message: format!("previous symbol"),
+                                        notes: vec![],
+                                    }],
+                                });
+                            }
+                        }
                     }
                 }
                 TypeKind::Typedef { name, .. } => {
-                    if let Some(t) = &self.cur_symtab.borrow().lookup(Namespace::Ordinary, name) {
-                        new_type = Some(Rc::clone(&t.borrow().r#type));
+                    let name = name.clone();
+                    let symbol = self
+                        .cur_symtab
+                        .borrow()
+                        .lookup(Namespace::Ordinary, &name)
+                        .ok_or(Diagnostic {
+                            span: r#type.span,
+                            kind: DiagnosticKind::Error,
+                            message: format!("undefined typedef type '{name}'"),
+                            notes: vec![],
+                        })?;
+                    match symbol.borrow().kind {
+                        SymbolKind::Type => new_type = Some(Rc::clone(&symbol.borrow().r#type)),
+                        _ => {
+                            return Err(Diagnostic {
+                                span: r#type.span,
+                                kind: DiagnosticKind::Error,
+                                message: format!("'{name}' is not a type"),
+                                notes: vec![Diagnostic {
+                                    span: symbol
+                                        .borrow()
+                                        .define_span
+                                        .unwrap_or(symbol.borrow().declare_spans[0]),
+                                    kind: DiagnosticKind::Note,
+                                    message: format!("previous symbol"),
+                                    notes: vec![],
+                                }],
+                            });
+                        }
                     }
                 }
                 TypeKind::Function {
@@ -227,14 +328,9 @@ impl<'a> TypeChecker<'a> {
             } => {
                 let parent_symtab = Rc::clone(&self.cur_symtab);
 
-                if let Some(_) = body {
-                    self.enter_scope();
-                    self.func_symtabs.push(Rc::clone(&self.cur_symtab));
-                    self.funcs.push(Rc::clone(&node.r#type));
-                } else {
-                    //函数声明需要解析参数声明, 但只做类型检查, 添加的符号将被忽略
-                    self.cur_symtab = Rc::new(RefCell::new(SymbolTable::new()));
-                }
+                self.enter_scope();
+                self.func_symtabs.push(Rc::clone(&self.cur_symtab));
+                self.funcs.push(Rc::clone(&node.r#type));
 
                 for decl in parameter_decls {
                     self.visit_declaration(Rc::clone(decl))?;
@@ -290,13 +386,11 @@ impl<'a> TypeChecker<'a> {
                         _ => {}
                     }
                     self.visit_stmt(Rc::clone(body))?;
-
-                    self.funcs.pop();
-                    self.func_symtabs.pop();
-                    self.leave_scope();
-                } else {
-                    self.cur_symtab = parent_symtab;
                 }
+
+                self.funcs.pop();
+                self.func_symtabs.pop();
+                self.leave_scope();
             }
             DeclarationKind::Parameter => {
                 if node.r#type.borrow().has_alignas() {

@@ -4,7 +4,7 @@ use crate::{
     ctype::{Type, TypeKind},
 };
 use pest::{
-    Span,
+    Parser, Span,
     error::{Error, ErrorVariant},
     iterators::Pair,
     pratt_parser::{Assoc, Op, PrattParser},
@@ -169,51 +169,84 @@ impl<'a> CParser<'a> {
         &self,
         rule: Pair<'a, Rule>,
     ) -> Result<Rc<RefCell<Expr<'a>>>, Error<Rule>> {
-        if rule.as_str().starts_with("sizeof") {
-            let span = rule.as_span();
-            let mut r#type = None;
-            let mut decls = Vec::new();
-            for rule in rule.into_inner() {
-                match rule.as_rule() {
-                    Rule::type_name => match self.parse_type_name(rule)? {
-                        (type_name_type, type_name_decls) => {
-                            r#type = Some(type_name_type);
-                            decls.extend(type_name_decls);
+        for rule in rule.clone().into_inner() {
+            match rule.as_rule() {
+                Rule::sizeof_type => {
+                    let span = rule.as_span();
+                    let mut r#type = None;
+                    let mut expr = None;
+                    let mut decls = Vec::new();
+                    let mut errs = Vec::new();
+                    for rule in rule.into_inner() {
+                        match rule.as_rule() {
+                            Rule::type_name => {
+                                //可能会产生歧义的地方
+                                let span = rule.as_span();
+                                match CParser::parse(Rule::expression, rule.as_str()) {
+                                    Ok(rules) => {
+                                        for rule in rules {
+                                            match self.parse_expression(rule) {
+                                                Ok(t) => {
+                                                    //纠正位置
+                                                    t.borrow_mut().span = span;
+                                                    expr = Some(t);
+                                                }
+                                                Err(e) => errs.push(e),
+                                            }
+                                        }
+                                    }
+                                    Err(e) => errs.push(e),
+                                }
+                                match self.parse_type_name(rule) {
+                                    Ok((type_name_type, type_name_decls)) => {
+                                        r#type = Some(type_name_type);
+                                        decls.extend(type_name_decls);
+                                    }
+                                    Err(e) => errs.push(e),
+                                }
+                            }
+                            _ => unreachable!(),
                         }
-                    },
-                    _ => unreachable!(),
+                    }
+                    if let None = r#type
+                        && let None = expr
+                    {
+                        return Err(errs[0].clone());
+                    }
+                    return Ok(Rc::new(RefCell::new(Expr {
+                        kind: ExprKind::SizeOf {
+                            r#type,
+                            expr,
+                            decls,
+                        },
+                        ..Expr::new(span)
+                    })));
                 }
-            }
-            return Ok(Rc::new(RefCell::new(Expr {
-                kind: ExprKind::SizeOf {
-                    r#type: r#type.unwrap(),
-                    decls,
-                },
-                ..Expr::new(span)
-            })));
-        }
-        if rule.as_str().starts_with("alignof") {
-            let span = rule.as_span();
-            let mut r#type = None;
-            let mut decls = Vec::new();
-            for rule in rule.into_inner() {
-                match rule.as_rule() {
-                    Rule::type_name => match self.parse_type_name(rule)? {
-                        (type_name_type, type_name_decls) => {
-                            r#type = Some(type_name_type);
-                            decls.extend(type_name_decls);
+                Rule::alignof => {
+                    let span = rule.as_span();
+                    let mut r#type = None;
+                    let mut decls = Vec::new();
+                    for rule in rule.into_inner() {
+                        match rule.as_rule() {
+                            Rule::type_name => match self.parse_type_name(rule)? {
+                                (type_name_type, type_name_decls) => {
+                                    r#type = Some(type_name_type);
+                                    decls.extend(type_name_decls);
+                                }
+                            },
+                            _ => unreachable!(),
                         }
-                    },
-                    _ => unreachable!(),
+                    }
+                    return Ok(Rc::new(RefCell::new(Expr {
+                        kind: ExprKind::Alignof {
+                            r#type: r#type.unwrap(),
+                            decls,
+                        },
+                        ..Expr::new(span)
+                    })));
                 }
+                _ => {}
             }
-            return Ok(Rc::new(RefCell::new(Expr {
-                kind: ExprKind::Alignof {
-                    r#type: r#type.unwrap(),
-                    decls,
-                },
-                ..Expr::new(span)
-            })));
         }
 
         PRATT_PARSER
@@ -250,6 +283,14 @@ impl<'a> CParser<'a> {
                             ..Expr::new(span)
                         })))
                     }
+                    Rule::sizeof => Ok(Rc::new(RefCell::new(Expr {
+                        kind: ExprKind::SizeOf {
+                            r#type: None,
+                            expr: Some(operand?),
+                            decls: vec![],
+                        },
+                        ..Expr::new(span)
+                    }))),
                     _ => Ok(Rc::new(RefCell::new(Expr {
                         kind: ExprKind::UnaryOp {
                             op: match rule.as_rule() {
@@ -259,7 +300,6 @@ impl<'a> CParser<'a> {
                                 Rule::not => UnaryOpKind::Not,
                                 Rule::dereference => UnaryOpKind::Dereference,
                                 Rule::addressof => UnaryOpKind::AddressOf,
-                                Rule::sizeof => UnaryOpKind::SizeOf,
                                 Rule::prefix_increment => UnaryOpKind::PrefixInc,
                                 Rule::prefix_decrement => UnaryOpKind::PrefixDec,
                                 _ => unreachable!(),

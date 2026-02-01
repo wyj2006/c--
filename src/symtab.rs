@@ -72,7 +72,7 @@ impl<'a> SymbolTable<'a> {
         println!(
             "{}{:p}",
             repeat("  ").take(indent).collect::<String>(),
-            addr_of!(self)
+            addr_of!(*self)
         );
         for (namespace, symbols) in &self.namespaces {
             println!(
@@ -89,9 +89,16 @@ impl<'a> SymbolTable<'a> {
                     symbol.r#type.as_ptr(),
                     match &symbol.kind {
                         SymbolKind::Object { storage_classes }
-                        | SymbolKind::Parameter { storage_classes } =>
-                            format!("{storage_classes:?}"),
-                        SymbolKind::Function { function_specs } => format!("{function_specs:?}"),
+                        | SymbolKind::Parameter { storage_classes } => storage_classes
+                            .iter()
+                            .map(|x| x.kind.to_string())
+                            .collect::<Vec<String>>()
+                            .join(" "),
+                        SymbolKind::Function { function_specs } => function_specs
+                            .iter()
+                            .map(|x| x.kind.to_string())
+                            .collect::<Vec<String>>()
+                            .join(" "),
                         _ => format!(""),
                     },
                     format!("{:?}", symbol.attributes)

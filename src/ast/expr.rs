@@ -80,9 +80,9 @@ pub enum ExprKind<'a> {
         target: Rc<RefCell<Expr<'a>>>,
         arguments: Vec<Rc<RefCell<Expr<'a>>>>,
     },
-    //这里sizeof的对象是类型, UnaryOp中的sizeof的对象是表达式
     SizeOf {
-        r#type: Rc<RefCell<Type<'a>>>,
+        r#type: Option<Rc<RefCell<Type<'a>>>>,
+        expr: Option<Rc<RefCell<Expr<'a>>>>,
         decls: Vec<Rc<RefCell<Declaration<'a>>>>,
     },
     Alignof {
@@ -156,7 +156,6 @@ pub enum UnaryOpKind {
     Not,
     Dereference,
     AddressOf,
-    SizeOf,
     PrefixInc,
     PrefixDec,
     PostfixInc,
@@ -339,7 +338,18 @@ impl<'a> Expr<'a> {
             ),
             ExprKind::Name(name) => name.to_string(),
             ExprKind::Nullptr => "nullptr".to_string(),
-            ExprKind::SizeOf { r#type, .. } => format!("sizeof({})", r#type.borrow().to_string()),
+            ExprKind::SizeOf {
+                r#type: Some(r#type),
+                ..
+            } => format!("sizeof({})", r#type.borrow().to_string()),
+            ExprKind::SizeOf {
+                expr: Some(expr), ..
+            } => format!("sizeof({})", expr.borrow().unparse()),
+            ExprKind::SizeOf {
+                r#type: None,
+                expr: None,
+                ..
+            } => format!("sizeof(<error>)"),
             ExprKind::String { prefix, text } => format!("{prefix}\"{text}\""),
             ExprKind::Subscript { target, index } => format!(
                 "{}[{}]",
@@ -427,7 +437,6 @@ impl Display for UnaryOpKind {
                 UnaryOpKind::Not => "!",
                 UnaryOpKind::Dereference => "*",
                 UnaryOpKind::AddressOf => "&",
-                UnaryOpKind::SizeOf => "sizeof ",
                 UnaryOpKind::PrefixInc => "++",
                 UnaryOpKind::PrefixDec => "--",
                 UnaryOpKind::PostfixInc => "++",

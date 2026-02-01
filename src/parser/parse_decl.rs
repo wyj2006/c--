@@ -28,21 +28,24 @@ impl<'a> CParser<'a> {
                 Rule::attribute_specifier_sequence => {
                     attributes.extend(self.parse_attribute_specifier_sequence(rule)?);
                 }
-                Rule::declaration_specifiers => match self.parse_declaration_specifiers(rule)? {
-                    (
-                        r#type,
-                        extern_storage_classes,
-                        extern_function_specs,
-                        spec_decls,
-                        extern_attrs,
-                    ) => {
-                        spec_type = Some(r#type);
-                        storage_classes = extern_storage_classes;
-                        function_specs = extern_function_specs;
-                        decls.extend(spec_decls);
-                        type_attrs.extend(extern_attrs);
+                Rule::declaration_specifiers_without_typedef
+                | Rule::declaration_specifiers_with_typedef => {
+                    match self.parse_declaration_specifiers(rule)? {
+                        (
+                            r#type,
+                            extern_storage_classes,
+                            extern_function_specs,
+                            spec_decls,
+                            extern_attrs,
+                        ) => {
+                            spec_type = Some(r#type);
+                            storage_classes = extern_storage_classes;
+                            function_specs = extern_function_specs;
+                            decls.extend(spec_decls);
+                            type_attrs.extend(extern_attrs);
+                        }
                     }
-                },
+                }
                 Rule::declarator => {
                     let span = rule.as_span();
                     let decl = self.parse_declarator(spec_type.clone().unwrap(), rule)?;
@@ -104,21 +107,24 @@ impl<'a> CParser<'a> {
                 Rule::attribute_specifier_sequence => {
                     attributes.extend(self.parse_attribute_specifier_sequence(rule)?);
                 }
-                Rule::declaration_specifiers => match self.parse_declaration_specifiers(rule)? {
-                    (
-                        r#type,
-                        extern_storage_classes,
-                        extern_function_specs,
-                        spec_decls,
-                        extern_attrs,
-                    ) => {
-                        spec_type = Some(r#type);
-                        storage_classes = extern_storage_classes;
-                        function_specs = extern_function_specs;
-                        decls.extend(spec_decls);
-                        type_attrs.extend(extern_attrs);
+                Rule::declaration_specifiers_without_typedef
+                | Rule::declaration_specifiers_with_typedef => {
+                    match self.parse_declaration_specifiers(rule)? {
+                        (
+                            r#type,
+                            extern_storage_classes,
+                            extern_function_specs,
+                            spec_decls,
+                            extern_attrs,
+                        ) => {
+                            spec_type = Some(r#type);
+                            storage_classes = extern_storage_classes;
+                            function_specs = extern_function_specs;
+                            decls.extend(spec_decls);
+                            type_attrs.extend(extern_attrs);
+                        }
                     }
-                },
+                }
                 Rule::initializer => {
                     let initializer = self.parse_initializer(rule)?;
                     let decl = decls.last_mut().unwrap();
@@ -264,11 +270,12 @@ impl<'a> CParser<'a> {
                         _ => unreachable!(),
                     },
                 }),
-                Rule::type_specifier => {
-                    let parse_result = self.parse_type_specifier(rule)?;
-                    types.push(parse_result.0);
-                    decls.extend(parse_result.1);
-                }
+                Rule::type_specifier => match self.parse_type_specifier(rule)? {
+                    (r#type, spec_decls) => {
+                        types.push(r#type);
+                        decls.extend(spec_decls);
+                    }
+                },
                 Rule::attribute_specifier_sequence => {
                     attributes.extend(self.parse_attribute_specifier_sequence(rule)?);
                 }
@@ -296,6 +303,21 @@ impl<'a> CParser<'a> {
                         name: "alignas".to_string(),
                         kind: AttributeKind::AlignAs { r#type, expr },
                     })));
+                }
+                Rule::typedef_name => {
+                    let span = rule.as_span();
+                    for rule in rule.into_inner() {
+                        if let Rule::identifier = rule.as_rule() {
+                            types.push(Type {
+                                span,
+                                attributes: vec![],
+                                kind: TypeKind::Typedef {
+                                    name: rule.as_str().to_string(),
+                                    r#type: None,
+                                },
+                            });
+                        }
+                    }
                 }
                 _ => unreachable!(),
             }
@@ -545,16 +567,6 @@ impl<'a> CParser<'a> {
                                 }
                             }
                         }
-                        Rule::typedef_name => {
-                            for rule in rule.into_inner() {
-                                if let Rule::identifier = rule.as_rule() {
-                                    kind = Some(TypeKind::Typedef {
-                                        name: rule.as_str().to_string(),
-                                        r#type: None,
-                                    })
-                                }
-                            }
-                        }
                         Rule::typeof_specifier => {
                             let unqual = rule.as_str().starts_with("typeof_unqual");
                             for rule in rule.into_inner() {
@@ -710,7 +722,8 @@ impl<'a> CParser<'a> {
                     attributes.extend(self.parse_attribute_specifier_sequence(rule)?);
                 }
                 Rule::enumerator => enumerators.push(self.parse_enumerator(rule)?),
-                Rule::specifier_qualifier_list => {
+                Rule::specifier_qualifier_list_without_typedef
+                | Rule::specifier_qualifier_list_with_typedef => {
                     match self.parse_specifier_qualifier_list(rule)? {
                         //decls一定为空
                         (mut r#type, _decls, extern_attrs) => {
@@ -968,7 +981,8 @@ impl<'a> CParser<'a> {
                 Rule::attribute_specifier_sequence => {
                     attributes.extend(self.parse_attribute_specifier_sequence(rule)?);
                 }
-                Rule::specifier_qualifier_list => {
+                Rule::specifier_qualifier_list_without_typedef
+                | Rule::specifier_qualifier_list_with_typedef => {
                     match self.parse_specifier_qualifier_list(rule)? {
                         (r#type, spec_decls, extern_attrs) => {
                             type_attrs.extend(extern_attrs);
@@ -1152,7 +1166,8 @@ impl<'a> CParser<'a> {
         let mut decls = Vec::new();
         for rule in rule.into_inner() {
             match rule.as_rule() {
-                Rule::specifier_qualifier_list => {
+                Rule::specifier_qualifier_list_without_typedef
+                | Rule::specifier_qualifier_list_with_typedef => {
                     match self.parse_specifier_qualifier_list(rule)? {
                         (r#type, spec_decls, extern_attrs) => {
                             spec_type = Some(r#type);

@@ -1,4 +1,3 @@
-pub mod ambiguity;
 pub mod expr;
 
 #[macro_export]

@@ -96,7 +96,7 @@ impl Print for TranslationUnit<'_> {
 impl Print for Declaration<'_> {
     fn display(&self) -> String {
         format!(
-            "{} <{:?},{:?}> {} {} {:?}",
+            "{} <{:?},{:?}> {} {} {}",
             match &self.kind {
                 DeclarationKind::Var { initializer: _ } => "VarDecl",
                 DeclarationKind::Function {
@@ -107,12 +107,7 @@ impl Print for Declaration<'_> {
                     "FunctionDecl {}",
                     function_specs
                         .iter()
-                        .map(|x| format!(
-                            "{:?}<({:?}),({:?})>",
-                            x.kind,
-                            x.span.start_pos().line_col(),
-                            x.span.end_pos().line_col()
-                        ))
+                        .map(|x| x.kind.to_string())
                         .collect::<Vec<String>>()
                         .join(" ")
                 ),
@@ -130,6 +125,10 @@ impl Print for Declaration<'_> {
             self.name,
             self.r#type.borrow(),
             self.storage_classes
+                .iter()
+                .map(|x| x.kind.to_string())
+                .collect::<Vec<String>>()
+                .join(" ")
         )
     }
 
@@ -307,7 +306,12 @@ impl Print for Expr<'_> {
                 ExprKind::CompoundLiteral {
                     storage_classes, ..
                 } => &format!(
-                    "CompoundLiteral {storage_classes:?} {}",
+                    "CompoundLiteral {} {}",
+                    storage_classes
+                        .iter()
+                        .map(|x| x.kind.to_string())
+                        .collect::<Vec<String>>()
+                        .join(" "),
                     self.r#type.borrow()
                 ),
                 ExprKind::False => "False",
@@ -334,7 +338,14 @@ impl Print for Expr<'_> {
                 ),
                 ExprKind::Name(name) => &format!("Name {name}"),
                 ExprKind::Nullptr => "Nullptr",
-                ExprKind::SizeOf { r#type, .. } => &format!("SizeOf {}", r#type.borrow()),
+                ExprKind::SizeOf { r#type, .. } => &format!(
+                    "SizeOf {}",
+                    if let Some(r#type) = r#type {
+                        r#type.borrow().to_string()
+                    } else {
+                        "".to_string()
+                    }
+                ),
                 ExprKind::String { prefix, text } => &format!("String {prefix:?} {text:?}"),
                 ExprKind::True => "True",
                 ExprKind::GenericSelection { .. } => "GenericSelection",
@@ -399,6 +410,14 @@ impl Print for Expr<'_> {
             }
             ExprKind::MemberAccess { target, .. } => {
                 lines.extend(target.print_line(indent));
+            }
+            ExprKind::SizeOf {
+                expr: Some(expr),
+                decls,
+                ..
+            } => {
+                lines.extend(expr.print_line(indent));
+                lines.extend(decls.print_line(indent));
             }
             ExprKind::SizeOf { decls, .. } | ExprKind::Alignof { decls, .. } => {
                 lines.extend(decls.print_line(indent));

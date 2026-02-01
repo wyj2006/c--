@@ -8,5 +8,5 @@ chrono = "0.4.42"
 indexmap = "2.13.0"
 insta = "1.46.1"
 num = "0.4.3"
-pest = { version = "2.8.3", features = ["pretty-print"] }
-pest_derive = { version = "2.8.3", features = ["grammar-extras"] }
+pest = { version = "2.8.5", features = ["pretty-print"] }
+pest_derive = { version = "2.8.5", features = ["grammar-extras"] }

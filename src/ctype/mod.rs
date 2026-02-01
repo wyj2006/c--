@@ -107,6 +107,19 @@ pub enum RecordKind {
     Union,
 }
 
+impl Display for RecordKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                RecordKind::Struct => "struct",
+                RecordKind::Union => "union",
+            }
+        )
+    }
+}
+
 impl Display for TypeQual {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(

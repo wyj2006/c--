@@ -84,16 +84,18 @@ impl<'a> TypeChecker<'a> {
 
     pub fn visit_expr(&mut self, node: Rc<RefCell<Expr<'a>>>) -> Result<(), Diagnostic<'a>> {
         let allow_lvalue_cast = match self.contexts.last() {
-            Some(Context::Expr(ExprKind::UnaryOp {
-                op:
-                    UnaryOpKind::AddressOf
-                    | UnaryOpKind::PrefixInc
-                    | UnaryOpKind::PostfixInc
-                    | UnaryOpKind::PrefixDec
-                    | UnaryOpKind::PostfixDec
-                    | UnaryOpKind::SizeOf,
-                ..
-            })) => false,
+            Some(Context::Expr(
+                ExprKind::UnaryOp {
+                    op:
+                        UnaryOpKind::AddressOf
+                        | UnaryOpKind::PrefixInc
+                        | UnaryOpKind::PostfixInc
+                        | UnaryOpKind::PrefixDec
+                        | UnaryOpKind::PostfixDec,
+                    ..
+                }
+                | ExprKind::SizeOf { .. },
+            )) => false,
             Some(Context::Expr(ExprKind::BinOp {
                 op:
                     BinOpKind::Assign
@@ -116,19 +118,25 @@ impl<'a> TypeChecker<'a> {
             _ => true,
         };
         let allow_array_to_ptr = match self.contexts.last() {
-            Some(Context::Expr(ExprKind::UnaryOp {
-                op: UnaryOpKind::AddressOf | UnaryOpKind::SizeOf,
-                ..
-            })) => false,
+            Some(Context::Expr(
+                ExprKind::UnaryOp {
+                    op: UnaryOpKind::AddressOf,
+                    ..
+                }
+                | ExprKind::SizeOf { .. },
+            )) => false,
             Some(Context::Typeof) => false,
             Some(Context::Init(InitializerKind::Expr(expr))) if Rc::ptr_eq(&node, expr) => false,
             _ => true,
         };
         let allow_func_to_ptr = match self.contexts.last() {
-            Some(Context::Expr(ExprKind::UnaryOp {
-                op: UnaryOpKind::AddressOf | UnaryOpKind::SizeOf,
-                ..
-            })) => false,
+            Some(Context::Expr(
+                ExprKind::UnaryOp {
+                    op: UnaryOpKind::AddressOf,
+                    ..
+                }
+                | ExprKind::SizeOf { .. },
+            )) => false,
             Some(Context::Typeof) => false,
             _ => true,
         };
@@ -138,13 +146,22 @@ impl<'a> TypeChecker<'a> {
 
         //先处理完表达式中的类型再对表达式进行类型检查
         match &mut node.borrow_mut().kind {
-            ExprKind::SizeOf { r#type, decls } | ExprKind::Alignof { r#type, decls } => {
+            ExprKind::SizeOf {
+                //只检查没有歧义的情况
+                r#type: Some(r#type),
+                expr: None,
+                decls,
+                ..
+            }
+            | ExprKind::Alignof { r#type, decls } => {
                 for decl in decls {
                     self.visit_declaration(Rc::clone(decl))?;
                 }
                 self.check_type(r#type)?;
             }
-            ExprKind::CompoundLiteral { decls, .. } | ExprKind::Cast { decls, .. } => {
+            ExprKind::CompoundLiteral { decls, .. }
+            | ExprKind::Cast { decls, .. }
+            | ExprKind::SizeOf { decls, .. } => {
                 for decl in decls {
                     self.visit_declaration(Rc::clone(decl))?;
                 }
@@ -161,6 +178,49 @@ impl<'a> TypeChecker<'a> {
             }
             _ => {}
         }
+
+        let mut errs = Vec::new(); //消歧义时产生的错误
+        //消歧义
+        let mut new_expr = None;
+        let mut new_type = None;
+        match &mut *node.borrow_mut() {
+            Expr {
+                kind:
+                    ExprKind::SizeOf {
+                        r#type: Some(r#type),
+                        expr: Some(expr),
+                        ..
+                    },
+                ..
+            } => {
+                //消歧义
+                match self.visit_expr(Rc::clone(expr)) {
+                    Ok(_) => new_expr = Some(Rc::clone(expr)),
+                    Err(e) => {
+                        errs.push(e);
+                    }
+                }
+                match self.check_type(r#type) {
+                    Ok(_) => new_type = Some(Rc::clone(r#type)),
+                    Err(e) => {
+                        errs.push(e);
+                    }
+                }
+            }
+            _ => {}
+        }
+        match &mut node.borrow_mut().kind {
+            ExprKind::SizeOf {
+                expr: expr @ Some(_),
+                r#type: r#type @ Some(_),
+                ..
+            } => {
+                *expr = new_expr;
+                *r#type = new_type;
+            }
+            _ => {}
+        }
+
         self.check_type(&mut node.borrow_mut().r#type)?;
 
         {
@@ -323,7 +383,15 @@ impl<'a> TypeChecker<'a> {
                         node.r#type = Rc::clone(&t.borrow().r#type);
                         node.is_lvalue = match &t.borrow().kind {
                             SymbolKind::Object { .. } | SymbolKind::Parameter { .. } => true,
-                            _ => false,
+                            SymbolKind::Function { .. } | SymbolKind::EnumConst { .. } => false,
+                            _ => {
+                                return Err(Diagnostic {
+                                    span: node.span,
+                                    kind: DiagnosticKind::Error,
+                                    message: format!("invalid symbol as expression"),
+                                    notes: vec![],
+                                });
+                            }
                         };
                     } else {
                         return Err(Diagnostic {
@@ -1125,29 +1193,6 @@ impl<'a> TypeChecker<'a> {
                                 node.r#type = r#type;
                             }
                         }
-                        UnaryOpKind::SizeOf => {
-                            let value;
-                            match operand.borrow().r#type.borrow().size() {
-                                Some(t) => value = Variant::Int(BigInt::from(t)),
-                                None => {
-                                    return Err(Diagnostic {
-                                        span: operand.borrow().span,
-                                        kind: DiagnosticKind::Error,
-                                        message: format!(
-                                            "'{}' is incomplete",
-                                            operand.borrow().r#type.borrow().to_string()
-                                        ),
-                                        notes: vec![],
-                                    });
-                                }
-                            }
-                            node.value = value;
-                            node.r#type = Rc::new(RefCell::new(Type {
-                                span: node.span,
-                                attributes: vec![],
-                                kind: TypeKind::ULongLong,
-                            }))
-                        }
                         UnaryOpKind::AddressOf => {
                             if match &operand.borrow().kind {
                                 //解引用不一定是左值
@@ -1860,7 +1905,23 @@ impl<'a> TypeChecker<'a> {
                         });
                     }
                 }
-                ExprKind::SizeOf { r#type, .. } => {
+                ExprKind::SizeOf {
+                    r#type: Some(_),
+                    expr: Some(_),
+                    ..
+                } => {
+                    return Err(Diagnostic {
+                        span: node.span,
+                        kind: DiagnosticKind::Error,
+                        message: format!("cannot disambiguate sizeof"),
+                        notes: vec![],
+                    });
+                }
+                ExprKind::SizeOf {
+                    r#type: Some(r#type),
+                    expr: None,
+                    ..
+                } => {
                     let value;
                     match r#type.borrow().size() {
                         Some(t) => value = Variant::Int(BigInt::from(t)),
@@ -1879,6 +1940,47 @@ impl<'a> TypeChecker<'a> {
                         attributes: vec![],
                         kind: TypeKind::ULongLong,
                     }));
+                }
+                ExprKind::SizeOf {
+                    r#type: None,
+                    expr: Some(expr),
+                    ..
+                } => {
+                    self.visit_expr(Rc::clone(expr))?;
+
+                    let value;
+                    match expr.borrow().r#type.borrow().size() {
+                        Some(t) => value = Variant::Int(BigInt::from(t)),
+                        None => {
+                            return Err(Diagnostic {
+                                span: expr.borrow().span,
+                                kind: DiagnosticKind::Error,
+                                message: format!(
+                                    "'{}' is incomplete",
+                                    expr.borrow().r#type.borrow().to_string()
+                                ),
+                                notes: vec![],
+                            });
+                        }
+                    }
+                    node.value = value;
+                    node.r#type = Rc::new(RefCell::new(Type {
+                        span: node.span,
+                        attributes: vec![],
+                        kind: TypeKind::ULongLong,
+                    }))
+                }
+                ExprKind::SizeOf {
+                    r#type: None,
+                    expr: None,
+                    ..
+                } => {
+                    return Err(Diagnostic {
+                        span: node.span,
+                        kind: DiagnosticKind::Error,
+                        message: format!("errors occurred during disambiguation"),
+                        notes: errs,
+                    });
                 }
                 ExprKind::Alignof { r#type, .. } => {
                     if r#type.borrow().is_function() {
