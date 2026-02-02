@@ -4,14 +4,14 @@ use crate::{
         AttributeKind,
         decl::{Declaration, DeclarationKind, StorageClassKind},
     },
-    ctype::{Type, TypeKind, TypeQual, as_parameter_type, cast::remove_qualifier},
+    ctype::{RecordKind, Type, TypeKind, TypeQual, as_parameter_type, cast::remove_qualifier},
     diagnostic::{Diagnostic, DiagnosticKind},
     symtab::{Namespace, Symbol, SymbolKind, SymbolTable},
     typechecker::Context,
     variant::Variant,
 };
 use indexmap::IndexMap;
-use num::BigInt;
+use num::{BigInt, ToPrimitive};
 use std::{cell::RefCell, rc::Rc};
 
 impl<'a> TypeChecker<'a> {
@@ -20,51 +20,24 @@ impl<'a> TypeChecker<'a> {
         {
             let mut r#type = r#type.borrow_mut();
             match &mut r#type.kind {
-                //如果声明节点的类型中含有record/enum, 那么在它之前一定有record/enum声明节点
                 TypeKind::Record { name, kind, .. } => {
-                    //这个type所属的node可能正好就是record声明, 所以如果找不到也不报错
                     let name = name.clone();
-                    if let Some(t) = &self
-                        .cur_symtab
-                        .borrow()
-                        .lookup_current(Namespace::Tag, &name)
-                    {
-                        match &t.borrow().kind {
-                            SymbolKind::Record => {
-                                match &t.borrow().r#type.borrow().kind {
-                                    TypeKind::Record {
-                                        kind: symbol_kind, ..
-                                    } if *kind != *symbol_kind => {
-                                        let kind = kind.clone();
-                                        return Err(Diagnostic {
-                                            span: r#type.span,
-                                            kind: DiagnosticKind::Error,
-                                            message: format!("'{name}' is not a '{kind}'"),
-                                            notes: vec![Diagnostic {
-                                                span: t
-                                                    .borrow()
-                                                    .define_span
-                                                    .unwrap_or(t.borrow().declare_spans[0]),
-                                                kind: DiagnosticKind::Note,
-                                                message: format!("previous symbol"),
-                                                notes: vec![],
-                                            }],
-                                        });
-                                    }
-                                    _ => {}
-                                }
-                                new_type = Some(Rc::clone(&t.borrow().r#type));
+                    let kind = kind.clone();
+                    if let Some(symbol) = &self.cur_symtab.borrow().lookup(Namespace::Tag, &name) {
+                        match &symbol.borrow().kind {
+                            SymbolKind::Record { kind: symbol_kind } if kind == *symbol_kind => {
+                                new_type = Some(Rc::clone(&symbol.borrow().r#type));
                             }
                             _ => {
                                 return Err(Diagnostic {
                                     span: r#type.span,
                                     kind: DiagnosticKind::Error,
-                                    message: format!("'{name}' is not a record"),
+                                    message: format!("'{name}' is not a {kind}"),
                                     notes: vec![Diagnostic {
-                                        span: t
+                                        span: symbol
                                             .borrow()
                                             .define_span
-                                            .unwrap_or(t.borrow().declare_spans[0]),
+                                            .unwrap_or(symbol.borrow().declare_spans[0]),
                                         kind: DiagnosticKind::Note,
                                         message: format!("previous symbol"),
                                         notes: vec![],
@@ -72,28 +45,36 @@ impl<'a> TypeChecker<'a> {
                                 });
                             }
                         }
+                    } else {
+                        new_type = Some(Rc::new(RefCell::new(r#type.clone())));
+                        self.visit_declaration(Rc::new(RefCell::new(Declaration {
+                            span: r#type.span,
+                            attributes: vec![],
+                            name,
+                            r#type: Rc::clone(new_type.as_ref().unwrap()),
+                            storage_classes: vec![],
+                            kind: DeclarationKind::Record { members_decl: None },
+                            children: vec![],
+                        })))?;
                     }
                 }
                 TypeKind::Enum { name, .. } => {
-                    //这个type所属的node可能正好就是enum声明, 所以如果找不到也不报错
                     let name = name.clone();
-                    if let Some(t) = &self
-                        .cur_symtab
-                        .borrow()
-                        .lookup_current(Namespace::Tag, &name)
-                    {
-                        match t.borrow().kind {
-                            SymbolKind::Enum => new_type = Some(Rc::clone(&t.borrow().r#type)),
+                    if let Some(symbol) = &self.cur_symtab.borrow().lookup(Namespace::Tag, &name) {
+                        match &symbol.borrow().kind {
+                            SymbolKind::Enum => {
+                                new_type = Some(Rc::clone(&symbol.borrow().r#type));
+                            }
                             _ => {
                                 return Err(Diagnostic {
                                     span: r#type.span,
                                     kind: DiagnosticKind::Error,
                                     message: format!("'{name}' is not a enum"),
                                     notes: vec![Diagnostic {
-                                        span: t
+                                        span: symbol
                                             .borrow()
                                             .define_span
-                                            .unwrap_or(t.borrow().declare_spans[0]),
+                                            .unwrap_or(symbol.borrow().declare_spans[0]),
                                         kind: DiagnosticKind::Note,
                                         message: format!("previous symbol"),
                                         notes: vec![],
@@ -101,6 +82,17 @@ impl<'a> TypeChecker<'a> {
                                 });
                             }
                         }
+                    } else {
+                        new_type = Some(Rc::new(RefCell::new(r#type.clone())));
+                        self.visit_declaration(Rc::new(RefCell::new(Declaration {
+                            span: r#type.span,
+                            attributes: vec![],
+                            name,
+                            r#type: Rc::clone(new_type.as_ref().unwrap()),
+                            storage_classes: vec![],
+                            kind: DeclarationKind::Enum { enumerators: None },
+                            children: vec![],
+                        })))?;
                     }
                 }
                 TypeKind::Typedef { name, .. } => {
@@ -174,6 +166,27 @@ impl<'a> TypeChecker<'a> {
                     self.check_type(element_type)?;
                     if let Some(len_expr) = len_expr {
                         self.visit_expr(Rc::clone(&len_expr))?;
+                        match &len_expr.borrow().value {
+                            Variant::Int(value) => match value.to_usize() {
+                                Some(_) => {}
+                                None => {
+                                    return Err(Diagnostic {
+                                        span: len_expr.borrow().span,
+                                        kind: DiagnosticKind::Error,
+                                        message: format!("invalid integer for array length"),
+                                        notes: vec![],
+                                    });
+                                }
+                            },
+                            _ => {
+                                return Err(Diagnostic {
+                                    span: len_expr.borrow().span,
+                                    kind: DiagnosticKind::Error,
+                                    message: format!("array length must be an integer constant"),
+                                    notes: vec![],
+                                });
+                            }
+                        }
                     }
                 }
                 TypeKind::Atomic(r#type) => self.check_type(r#type)?,
@@ -212,6 +225,30 @@ impl<'a> TypeChecker<'a> {
                         self.contexts.pop();
                     }
                 }
+                TypeKind::BitInt { width_expr, .. } => {
+                    self.visit_expr(Rc::clone(width_expr))?;
+                    match &width_expr.borrow().value {
+                        Variant::Int(value) => match value.to_usize() {
+                            Some(_) => {}
+                            None => {
+                                return Err(Diagnostic {
+                                    span: width_expr.borrow().span,
+                                    kind: DiagnosticKind::Error,
+                                    message: format!("invalid integer for _BitInt"),
+                                    notes: vec![],
+                                });
+                            }
+                        },
+                        _ => {
+                            return Err(Diagnostic {
+                                span: width_expr.borrow().span,
+                                kind: DiagnosticKind::Error,
+                                message: format!("_BitInt require an integer constant "),
+                                notes: vec![],
+                            });
+                        }
+                    }
+                }
                 _ => {}
             }
         }
@@ -229,7 +266,30 @@ impl<'a> TypeChecker<'a> {
                 AttributeKind::AlignAs {
                     r#type: None,
                     expr: Some(expr),
-                } => self.visit_expr(Rc::clone(expr))?,
+                } => {
+                    self.visit_expr(Rc::clone(expr))?;
+                    match &expr.borrow().value {
+                        Variant::Int(value) => match value.to_usize() {
+                            Some(_) => {}
+                            None => {
+                                return Err(Diagnostic {
+                                    span: expr.borrow().span,
+                                    kind: DiagnosticKind::Error,
+                                    message: format!("invalid integer for alignas"),
+                                    notes: vec![],
+                                });
+                            }
+                        },
+                        _ => {
+                            return Err(Diagnostic {
+                                span: expr.borrow().span,
+                                kind: DiagnosticKind::Error,
+                                message: format!("alignas require an integer constant or a type"),
+                                notes: vec![],
+                            });
+                        }
+                    }
+                }
                 _ => {}
             }
         }
@@ -246,7 +306,10 @@ impl<'a> TypeChecker<'a> {
 
         {
             let mut node = node.borrow_mut();
-            self.check_type(&mut node.r#type)?;
+            match &node.kind {
+                DeclarationKind::Record { .. } | DeclarationKind::Enum { .. } => {}
+                _ => self.check_type(&mut node.r#type)?,
+            }
 
             match &node.kind {
                 DeclarationKind::Parameter => {
@@ -466,7 +529,13 @@ impl<'a> TypeChecker<'a> {
                         declare_spans: vec![node.span],
                         name: node.name.clone(),
                         r#type: Rc::clone(&node.r#type),
-                        kind: SymbolKind::Record,
+                        kind: SymbolKind::Record {
+                            kind: if node.r#type.borrow().is_union() {
+                                RecordKind::Union
+                            } else {
+                                RecordKind::Struct
+                            },
+                        },
                         attributes: node.attributes.clone(),
                     })),
                 )?;

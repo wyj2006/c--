@@ -2001,9 +2001,9 @@ impl<'a> TypeChecker<'a> {
                     }
 
                     match if r#type.borrow().is_array() {
-                        array_element(Rc::clone(r#type)).unwrap().borrow().align()?
+                        array_element(Rc::clone(r#type)).unwrap().borrow().align()
                     } else {
-                        r#type.borrow().align()?
+                        r#type.borrow().align()
                     } {
                         Some(t) => node.value = Variant::Int(BigInt::from(t)),
                         None => {

@@ -3,7 +3,7 @@ use crate::{
         Attribute,
         decl::{FunctionSpec, StorageClass},
     },
-    ctype::{Type, TypeKind, is_compatible},
+    ctype::{RecordKind, Type, TypeKind, is_compatible},
     diagnostic::{Diagnostic, DiagnosticKind},
 };
 use indexmap::IndexMap;
@@ -39,7 +39,9 @@ pub struct Symbol<'a> {
 #[derive(Debug, Clone)]
 pub enum SymbolKind<'a> {
     Label,
-    Record,
+    Record {
+        kind: RecordKind,
+    },
     Enum,
     Object {
         storage_classes: Vec<StorageClass<'a>>,

@@ -12,6 +12,39 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 impl<'a> CParser<'a> {
+    //删除decls中record/enum的非定义和非前向声明
+    pub fn filter_decls(
+        &self,
+        mut decls: Vec<Rc<RefCell<Declaration<'a>>>>,
+    ) -> Vec<Rc<RefCell<Declaration<'a>>>> {
+        let mut may_forward_decl = true;
+        for decl in &decls {
+            match decl.borrow().kind {
+                DeclarationKind::Enum { .. } | DeclarationKind::Record { .. } => {}
+                _ => {
+                    may_forward_decl = false;
+                    break;
+                }
+            }
+        }
+
+        let mut i = 0;
+        while i < decls.len() {
+            let decl = Rc::clone(&decls[i]);
+            match &decl.borrow().kind {
+                DeclarationKind::Record { members_decl: None }
+                | DeclarationKind::Enum { enumerators: None }
+                    if !may_forward_decl =>
+                {
+                    decls.remove(i);
+                }
+                _ => i += 1,
+            }
+        }
+
+        decls
+    }
+
     pub fn parse_function_definition(
         &self,
         rule: Pair<'a, Rule>,
@@ -86,7 +119,7 @@ impl<'a> CParser<'a> {
             }
         }
         decls.push(function_decl.unwrap());
-        Ok(decls)
+        Ok(self.filter_decls(decls))
     }
 
     pub fn parse_declaration(
@@ -222,7 +255,7 @@ impl<'a> CParser<'a> {
                 children: vec![],
             })));
         }
-        Ok(decls)
+        Ok(self.filter_decls(decls))
     }
 
     pub fn parse_declaration_specifiers(
@@ -662,6 +695,7 @@ impl<'a> CParser<'a> {
         };
         let span = rule.as_span();
         let mut name = format!("<unnamed struct {:?}>", span.start_pos().line_col());
+        let mut is_declare = true;
         let mut members_decl = Vec::new();
         let mut attributes = Vec::new();
         for rule in rule.into_inner() {
@@ -672,6 +706,7 @@ impl<'a> CParser<'a> {
                 }
                 Rule::member_declaration => {
                     members_decl.extend(self.parse_member_declaration(rule)?);
+                    is_declare = false;
                 }
                 _ => unreachable!(),
             }
@@ -695,11 +730,7 @@ impl<'a> CParser<'a> {
                 r#type: Rc::new(RefCell::new(record_type)),
                 storage_classes: Vec::new(),
                 kind: DeclarationKind::Record {
-                    members_decl: if members_decl.len() > 0 {
-                        Some(members_decl)
-                    } else {
-                        None
-                    },
+                    members_decl: if is_declare { None } else { Some(members_decl) },
                 },
                 children: vec![],
             })),
@@ -714,6 +745,7 @@ impl<'a> CParser<'a> {
         let mut name = format!("<unnamed enum {:?}>", span.start_pos().line_col());
         let mut attributes = Vec::new();
         let mut underlying_type = None;
+        let mut is_declare = true;
         let mut enumerators = Vec::new();
         for rule in rule.into_inner() {
             match rule.as_rule() {
@@ -721,7 +753,10 @@ impl<'a> CParser<'a> {
                 Rule::attribute_specifier_sequence => {
                     attributes.extend(self.parse_attribute_specifier_sequence(rule)?);
                 }
-                Rule::enumerator => enumerators.push(self.parse_enumerator(rule)?),
+                Rule::enumerator => {
+                    enumerators.push(self.parse_enumerator(rule)?);
+                    is_declare = false;
+                }
                 Rule::specifier_qualifier_list_without_typedef
                 | Rule::specifier_qualifier_list_with_typedef => {
                     match self.parse_specifier_qualifier_list(rule)? {
@@ -758,11 +793,7 @@ impl<'a> CParser<'a> {
                 r#type: Rc::new(RefCell::new(enum_type)),
                 storage_classes: Vec::new(),
                 kind: DeclarationKind::Enum {
-                    enumerators: if enumerators.len() > 0 {
-                        Some(enumerators)
-                    } else {
-                        None
-                    },
+                    enumerators: if is_declare { None } else { Some(enumerators) },
                 },
                 children: vec![],
             })),
@@ -1024,7 +1055,7 @@ impl<'a> CParser<'a> {
                 children: vec![],
             })));
         }
-        Ok(decls)
+        Ok(self.filter_decls(decls))
     }
 
     pub fn parse_member_declarator(
@@ -1139,7 +1170,7 @@ impl<'a> CParser<'a> {
             }
             decls.push(decl);
         }
-        Ok(decls)
+        Ok(self.filter_decls(decls))
     }
 
     pub fn parse_type_qualifier_list(

@@ -1,11 +1,12 @@
 // 尽量保留源文件的字符, 包括空白字符
 WHITESPACE =  { " " | "\t" | "\\\n" }
 identifier = @{ identifier_start ~ identifier_continue* }
-COMMENT    = @{ "//" ~ (!(NEWLINE | EOI) ~ ANY)* ~ NEWLINE? | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+// 不匹配NEWLINE, 避免其它规则无法匹配行末换行
+COMMENT = @{ "//" ~ (!(NEWLINE | EOI) ~ ANY)* | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 
 preprocessing_file = ${ SOI ~ group_part* ~ EOI }
 // 等需要解析的时候再解析
-directive_keyword = { "if" | "ifdef" | "ifndef" | "include" | "embed" | "define" | "undef" | "line" | "error" | "warning" | "pragma" | NEWLINE }
+directive_keyword = { "if" | "ifdef" | "ifndef" | "include" | "embed" | "define" | "undef" | "line" | "error" | "warning" | "pragma" }
 // 防止text_line开头的空白字符被提前匹配
 group_part         = ${ WHITESPACE* ~ up_directives | WHITESPACE* ~ non_directive_line | !"#" ~ text_line }
 non_directive_line = !{ "#" ~ !("elif" | "elifdef" | "elifndef" | "else" | "endif") ~ pp_tokens ~ NEWLINE }

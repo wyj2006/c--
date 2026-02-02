@@ -82,7 +82,7 @@ impl<'a> DesignationNode<'a> {
             TypeKind::Record { members: None, .. } => Err(Diagnostic {
                 span: r#type.span,
                 kind: DiagnosticKind::Error,
-                message: format!("incomplete type"),
+                message: format!("incomplete type: '{}'", r#type.to_string()),
                 notes: vec![],
             }),
             _ => Ok(None),
