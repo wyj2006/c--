@@ -371,6 +371,34 @@ impl TypeChecker {
                             SymbolKind::EnumConst { value } => {
                                 node.value = Variant::Int(value.clone())
                             }
+                            SymbolKind::Function { .. } => {
+                                for attribute in &t.borrow().attributes {
+                                    match &attribute.borrow().kind {
+                                        AttributeKind::Deprecated { reason } => {
+                                            warning(
+                                                format!(
+                                                    "'{name}' is deprecated{}",
+                                                    if let Some(t) = reason {
+                                                        format!(": {t}")
+                                                    } else {
+                                                        "".to_string()
+                                                    }
+                                                ),
+                                                node.file_id,
+                                                node.span,
+                                                vec![
+                                                    Label::secondary(
+                                                        attribute.borrow().file_id,
+                                                        attribute.borrow().span,
+                                                    )
+                                                    .with_message("marked here"),
+                                                ],
+                                            );
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                            }
                             _ => {}
                         }
                         node.symbol = Some(Rc::clone(t));
@@ -878,6 +906,7 @@ impl TypeChecker {
                                                 ),
                                                 argument.borrow().file_id,
                                                 argument.borrow().span,
+                                                vec![],
                                             );
                                         }
                                     }

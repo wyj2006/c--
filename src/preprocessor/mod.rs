@@ -84,6 +84,7 @@ impl Preprocessor {
                         format!("Unkown preprocessing directive: {}", rule.as_str()),
                         self.file_id,
                         from_pest_span(rule.as_span()),
+                        vec![],
                     );
                 }
                 _ => {}
@@ -239,7 +240,7 @@ impl Preprocessor {
                 _ => {}
             }
         }
-        warning(message, self.file_id, from_pest_span(span));
+        warning(message, self.file_id, from_pest_span(span), vec![]);
         Ok("\n".to_string())
     }
 
@@ -471,6 +472,7 @@ impl Preprocessor {
                                 format!("unkown parameter: {}", param_name),
                                 self.file_id,
                                 from_pest_span(span),
+                                vec![],
                             );
                         }
                     }

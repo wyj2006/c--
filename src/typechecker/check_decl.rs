@@ -3,8 +3,10 @@ use crate::{
     ast::{
         AttributeKind,
         decl::{Declaration, DeclarationKind, StorageClassKind},
+        has_c_attribute,
     },
     ctype::{RecordKind, Type, TypeKind, TypeQual, as_parameter_type, cast::remove_qualifier},
+    diagnostic::warning,
     symtab::{Namespace, Symbol, SymbolKind, SymbolTable},
     typechecker::Context,
     variant::Variant,
@@ -762,8 +764,40 @@ impl TypeChecker {
                 };
                 *value = const_value.unwrap_or(BigInt::ZERO);
             }
-            DeclarationKind::StaticAssert { .. } => {} //TODO static_assert声明
-            DeclarationKind::Attribute => {}           //TODO 属性声明
+            DeclarationKind::StaticAssert { expr } => {
+                self.visit_expr(Rc::clone(expr))?;
+                match &expr.borrow().value {
+                    Variant::Int(value) => {
+                        if *value == BigInt::ZERO {
+                            return Err(Diagnostic::error()
+                                .with_message(format!("static assertion failed: {}", node.name))
+                                .with_label(Label::primary(node.file_id, node.span)));
+                        }
+                    }
+                    _ => {
+                        return Err(Diagnostic::error()
+                            .with_message("static assertion expresion must be an integer constant")
+                            .with_label(Label::primary(
+                                expr.borrow().file_id,
+                                expr.borrow().span,
+                            )));
+                    }
+                }
+            }
+            DeclarationKind::Attribute => {
+                for attribute in &node.attributes {
+                    let prefix_name = attribute.borrow().prefix_name.clone();
+                    let name = attribute.borrow().name.clone();
+                    if has_c_attribute(prefix_name, name.clone()) == 0 {
+                        warning(
+                            format!("unknown attribute '{name}'"),
+                            attribute.borrow().file_id,
+                            attribute.borrow().span,
+                            vec![],
+                        );
+                    }
+                }
+            }
         }
 
         self.contexts.pop();

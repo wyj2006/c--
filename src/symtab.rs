@@ -72,7 +72,7 @@ impl SymbolTable {
             for (name, symbol) in symbols {
                 let symbol = symbol.borrow();
                 println!(
-                    "{}{}  {}({:p})  {}  {}",
+                    "{}{}  {}({:p})  {}  [[{}]]",
                     repeat("  ").take(indent + 2).collect::<String>(),
                     name,
                     symbol.r#type.borrow().to_string(),
@@ -91,7 +91,20 @@ impl SymbolTable {
                             .join(" "),
                         _ => format!(""),
                     },
-                    format!("{:?}", symbol.attributes)
+                    symbol
+                        .attributes
+                        .iter()
+                        .map(|x| {
+                            let prefix_name = &x.borrow().prefix_name;
+                            let name = &x.borrow().name;
+                            if let Some(t) = prefix_name {
+                                format!("{t}::{name}")
+                            } else {
+                                format!("{name}")
+                            }
+                        })
+                        .collect::<Vec<String>>()
+                        .join(", ")
                 );
                 match &symbol.r#type.borrow().kind {
                     TypeKind::Record { members, .. } => {

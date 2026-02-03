@@ -1,7 +1,8 @@
 ///包括了与表达式有关的方法
 use super::{Preprocessor, Rule};
 use crate::ast::expr::ExprKind;
-use crate::diagnostic::from_pest_span;
+use crate::ast::has_c_attribute;
+use crate::diagnostic::{from_pest_span, map_pest_err, warning};
 use crate::parser::CParser;
 use crate::preprocessor::macro_replace::{
     STDC_EMBED_EMPTY, STDC_EMBED_FOUND, STDC_EMBED_NOT_FOUND,
@@ -98,10 +99,12 @@ impl Preprocessor {
                         .add(format!("<part>"), primary.as_str().to_string());
                     let expr = CParser::new(part_id)
                         .parse_character_constant(
-                            CParser::parse(parser::Rule::character_constant, primary.as_str())
-                                .unwrap()
-                                .next()
-                                .unwrap(),
+                            map_pest_err(
+                                part_id,
+                                CParser::parse(parser::Rule::character_constant, primary.as_str()),
+                            )?
+                            .next()
+                            .unwrap(),
                         )
                         .unwrap();
                     let mut type_checker =
@@ -178,8 +181,41 @@ impl Preprocessor {
                     }
                     Ok(STDC_EMBED_NOT_FOUND)
                 }
-                //TODO 处理has_c_attribute
-                Rule::has_c_attribute => Ok(0),
+                Rule::has_c_attribute => {
+                    let span = primary.as_span();
+
+                    let mut attribute_str = String::new();
+                    for rule in primary.into_inner() {
+                        attribute_str += rule.as_str();
+                    }
+
+                    let part_id = files
+                        .lock()
+                        .unwrap()
+                        .add(format!("<part>"), attribute_str.as_str().to_string());
+                    let parser = CParser::new(part_id);
+                    let rules = map_pest_err(
+                        part_id,
+                        CParser::parse(parser::Rule::attribute_list, attribute_str.as_str()),
+                    )?;
+                    if rules.len() > 1 {
+                        warning(
+                            format!("too many arguments, only the first one will be considered"),
+                            self.file_id,
+                            from_pest_span(span),
+                            vec![],
+                        );
+                    }
+
+                    for rule in rules {
+                        let attribute = parser.parse_attribute(rule)?;
+                        return Ok(has_c_attribute(
+                            attribute.borrow().prefix_name.clone(),
+                            attribute.borrow().name.clone(),
+                        ));
+                    }
+                    Ok(0)
+                }
                 Rule::predefined_constant => {
                     if primary.as_str() == "true" {
                         Ok(1)
@@ -243,10 +279,12 @@ impl Preprocessor {
             .add(format!("<part>"), rule.as_str().to_string());
         let expr = CParser::new(part_id)
             .parse_string_literal(
-                CParser::parse(parser::Rule::string_literal, rule.as_str())
-                    .unwrap()
-                    .next()
-                    .unwrap(),
+                map_pest_err(
+                    part_id,
+                    CParser::parse(parser::Rule::string_literal, rule.as_str()),
+                )?
+                .next()
+                .unwrap(),
             )
             .unwrap();
         Ok(match &expr.borrow().kind {

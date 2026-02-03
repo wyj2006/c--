@@ -100,7 +100,7 @@ defined_macro_expression = { "defined" ~ identifier | "defined" ~ "(" ~ identifi
 // 预处理器处理时先进行宏替换再匹配
 has_include_expression =  { "__has_include" ~ "(" ~ (header_name | string_literal) ~ ")" }
 has_embed_expression   =  { "__has_embed" ~ "(" ~ (header_name | string_literal) ~ embed_parameter_sequence? ~ ")" }
-has_c_attribute        =  { "__has_c_attribute" ~ "(" ~ pp_tokens ~ ")" }
+has_c_attribute        =  { "__has_c_attribute" ~ "(" ~ (!")" ~ pp_token)+ ~ ")" }
 constant_expression    =  { expression ~ "?" ~ constant_expression ~ ":" ~ constant_expression | expression }
 expression             =  { prefix? ~ primary ~ (infix ~ prefix? ~ primary)* }
 primary                = _{

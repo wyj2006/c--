@@ -123,7 +123,13 @@ impl Print for Declaration {
             },
             format_location(self.file_id, self.span),
             self.name,
-            self.r#type.borrow(),
+            match &self.kind {
+                //这些节点的type字段不会被用到
+                DeclarationKind::Attribute
+                | DeclarationKind::Enumerator { .. }
+                | DeclarationKind::StaticAssert { .. } => "".to_string(),
+                _ => self.r#type.borrow().to_string(),
+            },
             self.storage_classes
                 .iter()
                 .map(|x| x.kind.to_string())
@@ -454,9 +460,11 @@ impl Print for Attribute {
             "{} {}",
             match &self.kind {
                 AttributeKind::Unkown { arguments } => format!(
-                    "Attribute {}::{} ({:?})",
-                    self.prefix_name.clone().unwrap_or("".to_string()),
-                    self.name,
+                    "Attribute {} ({:?})",
+                    match &self.prefix_name {
+                        Some(t) => format!("{t}::{}", self.name),
+                        None => format!("{}", self.name),
+                    },
                     arguments
                 ),
                 AttributeKind::AlignAs { r#type, .. } => format!(
@@ -469,6 +477,27 @@ impl Print for Attribute {
                 ),
                 AttributeKind::PtrFromArray { array_type } =>
                     format!("ArrayPtr {}", array_type.borrow().to_string()),
+                AttributeKind::Deprecated { reason } => format!(
+                    "Deprecated {}",
+                    if let Some(t) = reason {
+                        t.to_string()
+                    } else {
+                        "".to_string()
+                    }
+                ),
+                AttributeKind::FallThrough => format!("FallThrough"),
+                AttributeKind::MaybeUnused => format!("MaybeUnused"),
+                AttributeKind::Nodiscard { reason } => format!(
+                    "Nodiscard {}",
+                    if let Some(t) = reason {
+                        t.to_string()
+                    } else {
+                        "".to_string()
+                    }
+                ),
+                AttributeKind::Noreturn => format!("Noreturn"),
+                AttributeKind::Unsequenced => format!("Unsequenced"),
+                AttributeKind::Reproducible => format!("Reproduciable"),
             },
             format_location(self.file_id, self.span)
         )

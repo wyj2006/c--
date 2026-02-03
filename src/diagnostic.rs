@@ -27,11 +27,12 @@ pub fn map_pest_err<T, R: RuleType>(
     }
 }
 
-pub fn warning(message: String, file_id: usize, span: Span) {
+pub fn warning(message: String, file_id: usize, span: Span, labels: Vec<Label<usize>>) {
     print_diag(
         Diagnostic::warning()
             .with_message(message)
-            .with_label(Label::primary(file_id, span)),
+            .with_label(Label::primary(file_id, span))
+            .with_labels(labels),
     );
 }
 

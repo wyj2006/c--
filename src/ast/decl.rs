@@ -47,7 +47,6 @@ pub struct FunctionSpec {
 #[derive(Debug, Clone)]
 pub enum FunctionSpecKind {
     Inline,
-    Noreturn,
 }
 
 #[derive(Debug, Clone)]
@@ -108,7 +107,6 @@ impl Display for FunctionSpecKind {
             "{}",
             match self {
                 FunctionSpecKind::Inline => "inline",
-                FunctionSpecKind::Noreturn => "_Noreturn",
             }
         )
     }

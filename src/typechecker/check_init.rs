@@ -189,6 +189,7 @@ impl TypeChecker {
                                 format!("excess element in union initializer"),
                                 initializer.borrow().file_id,
                                 initializer.borrow().span,
+                                vec![],
                             );
                             continue;
                         } else if path.len() <= 1 {
@@ -196,6 +197,7 @@ impl TypeChecker {
                                 format!("excess element in scale initializer"),
                                 initializer.borrow().file_id,
                                 initializer.borrow().span,
+                                vec![],
                             );
                             continue;
                         }
@@ -298,6 +300,7 @@ impl TypeChecker {
                                             format!("excess element in array initializer"),
                                             file_id,
                                             span,
+                                            vec![],
                                         );
                                     }
                                     _ => {}
@@ -386,6 +389,7 @@ impl TypeChecker {
                                 format!("initializer-string is too large"),
                                 node.file_id,
                                 node.span,
+                                vec![],
                             );
                         }
                     }

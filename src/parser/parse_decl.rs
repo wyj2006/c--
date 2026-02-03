@@ -70,13 +70,15 @@ impl CParser {
                             extern_storage_classes,
                             extern_function_specs,
                             spec_decls,
-                            extern_attrs,
+                            extern_type_attrs,
+                            extern_var_attrs,
                         ) => {
                             spec_type = Some(r#type);
                             storage_classes = extern_storage_classes;
                             function_specs = extern_function_specs;
                             decls.extend(spec_decls);
-                            type_attrs.extend(extern_attrs);
+                            type_attrs.extend(extern_type_attrs);
+                            attributes.extend(extern_var_attrs);
                         }
                     }
                 }
@@ -146,13 +148,15 @@ impl CParser {
                             extern_storage_classes,
                             extern_function_specs,
                             spec_decls,
-                            extern_attrs,
+                            extern_type_attrs,
+                            extern_var_attrs,
                         ) => {
                             spec_type = Some(r#type);
                             storage_classes = extern_storage_classes;
                             function_specs = extern_function_specs;
                             decls.extend(spec_decls);
-                            type_attrs.extend(extern_attrs);
+                            type_attrs.extend(extern_type_attrs);
+                            attributes.extend(extern_var_attrs);
                         }
                     }
                 }
@@ -272,14 +276,17 @@ impl CParser {
             Vec<FunctionSpec>,
             //可能有record或enum的定义
             Vec<Rc<RefCell<Declaration>>>,
-            //就可能有AlignAs一种属性
+            //应用于类型的属性, 就可能有AlignAs一种属性
+            Vec<Rc<RefCell<Attribute>>>,
+            //应用于声明对象的属性, 可能是Noreturn
             Vec<Rc<RefCell<Attribute>>>,
         ),
         Diagnostic<usize>,
     > {
         let span = rule.as_span();
         let mut attributes = Vec::new();
-        let mut extern_attrs = Vec::new();
+        let mut extern_type_attrs = Vec::new();
+        let mut extern_var_attrs = Vec::new();
         let mut types = Vec::new();
         let mut qualifiers = Vec::new();
         let mut storage_classes = Vec::new();
@@ -303,15 +310,23 @@ impl CParser {
                     }
                     t => storage_classes.push(t),
                 },
-                Rule::function_specifier => function_specs.push(FunctionSpec {
-                    file_id: self.file_id,
-                    span: from_pest_span(span),
-                    kind: match rule.as_str() {
-                        "inline" => FunctionSpecKind::Inline,
-                        "_Noreturn" => FunctionSpecKind::Noreturn,
-                        _ => unreachable!(),
-                    },
-                }),
+                Rule::function_specifier => match rule.as_str() {
+                    "inline" => function_specs.push(FunctionSpec {
+                        file_id: self.file_id,
+                        span: from_pest_span(span),
+                        kind: FunctionSpecKind::Inline,
+                    }),
+                    "_Noreturn" => {
+                        extern_var_attrs.push(Rc::new(RefCell::new(Attribute {
+                            file_id: self.file_id,
+                            span: from_pest_span(span),
+                            prefix_name: None,
+                            name: "noreturn".to_string(),
+                            kind: AttributeKind::Noreturn,
+                        })));
+                    }
+                    _ => unreachable!(),
+                },
                 Rule::type_specifier => match self.parse_type_specifier(rule)? {
                     (r#type, spec_decls) => {
                         types.push(r#type);
@@ -339,7 +354,7 @@ impl CParser {
                             _ => unreachable!(),
                         }
                     }
-                    extern_attrs.push(Rc::new(RefCell::new(Attribute {
+                    extern_type_attrs.push(Rc::new(RefCell::new(Attribute {
                         file_id: self.file_id,
                         span: from_pest_span(span),
                         prefix_name: None,
@@ -555,7 +570,8 @@ impl CParser {
             storage_classes,
             function_specs,
             decls,
-            extern_attrs,
+            extern_type_attrs,
+            extern_var_attrs,
         ))
     }
 
@@ -1137,9 +1153,14 @@ impl CParser {
     > {
         //两者结构相同, 但specifier_qualifier_list内容要少一点
         Ok(match self.parse_declaration_specifiers(rule)? {
-            (r#type, _storage_classes, _function_specs, decls, attributes) => {
-                (r#type, decls, attributes)
-            }
+            (
+                r#type,
+                _storage_classes,
+                _function_specs,
+                decls,
+                extern_type_attrs,
+                _extern_var_attrs,
+            ) => (r#type, decls, extern_type_attrs),
         })
     }
 
@@ -1290,7 +1311,7 @@ impl CParser {
                 file_id: self.file_id,
                 span: from_pest_span(span),
                 attributes: Vec::new(),
-                kind: TypeKind::Void,
+                kind: TypeKind::Error,
             })),
             storage_classes: Vec::new(),
             kind: DeclarationKind::StaticAssert {

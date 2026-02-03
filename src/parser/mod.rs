@@ -11,12 +11,14 @@ use crate::ast::DesignationKind;
 use crate::ast::Initializer;
 use crate::ast::InitializerKind;
 use crate::ast::TranslationUnit;
+use crate::ast::expr::ExprKind;
 use crate::ctype::Type;
 use crate::ctype::TypeKind;
 use crate::diagnostic::from_pest_span;
 use crate::diagnostic::map_pest_err;
 use crate::files;
 use codespan_reporting::diagnostic::Diagnostic;
+use codespan_reporting::diagnostic::Label;
 use codespan_reporting::files::Files;
 use pest::{Parser, iterators::Pair};
 use pest_derive::Parser;
@@ -78,30 +80,7 @@ impl CParser {
         let mut attributes = Vec::new();
         for rule in rule.into_inner() {
             match rule.as_rule() {
-                Rule::attribute => {
-                    let span = rule.as_span();
-                    let mut prefix_name = None;
-                    let mut name = String::new();
-                    let mut arguments = None;
-                    for rule in rule.into_inner() {
-                        match rule.as_rule() {
-                            Rule::attribute_token => {
-                                (prefix_name, name) = self.parse_attribute_token(rule)?
-                            }
-                            Rule::attribute_argument_clause => {
-                                arguments = Some(rule.as_str().to_string())
-                            }
-                            _ => unreachable!(),
-                        }
-                    }
-                    attributes.push(Rc::new(RefCell::new(Attribute {
-                        file_id: self.file_id,
-                        span: from_pest_span(span),
-                        prefix_name,
-                        name,
-                        kind: AttributeKind::Unkown { arguments },
-                    })));
-                }
+                Rule::attribute => attributes.push(self.parse_attribute(rule)?),
                 _ => unreachable!(),
             }
         }
@@ -124,6 +103,92 @@ impl CParser {
         }
 
         Ok((prefix_name, name))
+    }
+
+    pub fn parse_attribute(
+        &self,
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<Attribute>>, Diagnostic<usize>> {
+        let span = rule.as_span();
+        let mut prefix_name = None;
+        let mut name = String::new();
+        let mut arguments = None;
+        for rule in rule.into_inner() {
+            match rule.as_rule() {
+                Rule::attribute_token => (prefix_name, name) = self.parse_attribute_token(rule)?,
+                Rule::attribute_argument_clause => {
+                    //去除两侧括号
+                    arguments = Some(rule.as_str()[1..rule.as_str().len() - 1].to_string())
+                }
+                _ => unreachable!(),
+            }
+        }
+
+        if name.starts_with("__") && name.ends_with("__") {
+            //去除两边的下划线
+            name = name[2..name.len() - 2].to_string();
+        }
+
+        let kind;
+
+        match (prefix_name.as_deref(), name.as_str()) {
+            (None, a @ ("deprecated" | "nodiscard")) => {
+                let mut reason = None;
+                if let Some(t) = arguments {
+                    match CParser::parse(Rule::string_literal, t.as_str()) {
+                        Ok(rules) => {
+                            for rule in rules {
+                                let expr = self.parse_string_literal(rule)?;
+                                match &expr.borrow().kind {
+                                    ExprKind::String { text, .. } => {
+                                        reason = Some(text.to_string())
+                                    }
+                                    _ => unreachable!(),
+                                }
+                                break;
+                            }
+                        }
+                        Err(_) => {
+                            return Err(Diagnostic::error()
+                                .with_message("expected string literal as argument of 'deprecated'")
+                                .with_label(Label::primary(self.file_id, from_pest_span(span))));
+                        }
+                    }
+                }
+                kind = match a {
+                    "deprecated" => AttributeKind::Deprecated { reason },
+                    "nodiscard" => AttributeKind::Nodiscard { reason },
+                    _ => unreachable!(),
+                }
+            }
+            (None, "noreturn") => {
+                kind = AttributeKind::Noreturn;
+            }
+            (None, "fallthrough") => {
+                kind = AttributeKind::FallThrough;
+            }
+            (None, "maybe_unused") => {
+                kind = AttributeKind::MaybeUnused;
+            }
+            (None, "unsequenced") => {
+                kind = AttributeKind::Unsequenced;
+            }
+            (None, "reproducible") => {
+                kind = AttributeKind::Reproducible;
+            }
+            _ => {
+                kind = AttributeKind::Unkown {
+                    arguments: arguments,
+                }
+            }
+        }
+        Ok(Rc::new(RefCell::new(Attribute {
+            file_id: self.file_id,
+            span: from_pest_span(span),
+            prefix_name,
+            name,
+            kind,
+        })))
     }
 
     pub fn parse_initializer(

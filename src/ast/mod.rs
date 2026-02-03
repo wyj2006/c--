@@ -36,6 +36,17 @@ pub enum AttributeKind {
     PtrFromArray {
         array_type: Rc<RefCell<Type>>,
     },
+    Deprecated {
+        reason: Option<String>,
+    },
+    FallThrough,
+    Nodiscard {
+        reason: Option<String>,
+    },
+    MaybeUnused,
+    Noreturn,
+    Unsequenced,
+    Reproducible,
     Unkown {
         arguments: Option<String>,
     },
@@ -98,5 +109,18 @@ impl Initializer {
                 }),
             }
         )
+    }
+}
+
+pub fn has_c_attribute(prefix_name: Option<String>, name: String) -> isize {
+    match (prefix_name.as_deref(), name.as_str()) {
+        (None, "deprecated") => 201904,
+        (None, "fallthrough") => 201904,
+        (None, "maybe_unused") => 201904,
+        (None, "nodiscard") => 202003,
+        (None, "noreturn") => 202202,
+        (None, "unsequenced") => 202207,
+        (None, "reproducible") => 202207,
+        _ => 0,
     }
 }
