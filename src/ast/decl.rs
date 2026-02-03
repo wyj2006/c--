@@ -26,6 +26,16 @@ pub struct StorageClass {
     pub kind: StorageClassKind,
 }
 
+impl StorageClass {
+    pub fn new(file_id: usize, span: Span, kind: StorageClassKind) -> StorageClass {
+        StorageClass {
+            file_id,
+            span,
+            kind,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum StorageClassKind {
     Auto,
@@ -44,9 +54,34 @@ pub struct FunctionSpec {
     pub kind: FunctionSpecKind,
 }
 
+impl FunctionSpec {
+    pub fn new(file_id: usize, span: Span, kind: FunctionSpecKind) -> FunctionSpec {
+        FunctionSpec {
+            file_id,
+            span,
+            kind,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum FunctionSpecKind {
     Inline,
+}
+
+impl Declaration {
+    pub fn new(file_id: usize, span: Span, kind: DeclarationKind) -> Declaration {
+        Declaration {
+            file_id,
+            span,
+            attributes: vec![],
+            name: String::new(),
+            r#type: Rc::new(RefCell::new(Type::new(file_id, span))),
+            storage_classes: vec![],
+            kind,
+            children: vec![],
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

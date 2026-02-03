@@ -94,10 +94,8 @@ impl TypeChecker {
                             name: name.clone(),
                             kind: SymbolKind::Label,
                             r#type: Rc::new(RefCell::new(Type {
-                                file_id: node.file_id,
-                                span: node.span,
-                                attributes: vec![],
                                 kind: TypeKind::Void,
+                                ..Type::new(node.file_id, node.span)
                             })),
                             attributes: node.attributes.clone(),
                         })),

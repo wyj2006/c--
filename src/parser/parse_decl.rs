@@ -226,19 +226,12 @@ impl CParser {
                         }
                     }
                     decls.push(Rc::new(RefCell::new(Declaration {
-                        file_id: self.file_id,
-                        span: from_pest_span(span),
                         attributes: attributes.clone(),
-                        name: String::new(),
-                        r#type: Rc::new(RefCell::new(Type {
-                            file_id: self.file_id,
-                            span: from_pest_span(span),
-                            attributes: attributes.clone(),
-                            kind: TypeKind::Error,
-                        })),
-                        storage_classes: storage_classes.clone(),
-                        kind: DeclarationKind::Attribute,
-                        children: vec![],
+                        ..Declaration::new(
+                            self.file_id,
+                            from_pest_span(span),
+                            DeclarationKind::Attribute,
+                        )
                     })))
                 }
                 _ => unreachable!(),
@@ -249,17 +242,17 @@ impl CParser {
         {
             //没有declarator时的情况
             decls.push(Rc::new(RefCell::new(Declaration {
-                file_id: self.file_id,
-                span: from_pest_span(span),
                 attributes,
-                name: String::new(),
                 r#type: Rc::new(RefCell::new({
                     spec_type.attributes.extend(type_attrs);
                     spec_type
                 })),
                 storage_classes,
-                kind: DeclarationKind::Var { initializer: None },
-                children: vec![],
+                ..Declaration::new(
+                    self.file_id,
+                    from_pest_span(span),
+                    DeclarationKind::Var { initializer: None },
+                )
             })));
         }
         Ok(self.filter_decls(decls))
@@ -302,27 +295,23 @@ impl CParser {
                         span,
                     } if matches!(kind, StorageClassKind::Auto) => {
                         types.push(Type {
-                            file_id,
-                            span,
-                            attributes: vec![],
                             kind: TypeKind::Auto(None),
+                            ..Type::new(file_id, span)
                         });
                     }
                     t => storage_classes.push(t),
                 },
                 Rule::function_specifier => match rule.as_str() {
-                    "inline" => function_specs.push(FunctionSpec {
-                        file_id: self.file_id,
-                        span: from_pest_span(span),
-                        kind: FunctionSpecKind::Inline,
-                    }),
+                    "inline" => function_specs.push(FunctionSpec::new(
+                        self.file_id,
+                        from_pest_span(span),
+                        FunctionSpecKind::Inline,
+                    )),
                     "_Noreturn" => {
                         extern_var_attrs.push(Rc::new(RefCell::new(Attribute {
-                            file_id: self.file_id,
-                            span: from_pest_span(span),
-                            prefix_name: None,
                             name: "noreturn".to_string(),
                             kind: AttributeKind::Noreturn,
+                            ..Attribute::new(self.file_id, from_pest_span(span))
                         })));
                     }
                     _ => unreachable!(),
@@ -355,11 +344,9 @@ impl CParser {
                         }
                     }
                     extern_type_attrs.push(Rc::new(RefCell::new(Attribute {
-                        file_id: self.file_id,
-                        span: from_pest_span(span),
-                        prefix_name: None,
                         name: "alignas".to_string(),
                         kind: AttributeKind::AlignAs { r#type, expr },
+                        ..Attribute::new(self.file_id, from_pest_span(span))
                     })));
                 }
                 Rule::typedef_name => {
@@ -367,13 +354,11 @@ impl CParser {
                     for rule in rule.into_inner() {
                         if let Rule::identifier = rule.as_rule() {
                             types.push(Type {
-                                file_id: self.file_id,
-                                span: from_pest_span(span),
-                                attributes: vec![],
                                 kind: TypeKind::Typedef {
                                     name: rule.as_str().to_string(),
                                     r#type: None,
                                 },
+                                ..Type::new(self.file_id, from_pest_span(span))
                             });
                         }
                     }
@@ -446,10 +431,9 @@ impl CParser {
                     TypeKind::Complex(Some(t)) => {
                         if let TypeKind::Double = t.borrow().kind {
                             acc.kind = TypeKind::Complex(Some(Rc::new(RefCell::new(Type {
-                                file_id: self.file_id,
-                                span: x.span,
                                 attributes: x.attributes.clone(),
                                 kind: TypeKind::LongDouble,
+                                ..Type::new(self.file_id, x.span)
                             }))));
                             return Ok(acc);
                         }
@@ -544,22 +528,20 @@ impl CParser {
         });
         if let Some(atomic_index) = atomic_index {
             final_type = Type {
-                file_id: self.file_id,
-                span: from_pest_span(span),
                 attributes: attributes.clone(),
                 kind: TypeKind::Atomic(Rc::new(RefCell::new(final_type))),
+                ..Type::new(self.file_id, from_pest_span(span))
             };
             qualifiers.remove(atomic_index);
         }
         if qualifiers.len() > 0 {
             final_type = Type {
-                file_id: self.file_id,
-                span: from_pest_span(span),
                 attributes,
                 kind: TypeKind::Qualified {
                     qualifiers,
                     r#type: Rc::new(RefCell::new(final_type)),
                 },
+                ..Type::new(self.file_id, from_pest_span(span))
             };
         } else {
             final_type.span = from_pest_span(span);
@@ -671,10 +653,8 @@ impl CParser {
         };
         Ok((
             Type {
-                file_id: self.file_id,
-                span: from_pest_span(span),
-                attributes: Vec::new(),
-                kind: kind,
+                kind,
+                ..Type::new(self.file_id, from_pest_span(span))
             },
             decls,
         ))
@@ -695,10 +675,10 @@ impl CParser {
         rule: Pair<Rule>,
     ) -> Result<StorageClass, Diagnostic<usize>> {
         let span = rule.as_span();
-        Ok(StorageClass {
-            file_id: self.file_id,
-            span: from_pest_span(span),
-            kind: match rule.as_str() {
+        Ok(StorageClass::new(
+            self.file_id,
+            from_pest_span(span),
+            match rule.as_str() {
                 "auto" => StorageClassKind::Auto,
                 "constexpr" => StorageClassKind::Constexpr,
                 "extern" => StorageClassKind::Extern,
@@ -708,7 +688,7 @@ impl CParser {
                 "typedef" => StorageClassKind::Typedef,
                 _ => unreachable!(),
             },
-        })
+        ))
     }
 
     pub fn parse_struct_or_union_specifier(
@@ -739,29 +719,28 @@ impl CParser {
             }
         }
         let record_type = Type {
-            file_id: self.file_id,
-            span: from_pest_span(span),
             attributes: attributes.clone(),
             kind: TypeKind::Record {
                 name: name.clone(),
                 kind: record_kind,
                 members: None,
             },
+            ..Type::new(self.file_id, from_pest_span(span))
         };
         Ok((
             record_type.clone(),
             Rc::new(RefCell::new(Declaration {
-                file_id: self.file_id,
-                span: from_pest_span(span),
-                attributes: attributes.clone(),
-                name: name,
+                attributes,
+                name,
                 //将会在语义分析的时候重新确定type
                 r#type: Rc::new(RefCell::new(record_type)),
-                storage_classes: Vec::new(),
-                kind: DeclarationKind::Record {
-                    members_decl: if is_declare { None } else { Some(members_decl) },
-                },
-                children: vec![],
+                ..Declaration::new(
+                    self.file_id,
+                    from_pest_span(span),
+                    DeclarationKind::Record {
+                        members_decl: if is_declare { None } else { Some(members_decl) },
+                    },
+                )
             })),
         ))
     }
@@ -800,34 +779,30 @@ impl CParser {
             }
         }
         let enum_type = Type {
-            file_id: self.file_id,
-            span: from_pest_span(span),
             attributes: attributes.clone(),
             kind: TypeKind::Enum {
                 name: name.clone(),
-                underlying: Rc::new(RefCell::new(underlying_type.unwrap_or(Type {
-                    file_id: self.file_id,
-                    span: from_pest_span(span),
-                    attributes: Vec::new(),
-                    kind: TypeKind::Error, //underlying type将在类型检查时确定
-                }))),
+                underlying: Rc::new(RefCell::new(
+                    underlying_type.unwrap_or(Type::new(self.file_id, from_pest_span(span))),
+                )),
                 enum_consts: None,
             },
+            ..Type::new(self.file_id, from_pest_span(span))
         };
         Ok((
             enum_type.clone(),
             Rc::new(RefCell::new(Declaration {
-                file_id: self.file_id,
-                span: from_pest_span(span),
-                attributes: attributes.clone(),
+                attributes,
                 name,
                 //将会在语义分析的时候重新确定type
                 r#type: Rc::new(RefCell::new(enum_type)),
-                storage_classes: Vec::new(),
-                kind: DeclarationKind::Enum {
-                    enumerators: if is_declare { None } else { Some(enumerators) },
-                },
-                children: vec![],
+                ..Declaration::new(
+                    self.file_id,
+                    from_pest_span(span),
+                    DeclarationKind::Enum {
+                        enumerators: if is_declare { None } else { Some(enumerators) },
+                    },
+                )
             })),
         ))
     }
@@ -891,30 +866,27 @@ impl CParser {
                                     }
                                 }
                                 final_type = Type {
-                                    file_id: self.file_id,
-                                    span: from_pest_span(span),
                                     attributes,
                                     kind: TypeKind::Function {
                                         return_type: Rc::new(RefCell::new(final_type)),
                                         parameters_type,
                                         has_varparam,
                                     },
+                                    ..Type::new(self.file_id, from_pest_span(span))
                                 };
 
                                 //需要额外保存函数声明, 以便之后对其进行类型检查
                                 function_decls.push(Rc::new(RefCell::new(Declaration {
-                                    file_id: self.file_id,
-                                    span: from_pest_span(span),
-                                    attributes: Vec::new(),
-                                    name: String::new(),
                                     r#type: Rc::new(RefCell::new(final_type.clone())),
-                                    storage_classes: Vec::new(),
-                                    kind: DeclarationKind::Function {
-                                        parameter_decls: parameter_decls.clone(),
-                                        function_specs: vec![],
-                                        body: None,
-                                    },
-                                    children: vec![],
+                                    ..Declaration::new(
+                                        self.file_id,
+                                        from_pest_span(span),
+                                        DeclarationKind::Function {
+                                            parameter_decls: parameter_decls.clone(),
+                                            function_specs: vec![],
+                                            body: None,
+                                        },
+                                    )
                                 })));
                             }
                             Rule::array_declarator | Rule::array_abstract_declarator => {
@@ -942,25 +914,21 @@ impl CParser {
                                 }
 
                                 final_type = Type {
-                                    file_id: self.file_id,
-                                    span: from_pest_span(span),
-                                    attributes: Vec::new(),
                                     kind: TypeKind::Array {
                                         has_static,
                                         has_star,
                                         element_type: Rc::new(RefCell::new(final_type)),
                                         len_expr,
                                     },
+                                    ..Type::new(self.file_id, from_pest_span(span))
                                 };
                                 if type_quals.len() > 0 {
                                     final_type = Type {
-                                        file_id: self.file_id,
-                                        span: from_pest_span(span),
-                                        attributes: Vec::new(),
                                         kind: TypeKind::Qualified {
                                             qualifiers: type_quals,
                                             r#type: Rc::new(RefCell::new(final_type)),
                                         },
+                                        ..Type::new(self.file_id, from_pest_span(span))
                                     };
                                 }
                                 final_type.attributes = attributes;
@@ -986,20 +954,16 @@ impl CParser {
                         }
                     }
                     final_type = Type {
-                        file_id: self.file_id,
-                        span: from_pest_span(span),
-                        attributes: Vec::new(),
                         kind: TypeKind::Pointer(Rc::new(RefCell::new(final_type))),
+                        ..Type::new(self.file_id, from_pest_span(span))
                     };
                     if type_quals.len() > 0 {
                         final_type = Type {
-                            file_id: self.file_id,
-                            span: from_pest_span(span),
-                            attributes: Vec::new(),
                             kind: TypeKind::Qualified {
                                 qualifiers: type_quals,
                                 r#type: Rc::new(RefCell::new(final_type)),
                             },
+                            ..Type::new(self.file_id, from_pest_span(span))
                         };
                     }
                     final_type.attributes = attributes;
@@ -1025,14 +989,11 @@ impl CParser {
             };
 
             Ok(Rc::new(RefCell::new(Declaration {
-                file_id: self.file_id,
-                span: from_pest_span(span),
                 attributes,
                 name,
                 r#type: Rc::new(RefCell::new(final_type.clone())),
-                storage_classes: Vec::new(),
-                kind,
                 children: function_decls,
+                ..Declaration::new(self.file_id, from_pest_span(span), kind)
             })))
         }
     }
@@ -1082,17 +1043,16 @@ impl CParser {
         {
             //没有declarator时的情况
             decls.push(Rc::new(RefCell::new(Declaration {
-                file_id: self.file_id,
-                span: from_pest_span(span),
                 attributes,
-                name: String::new(),
                 r#type: Rc::new(RefCell::new({
                     spec_type.attributes.extend(type_attrs);
                     spec_type
                 })),
-                storage_classes: Vec::new(),
-                kind: DeclarationKind::Member { bit_field: None },
-                children: vec![],
+                ..Declaration::new(
+                    self.file_id,
+                    from_pest_span(span),
+                    DeclarationKind::Member { bit_field: None },
+                )
             })));
         }
         Ok(self.filter_decls(decls))
@@ -1128,14 +1088,12 @@ impl CParser {
             Ok(t)
         } else {
             Ok(Rc::new(RefCell::new(Declaration {
-                file_id: self.file_id,
-                span: from_pest_span(span),
-                attributes: Vec::new(),
-                name: String::new(),
                 r#type: Rc::new(RefCell::new(spec_type)),
-                storage_classes: Vec::new(),
-                kind: DeclarationKind::Member { bit_field },
-                children: vec![],
+                ..Declaration::new(
+                    self.file_id,
+                    from_pest_span(span),
+                    DeclarationKind::Member { bit_field },
+                )
             })))
         }
     }
@@ -1183,20 +1141,13 @@ impl CParser {
             }
         }
         Ok(Rc::new(RefCell::new(Declaration {
-            file_id: self.file_id,
-            span: from_pest_span(span),
             attributes,
             name,
-            //不需要type字段
-            r#type: Rc::new(RefCell::new(Type {
-                file_id: self.file_id,
-                span: from_pest_span(span),
-                attributes: Vec::new(),
-                kind: TypeKind::Error,
-            })),
-            storage_classes: Vec::new(),
-            kind: DeclarationKind::Enumerator { value: expr },
-            children: vec![],
+            ..Declaration::new(
+                self.file_id,
+                from_pest_span(span),
+                DeclarationKind::Enumerator { value: expr },
+            )
         })))
     }
 
@@ -1303,21 +1254,14 @@ impl CParser {
             }
         }
         Ok(Rc::new(RefCell::new(Declaration {
-            file_id: self.file_id,
-            span: from_pest_span(span),
-            attributes: Vec::new(),
             name: message,
-            r#type: Rc::new(RefCell::new(Type {
-                file_id: self.file_id,
-                span: from_pest_span(span),
-                attributes: Vec::new(),
-                kind: TypeKind::Error,
-            })),
-            storage_classes: Vec::new(),
-            kind: DeclarationKind::StaticAssert {
-                expr: expr.unwrap(),
-            },
-            children: vec![],
+            ..Declaration::new(
+                self.file_id,
+                from_pest_span(span),
+                DeclarationKind::StaticAssert {
+                    expr: expr.unwrap(),
+                },
+            )
         })))
     }
 }

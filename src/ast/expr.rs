@@ -1,9 +1,10 @@
 use super::Initializer;
 use crate::ast::decl::{Declaration, StorageClass};
-use crate::ctype::{Type, TypeKind};
+use crate::ctype::Type;
 use crate::symtab::Symbol;
 use crate::variant::Variant;
 use codespan::Span;
+use num::BigInt;
 use std::cell::RefCell;
 use std::fmt::Display;
 use std::rc::Rc;
@@ -107,6 +108,19 @@ pub struct GenericAssoc {
     pub decls: Vec<Rc<RefCell<Declaration>>>,
 }
 
+impl GenericAssoc {
+    pub fn new(file_id: usize, span: Span, expr: Rc<RefCell<Expr>>) -> GenericAssoc {
+        GenericAssoc {
+            file_id,
+            span,
+            is_selected: false,
+            r#type: None,
+            expr,
+            decls: vec![],
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum EncodePrefix {
     Default,
@@ -177,20 +191,35 @@ macro_rules! unparse_with_priority {
 }
 
 impl Expr {
-    pub fn new(file_id: usize, span: Span) -> Self {
+    pub fn new(file_id: usize, span: Span, kind: ExprKind) -> Self {
         Expr {
             file_id,
             span,
-            kind: ExprKind::Nullptr,
-            r#type: Rc::new(RefCell::new(Type {
-                file_id,
-                span,
-                attributes: vec![],
-                kind: TypeKind::Error,
-            })),
+            kind,
+            r#type: Rc::new(RefCell::new(Type::new(file_id, span))),
             value: Variant::default(),
             is_lvalue: false,
             symbol: None,
+        }
+    }
+
+    pub fn new_const_int<T>(file_id: usize, span: Span, value: T, r#type: Rc<RefCell<Type>>) -> Expr
+    where
+        BigInt: From<T>,
+    {
+        let value = BigInt::from(value);
+        Expr {
+            r#type,
+            value: Variant::Int(value.clone()),
+            ..Expr::new(
+                file_id,
+                span,
+                ExprKind::Integer {
+                    base: 10,
+                    text: format!("{value}"),
+                    type_suffix: vec![],
+                },
+            )
         }
     }
 

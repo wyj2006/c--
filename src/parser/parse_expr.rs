@@ -1,7 +1,7 @@
 use super::{CParser, Rule};
 use crate::{
     ast::expr::{BinOpKind, EncodePrefix, Expr, ExprKind, GenericAssoc, UnaryOpKind},
-    ctype::{Type, TypeKind},
+    ctype::Type,
     diagnostic::{from_pest_span, map_pest_err},
 };
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -92,10 +92,11 @@ impl CParser {
         let op = op.unwrap();
         let left = left.unwrap();
         let right = right.unwrap();
-        Ok(Rc::new(RefCell::new(Expr {
-            kind: ExprKind::BinOp { op, left, right },
-            ..Expr::new(self.file_id, from_pest_span(span))
-        })))
+        Ok(Rc::new(RefCell::new(Expr::new(
+            self.file_id,
+            from_pest_span(span),
+            ExprKind::BinOp { op, left, right },
+        ))))
     }
 
     pub fn parse_expression(
@@ -109,19 +110,20 @@ impl CParser {
                     let span = rule.as_span();
                     let right = self.parse_assignment_expression(rule)?;
                     if let Some(left) = expr {
-                        expr = Some(Rc::new(RefCell::new(Expr {
-                            kind: ExprKind::BinOp {
+                        expr = Some(Rc::new(RefCell::new(Expr::new(
+                            self.file_id,
+                            from_pest_span(span),
+                            ExprKind::BinOp {
                                 op: BinOpKind::Comma,
                                 left,
                                 right,
                             },
-                            is_lvalue: false,
-                            ..Expr::new(self.file_id, from_pest_span(span))
-                        })));
+                        ))));
                     } else {
                         expr = Some(right);
                     }
                 }
+                Rule::comma => {}
                 _ => unreachable!(),
             }
         }
@@ -155,14 +157,15 @@ impl CParser {
         if exprs.len() == 1 {
             Ok(exprs.pop().unwrap())
         } else {
-            Ok(Rc::new(RefCell::new(Expr {
-                kind: ExprKind::Conditional {
+            Ok(Rc::new(RefCell::new(Expr::new(
+                self.file_id,
+                from_pest_span(span),
+                ExprKind::Conditional {
                     condition: exprs.pop().unwrap(),
                     true_expr: exprs.pop().unwrap(),
                     false_expr: exprs.pop().unwrap(),
                 },
-                ..Expr::new(self.file_id, from_pest_span(span))
-            })))
+            ))))
         }
     }
 
@@ -217,14 +220,15 @@ impl CParser {
                     {
                         return Err(errs[0].clone());
                     }
-                    return Ok(Rc::new(RefCell::new(Expr {
-                        kind: ExprKind::SizeOf {
+                    return Ok(Rc::new(RefCell::new(Expr::new(
+                        self.file_id,
+                        from_pest_span(span),
+                        ExprKind::SizeOf {
                             r#type,
                             expr,
                             decls,
                         },
-                        ..Expr::new(self.file_id, from_pest_span(span))
-                    })));
+                    ))));
                 }
                 Rule::alignof => {
                     let span = rule.as_span();
@@ -241,13 +245,14 @@ impl CParser {
                             _ => unreachable!(),
                         }
                     }
-                    return Ok(Rc::new(RefCell::new(Expr {
-                        kind: ExprKind::Alignof {
+                    return Ok(Rc::new(RefCell::new(Expr::new(
+                        self.file_id,
+                        from_pest_span(span),
+                        ExprKind::Alignof {
                             r#type: r#type.unwrap(),
                             decls,
                         },
-                        ..Expr::new(self.file_id, from_pest_span(span))
-                    })));
+                    ))));
                 }
                 _ => {}
             }
@@ -274,30 +279,34 @@ impl CParser {
                             }
                         }
                         Ok(Rc::new(RefCell::new(Expr {
-                            kind: ExprKind::Cast {
-                                is_implicit: false,
-                                target: operand?,
-                                decls,
-                            },
-                            r#type: r#type.unwrap_or(Rc::new(RefCell::new(Type {
-                                file_id: self.file_id,
-                                span: from_pest_span(span),
-                                attributes: vec![],
-                                kind: TypeKind::Error,
-                            }))),
-                            ..Expr::new(self.file_id, from_pest_span(span))
+                            r#type: r#type.unwrap_or(Rc::new(RefCell::new(Type::new(
+                                self.file_id,
+                                from_pest_span(span),
+                            )))),
+                            ..Expr::new(
+                                self.file_id,
+                                from_pest_span(span),
+                                ExprKind::Cast {
+                                    is_implicit: false,
+                                    target: operand?,
+                                    decls,
+                                },
+                            )
                         })))
                     }
-                    Rule::sizeof => Ok(Rc::new(RefCell::new(Expr {
-                        kind: ExprKind::SizeOf {
+                    Rule::sizeof => Ok(Rc::new(RefCell::new(Expr::new(
+                        self.file_id,
+                        from_pest_span(span),
+                        ExprKind::SizeOf {
                             r#type: None,
                             expr: Some(operand?),
                             decls: vec![],
                         },
-                        ..Expr::new(self.file_id, from_pest_span(span))
-                    }))),
-                    _ => Ok(Rc::new(RefCell::new(Expr {
-                        kind: ExprKind::UnaryOp {
+                    )))),
+                    _ => Ok(Rc::new(RefCell::new(Expr::new(
+                        self.file_id,
+                        from_pest_span(span),
+                        ExprKind::UnaryOp {
                             op: match rule.as_rule() {
                                 Rule::positve => UnaryOpKind::Positive,
                                 Rule::negative => UnaryOpKind::Negative,
@@ -311,14 +320,15 @@ impl CParser {
                             },
                             operand: operand?,
                         },
-                        ..Expr::new(self.file_id, from_pest_span(span))
-                    }))),
+                    )))),
                 }
             })
             .map_postfix(|operand, rule| {
                 let span = rule.as_span();
-                Ok(Rc::new(RefCell::new(Expr {
-                    kind: match rule.as_rule() {
+                Ok(Rc::new(RefCell::new(Expr::new(
+                    self.file_id,
+                    from_pest_span(span),
+                    match rule.as_rule() {
                         Rule::subscript => {
                             let mut expr = None;
                             for rule in rule.into_inner() {
@@ -371,8 +381,7 @@ impl CParser {
                             operand: operand?,
                         },
                     },
-                    ..Expr::new(self.file_id, from_pest_span(span))
-                })))
+                ))))
             })
             .parse(rule.into_inner())
     }
@@ -388,8 +397,10 @@ impl CParser {
             })
             .map_infix(|left, rule, right| {
                 let span = rule.as_span();
-                Ok(Rc::new(RefCell::new(Expr {
-                    kind: ExprKind::BinOp {
+                Ok(Rc::new(RefCell::new(Expr::new(
+                    self.file_id,
+                    from_pest_span(span),
+                    ExprKind::BinOp {
                         op: match rule.as_rule() {
                             Rule::add => BinOpKind::Add,
                             Rule::sub => BinOpKind::Sub,
@@ -414,8 +425,7 @@ impl CParser {
                         left: left?,
                         right: right?,
                     },
-                    ..Expr::new(self.file_id, from_pest_span(span))
-                })))
+                ))))
             })
             .parse(rule.into_inner())
     }
@@ -427,10 +437,11 @@ impl CParser {
                 Rule::generic_selection => return self.parse_generic_selection(rule),
                 Rule::identifier => {
                     let span = rule.as_span();
-                    return Ok(Rc::new(RefCell::new(Expr {
-                        kind: ExprKind::Name(rule.as_str().to_string()),
-                        ..Expr::new(self.file_id, from_pest_span(span))
-                    })));
+                    return Ok(Rc::new(RefCell::new(Expr::new(
+                        self.file_id,
+                        from_pest_span(span),
+                        ExprKind::Name(rule.as_str().to_string()),
+                    ))));
                 }
                 Rule::constant => return self.parse_constant(rule),
                 Rule::string_group => return self.parse_string_group(rule),
@@ -468,13 +479,16 @@ impl CParser {
             }
         }
         Ok(Rc::new(RefCell::new(Expr {
-            kind: ExprKind::CompoundLiteral {
-                storage_classes,
-                initializer: initializer.unwrap(),
-                decls,
-            },
             r#type: r#type.unwrap(),
-            ..Expr::new(self.file_id, from_pest_span(span))
+            ..Expr::new(
+                self.file_id,
+                from_pest_span(span),
+                ExprKind::CompoundLiteral {
+                    storage_classes,
+                    initializer: initializer.unwrap(),
+                    decls,
+                },
+            )
         })))
     }
 
@@ -492,13 +506,14 @@ impl CParser {
                 _ => unreachable!(),
             }
         }
-        Ok(Rc::new(RefCell::new(Expr {
-            kind: ExprKind::GenericSelection {
+        Ok(Rc::new(RefCell::new(Expr::new(
+            self.file_id,
+            from_pest_span(span),
+            ExprKind::GenericSelection {
                 control_expr: expr.unwrap(),
                 assocs,
             },
-            ..Expr::new(self.file_id, from_pest_span(span))
-        })))
+        ))))
     }
 
     pub fn parse_generic_association(
@@ -522,12 +537,9 @@ impl CParser {
             }
         }
         Ok(Rc::new(RefCell::new(GenericAssoc {
-            file_id: self.file_id,
-            span: from_pest_span(span),
-            is_selected: false,
             r#type,
-            expr: expr.unwrap(),
             decls,
+            ..GenericAssoc::new(self.file_id, from_pest_span(span), expr.unwrap())
         })))
     }
 
@@ -577,16 +589,17 @@ impl CParser {
             digits = digits[..i].to_string();
         }
 
-        Ok(Rc::new(RefCell::new(Expr {
-            kind: ExprKind::Float {
+        Ok(Rc::new(RefCell::new(Expr::new(
+            self.file_id,
+            from_pest_span(span),
+            ExprKind::Float {
                 base,
                 digits,
                 exp_base,
                 exponent,
                 type_suffix,
             },
-            ..Expr::new(self.file_id, from_pest_span(span))
-        })))
+        ))))
     }
 
     pub fn parse_integer_constant(
@@ -614,14 +627,15 @@ impl CParser {
             }
         }
 
-        Ok(Rc::new(RefCell::new(Expr {
-            kind: ExprKind::Integer {
+        Ok(Rc::new(RefCell::new(Expr::new(
+            self.file_id,
+            from_pest_span(span),
+            ExprKind::Integer {
                 base,
                 text,
                 type_suffix,
             },
-            ..Expr::new(self.file_id, from_pest_span(span))
-        })))
+        ))))
     }
 
     pub fn parse_predefined_constant(
@@ -629,15 +643,16 @@ impl CParser {
         rule: Pair<Rule>,
     ) -> Result<Rc<RefCell<Expr>>, Diagnostic<usize>> {
         let span = rule.as_span();
-        Ok(Rc::new(RefCell::new(Expr {
-            kind: match rule.as_str() {
+        Ok(Rc::new(RefCell::new(Expr::new(
+            self.file_id,
+            from_pest_span(span),
+            match rule.as_str() {
                 "true" => ExprKind::True,
                 "false" => ExprKind::False,
                 "nullptr" => ExprKind::Nullptr,
                 _ => unreachable!(),
             },
-            ..Expr::new(self.file_id, from_pest_span(span))
-        })))
+        ))))
     }
 
     pub fn parse_character_constant(
@@ -655,8 +670,10 @@ impl CParser {
             }
         }
         let text = text.iter().collect::<String>();
-        Ok(Rc::new(RefCell::new(Expr {
-            kind: ExprKind::Char {
+        Ok(Rc::new(RefCell::new(Expr::new(
+            self.file_id,
+            from_pest_span(span),
+            ExprKind::Char {
                 prefix: match encode_prefix {
                     "u8" => EncodePrefix::UTF8,
                     "u" => EncodePrefix::UTF16,
@@ -666,8 +683,7 @@ impl CParser {
                 },
                 text,
             },
-            ..Expr::new(self.file_id, from_pest_span(span))
-        })))
+        ))))
     }
 
     pub fn parse_char(&self, rule: Pair<Rule>) -> Result<char, Diagnostic<usize>> {
@@ -725,8 +741,10 @@ impl CParser {
             }
         }
         let text = text.iter().collect::<String>();
-        Ok(Rc::new(RefCell::new(Expr {
-            kind: ExprKind::String {
+        Ok(Rc::new(RefCell::new(Expr::new(
+            self.file_id,
+            from_pest_span(span),
+            ExprKind::String {
                 prefix: match encode_prefix {
                     "u8" => EncodePrefix::UTF8,
                     "u" => EncodePrefix::UTF16,
@@ -736,8 +754,7 @@ impl CParser {
                 },
                 text,
             },
-            ..Expr::new(self.file_id, from_pest_span(span))
-        })))
+        ))))
     }
 
     pub fn parse_string_group(
@@ -781,9 +798,10 @@ impl CParser {
                 _ => unreachable!(),
             }
         }
-        Ok(Rc::new(RefCell::new(Expr {
-            kind: ExprKind::String { prefix, text },
-            ..Expr::new(self.file_id, from_pest_span(span))
-        })))
+        Ok(Rc::new(RefCell::new(Expr::new(
+            self.file_id,
+            from_pest_span(span),
+            ExprKind::String { prefix, text },
+        ))))
     }
 }

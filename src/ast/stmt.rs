@@ -13,6 +13,17 @@ pub struct Stmt {
     pub kind: StmtKind,
 }
 
+impl Stmt {
+    pub fn new(file_id: usize, span: Span) -> Stmt {
+        Stmt {
+            file_id,
+            span,
+            attributes: vec![],
+            kind: StmtKind::Null,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum StmtKind {
     Compound(Vec<Rc<RefCell<Stmt>>>),

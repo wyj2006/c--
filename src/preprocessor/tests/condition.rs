@@ -49,3 +49,19 @@ pub fn nested_condition() {
     let result = preprocessor.process().unwrap();
     assert_eq!(result, "\n\n2\n");
 }
+
+#[test]
+pub fn has_c_attribute() {
+    let mut preprocessor = quick_new_preprocessor(
+        "#if __has_c_attribute(A::a)
+1
+#elif __has_c_attribute(noreturn)
+2
+#else
+3
+#endif
+",
+    );
+    let result = preprocessor.process().unwrap();
+    assert_eq!(result, "\n2\n");
+}

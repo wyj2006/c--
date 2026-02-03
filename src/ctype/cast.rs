@@ -26,13 +26,11 @@ pub fn array_to_ptr(a: Rc<RefCell<Type>>) -> Rc<RefCell<Type>> {
             attributes: {
                 let mut attributes = a.borrow().attributes.clone();
                 attributes.push(Rc::new(RefCell::new(Attribute {
-                    file_id: a.borrow().file_id,
-                    span: a.borrow().span,
-                    prefix_name: None,
                     name: "ptr_from_array".to_string(),
                     kind: AttributeKind::PtrFromArray {
                         array_type: Rc::clone(&a),
                     },
+                    ..Attribute::new(a.borrow().file_id, a.borrow().span)
                 })));
                 attributes
             },

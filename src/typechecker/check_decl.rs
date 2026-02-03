@@ -50,14 +50,13 @@ impl TypeChecker {
                     } else {
                         new_type = Some(Rc::new(RefCell::new(r#type.clone())));
                         self.visit_declaration(Rc::new(RefCell::new(Declaration {
-                            file_id: r#type.file_id,
-                            span: r#type.span,
-                            attributes: vec![],
                             name,
                             r#type: Rc::clone(new_type.as_ref().unwrap()),
-                            storage_classes: vec![],
-                            kind: DeclarationKind::Record { members_decl: None },
-                            children: vec![],
+                            ..Declaration::new(
+                                r#type.file_id,
+                                r#type.span,
+                                DeclarationKind::Record { members_decl: None },
+                            )
                         })))?;
                     }
                 }
@@ -88,14 +87,13 @@ impl TypeChecker {
                     } else {
                         new_type = Some(Rc::new(RefCell::new(r#type.clone())));
                         self.visit_declaration(Rc::new(RefCell::new(Declaration {
-                            file_id: r#type.file_id,
-                            span: r#type.span,
-                            attributes: vec![],
                             name,
                             r#type: Rc::clone(new_type.as_ref().unwrap()),
-                            storage_classes: vec![],
-                            kind: DeclarationKind::Enum { enumerators: None },
-                            children: vec![],
+                            ..Declaration::new(
+                                r#type.file_id,
+                                r#type.span,
+                                DeclarationKind::Enum { enumerators: None },
+                            )
                         })))?;
                     }
                 }
@@ -156,9 +154,8 @@ impl TypeChecker {
                             },
                             has_varparam: *has_varparam,
                         },
-                        file_id: r#type.file_id,
-                        span: r#type.span,
                         attributes: r#type.attributes.clone(),
+                        ..Type::new(r#type.file_id, r#type.span)
                     })))
                 }
                 TypeKind::Array {
@@ -495,13 +492,11 @@ impl TypeChecker {
                         name: node.name.clone(),
                         kind: SymbolKind::Type,
                         r#type: Rc::new(RefCell::new(Type {
-                            file_id: node.file_id,
-                            span: node.span,
-                            attributes: vec![],
                             kind: TypeKind::Typedef {
                                 name: node.name.clone(),
                                 r#type: Some(Rc::clone(&node.r#type)),
                             },
+                            ..Type::new(node.file_id, node.span)
                         })),
                         attributes: node.attributes.clone(),
                     })),
@@ -693,10 +688,9 @@ impl TypeChecker {
                     }
                     if let Some(kind) = kind {
                         let r#type = Rc::new(RefCell::new(Type {
-                            file_id: underlying.borrow().file_id,
-                            span: underlying.borrow().span,
                             attributes: underlying.borrow().attributes.clone(),
                             kind,
+                            ..Type::new(underlying.borrow().file_id, underlying.borrow().span)
                         }));
                         *underlying = r#type;
                     }

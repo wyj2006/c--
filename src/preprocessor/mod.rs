@@ -499,14 +499,14 @@ impl Preprocessor {
                     let mut condition = 0;
                     let mut macro_name = String::new();
                     let mut macro_span = rule.as_span();
-                    let mut group = None;
+                    let mut groups = Vec::new();
                     for rule in rule.into_inner() {
                         match rule.as_rule() {
                             Rule::constant_expression => {
                                 condition = self.process_constant_expression(rule)?;
                                 tag = "if";
                             }
-                            Rule::group_part => group = Some(rule),
+                            Rule::group_part => groups.push(rule),
                             Rule::identifier => {
                                 macro_name = rule.as_str().to_string();
                                 macro_span = rule.as_span();
@@ -538,22 +538,22 @@ impl Preprocessor {
 
                     if is_true {
                         let mut result = "\n".to_string();
-                        if let Some(group) = group {
+                        for group in groups {
                             result += &self.process_group(group)?;
                         }
                         return Ok(result);
                     }
                 }
                 Rule::else_group => {
-                    let mut group = None;
+                    let mut groups = Vec::new();
                     for rule in rule.into_inner() {
                         match rule.as_rule() {
-                            Rule::group_part => group = Some(rule),
+                            Rule::group_part => groups.push(rule),
                             _ => {}
                         }
                     }
                     let mut result = "\n".to_string();
-                    if let Some(group) = group {
+                    for group in groups {
                         result += &self.process_group(group)?;
                     }
                     return Ok(result);

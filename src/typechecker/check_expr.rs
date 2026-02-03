@@ -26,14 +26,17 @@ use std::{cell::RefCell, rc::Rc, str::FromStr};
 impl TypeChecker {
     pub fn wrap_implicit_cast(&self, expr: Rc<RefCell<Expr>>, r#type: Rc<RefCell<Type>>) -> Expr {
         Expr {
-            kind: ExprKind::Cast {
-                is_implicit: true,
-                target: Rc::clone(&expr),
-                decls: Vec::new(),
-            },
             r#type,
             value: expr.borrow().value.clone(),
-            ..Expr::new(expr.borrow().file_id, expr.borrow().span)
+            ..Expr::new(
+                expr.borrow().file_id,
+                expr.borrow().span,
+                ExprKind::Cast {
+                    is_implicit: true,
+                    target: Rc::clone(&expr),
+                    decls: Vec::new(),
+                },
+            )
         }
     }
 
@@ -273,18 +276,14 @@ impl TypeChecker {
                         }
                     }
                     node.r#type = Rc::new(RefCell::new(Type {
-                        file_id: node.file_id,
-                        span: node.span,
-                        attributes: vec![],
                         kind: TypeKind::Qualified {
                             qualifiers: vec![TypeQual::Const],
                             r#type: Rc::new(RefCell::new(Type {
-                                file_id: node.file_id,
-                                span: node.span,
-                                attributes: vec![],
                                 kind,
+                                ..Type::new(node.file_id, node.span)
                             })),
                         },
+                        ..Type::new(node.file_id, node.span)
                     }));
                 }
                 ExprKind::String { prefix, text } => {
@@ -325,42 +324,30 @@ impl TypeChecker {
                     array.push(Variant::Int(BigInt::ZERO)); // '\0'
 
                     node.r#type = Rc::new(RefCell::new(Type {
-                        file_id: node.file_id,
-                        span: node.span,
-                        attributes: vec![],
                         kind: TypeKind::Array {
                             has_static: false,
                             has_star: false,
                             element_type: Rc::new(RefCell::new(Type {
-                                file_id: node.file_id,
-                                span: node.span,
-                                attributes: vec![],
                                 kind: TypeKind::Qualified {
                                     qualifiers: vec![TypeQual::Const],
                                     r#type: Rc::new(RefCell::new(Type {
-                                        file_id: node.file_id,
-                                        span: node.span,
-                                        attributes: vec![],
                                         kind: element_kind,
+                                        ..Type::new(node.file_id, node.span)
                                     })),
                                 },
+                                ..Type::new(node.file_id, node.span)
                             })),
-                            len_expr: Some(Rc::new(RefCell::new(Expr {
-                                kind: ExprKind::Integer {
-                                    base: 10,
-                                    text: format!("{}", array.len()),
-                                    type_suffix: vec![],
-                                },
-                                r#type: Rc::new(RefCell::new(Type {
-                                    file_id: node.file_id,
-                                    span: node.span,
-                                    attributes: vec![],
+                            len_expr: Some(Rc::new(RefCell::new(Expr::new_const_int(
+                                node.file_id,
+                                node.span,
+                                array.len(),
+                                Rc::new(RefCell::new(Type {
                                     kind: TypeKind::ULongLong,
+                                    ..Type::new(node.file_id, node.span)
                                 })),
-                                value: Variant::Int(BigInt::from(array.len())),
-                                ..Expr::new(node.file_id, node.span)
-                            }))),
+                            )))),
                         },
+                        ..Type::new(node.file_id, node.span)
                     }));
                     node.value = Variant::Array(array);
                     node.is_lvalue = true;
@@ -421,28 +408,22 @@ impl TypeChecker {
                 ExprKind::True => {
                     node.value = Variant::Bool(true);
                     node.r#type = Rc::new(RefCell::new(Type {
-                        file_id: node.file_id,
-                        span: node.span,
-                        attributes: vec![],
                         kind: TypeKind::Bool,
+                        ..Type::new(node.file_id, node.span)
                     }));
                 }
                 ExprKind::False => {
                     node.value = Variant::Bool(false);
                     node.r#type = Rc::new(RefCell::new(Type {
-                        file_id: node.file_id,
-                        span: node.span,
-                        attributes: vec![],
                         kind: TypeKind::Bool,
+                        ..Type::new(node.file_id, node.span)
                     }));
                 }
                 ExprKind::Nullptr => {
                     node.value = Variant::Nullptr;
                     node.r#type = Rc::new(RefCell::new(Type {
-                        file_id: node.file_id,
-                        span: node.span,
-                        attributes: vec![],
                         kind: TypeKind::Nullptr,
+                        ..Type::new(node.file_id, node.span)
                     }));
                 }
                 ExprKind::Integer {
@@ -461,75 +442,53 @@ impl TypeChecker {
                         && type_suffix.contains(&"u".to_string())
                     {
                         candidates = vec![Type {
-                            file_id: node.file_id,
-                            span: node.span,
-                            attributes: vec![],
                             kind: TypeKind::BitInt {
                                 unsigned: true,
-                                width_expr: Rc::new(RefCell::new(Expr {
-                                    kind: ExprKind::Integer {
-                                        base: 10,
-                                        text: format!("{}", value.bits()),
-                                        type_suffix: vec![],
-                                    },
-                                    r#type: Rc::new(RefCell::new(Type {
-                                        file_id: node.file_id,
-                                        span: node.span,
-                                        attributes: vec![],
+                                width_expr: Rc::new(RefCell::new(Expr::new_const_int(
+                                    node.file_id,
+                                    node.span,
+                                    value.bits(),
+                                    Rc::new(RefCell::new(Type {
                                         kind: TypeKind::ULongLong,
+                                        ..Type::new(node.file_id, node.span)
                                     })),
-                                    value: Variant::Int(BigInt::from(value.bits())),
-                                    ..Expr::new(node.file_id, node.span)
-                                })),
+                                ))),
                             },
+                            ..Type::new(node.file_id, node.span)
                         }];
                     } else if type_suffix.contains(&"wb".to_string()) {
                         candidates = vec![Type {
-                            file_id: node.file_id,
-                            span: node.span,
-                            attributes: vec![],
                             kind: TypeKind::BitInt {
                                 unsigned: false,
-                                width_expr: Rc::new(RefCell::new(Expr {
-                                    kind: ExprKind::Integer {
-                                        base: 10,
-                                        text: format!("{}", value.bits() + 1),
-                                        type_suffix: vec![],
-                                    },
-                                    r#type: Rc::new(RefCell::new(Type {
-                                        file_id: node.file_id,
-                                        span: node.span,
-                                        attributes: vec![],
-                                        kind: TypeKind::ULongLong,
-                                    })),
+                                width_expr: Rc::new(RefCell::new(Expr::new_const_int(
+                                    node.file_id,
+                                    node.span,
                                     //还有一位符号位
-                                    value: Variant::Int(BigInt::from(value.bits() + 1)),
-                                    ..Expr::new(node.file_id, node.span)
-                                })),
+                                    value.bits() + 1,
+                                    Rc::new(RefCell::new(Type {
+                                        kind: TypeKind::ULongLong,
+                                        ..Type::new(node.file_id, node.span)
+                                    })),
+                                ))),
                             },
+                            ..Type::new(node.file_id, node.span)
                         }];
                     } else if type_suffix.contains(&"ll".to_string())
                         && type_suffix.contains(&"u".to_string())
                     {
                         candidates = vec![Type {
-                            file_id: node.file_id,
-                            span: node.span,
-                            attributes: vec![],
                             kind: TypeKind::ULongLong,
+                            ..Type::new(node.file_id, node.span)
                         }];
                     } else if type_suffix.contains(&"ll".to_string()) {
                         candidates = vec![Type {
-                            file_id: node.file_id,
-                            span: node.span,
-                            attributes: vec![],
                             kind: TypeKind::LongLong,
+                            ..Type::new(node.file_id, node.span)
                         }];
                         if *base != 10 {
                             candidates.push(Type {
-                                file_id: node.file_id,
-                                span: node.span,
-                                attributes: vec![],
                                 kind: TypeKind::ULongLong,
+                                ..Type::new(node.file_id, node.span)
                             });
                         }
                     } else if type_suffix.contains(&"l".to_string())
@@ -537,108 +496,78 @@ impl TypeChecker {
                     {
                         candidates = vec![
                             Type {
-                                file_id: node.file_id,
-                                span: node.span,
-                                attributes: vec![],
                                 kind: TypeKind::ULong,
+                                ..Type::new(node.file_id, node.span)
                             },
                             Type {
-                                file_id: node.file_id,
-                                span: node.span,
-                                attributes: vec![],
                                 kind: TypeKind::ULongLong,
+                                ..Type::new(node.file_id, node.span)
                             },
                         ];
                     } else if type_suffix.contains(&"l".to_string()) {
                         candidates = vec![
                             Type {
-                                file_id: node.file_id,
-                                span: node.span,
-                                attributes: vec![],
                                 kind: TypeKind::Long,
+                                ..Type::new(node.file_id, node.span)
                             },
                             Type {
-                                file_id: node.file_id,
-                                span: node.span,
-                                attributes: vec![],
                                 kind: TypeKind::ULong,
+                                ..Type::new(node.file_id, node.span)
                             },
                             Type {
-                                file_id: node.file_id,
-                                span: node.span,
-                                attributes: vec![],
                                 kind: TypeKind::LongLong,
+                                ..Type::new(node.file_id, node.span)
                             },
                         ];
                         if *base != 10 {
                             candidates.push(Type {
-                                file_id: node.file_id,
-                                span: node.span,
-                                attributes: vec![],
                                 kind: TypeKind::ULongLong,
+                                ..Type::new(node.file_id, node.span)
                             });
                         }
                     } else if type_suffix.contains(&"u".to_string()) {
                         candidates = vec![
                             Type {
-                                file_id: node.file_id,
-                                span: node.span,
-                                attributes: vec![],
                                 kind: TypeKind::UInt,
+                                ..Type::new(node.file_id, node.span)
                             },
                             Type {
-                                file_id: node.file_id,
-                                span: node.span,
-                                attributes: vec![],
                                 kind: TypeKind::ULong,
+                                ..Type::new(node.file_id, node.span)
                             },
                             Type {
-                                file_id: node.file_id,
-                                span: node.span,
-                                attributes: vec![],
                                 kind: TypeKind::ULongLong,
+                                ..Type::new(node.file_id, node.span)
                             },
                         ];
                     } else {
                         candidates = vec![
                             Type {
-                                file_id: node.file_id,
-                                span: node.span,
-                                attributes: vec![],
                                 kind: TypeKind::Int,
+                                ..Type::new(node.file_id, node.span)
                             },
                             Type {
-                                file_id: node.file_id,
-                                span: node.span,
-                                attributes: vec![],
                                 kind: TypeKind::Long,
+                                ..Type::new(node.file_id, node.span)
                             },
                             Type {
-                                file_id: node.file_id,
-                                span: node.span,
-                                attributes: vec![],
                                 kind: TypeKind::ULong,
+                                ..Type::new(node.file_id, node.span)
                             },
                             Type {
-                                file_id: node.file_id,
-                                span: node.span,
-                                attributes: vec![],
                                 kind: TypeKind::LongLong,
+                                ..Type::new(node.file_id, node.span)
                             },
                         ];
                         if *base != 10 {
                             candidates.extend(vec![
                                 Type {
-                                    file_id: node.file_id,
-                                    span: node.span,
-                                    attributes: vec![],
                                     kind: TypeKind::UInt,
+                                    ..Type::new(node.file_id, node.span)
                                 },
                                 Type {
-                                    file_id: node.file_id,
-                                    span: node.span,
-                                    attributes: vec![],
                                     kind: TypeKind::ULongLong,
+                                    ..Type::new(node.file_id, node.span)
                                 },
                             ]);
                         }
@@ -727,9 +656,6 @@ impl TypeChecker {
                     }
 
                     node.r#type = Rc::new(RefCell::new(Type {
-                        file_id: node.file_id,
-                        span: node.span,
-                        attributes: vec![],
                         kind: if type_suffix.contains(&"df".to_string()) {
                             TypeKind::Decimal32
                         } else if type_suffix.contains(&"dd".to_string()) {
@@ -743,6 +669,7 @@ impl TypeChecker {
                         } else {
                             TypeKind::Double
                         },
+                        ..Type::new(node.file_id, node.span)
                     }));
                     node.value = Variant::Rational(value);
                 }
@@ -931,10 +858,8 @@ impl TypeChecker {
                                     self.try_implicit_cast(Rc::clone(argument), target_type)?;
                             } else if let TypeKind::Float = r#type.borrow().kind {
                                 let target_type = Rc::new(RefCell::new(Type {
-                                    file_id: argument.borrow().file_id,
-                                    span: argument.borrow().span,
-                                    attributes: vec![],
                                     kind: TypeKind::Double,
+                                    ..Type::new(argument.borrow().file_id, argument.borrow().span)
                                 }));
                                 *argument =
                                     self.try_implicit_cast(Rc::clone(argument), target_type)?;
@@ -1053,13 +978,11 @@ impl TypeChecker {
                                 node.symbol = Some(Rc::clone(member));
                                 if qualifiers.len() > 0 {
                                     node.r#type = Rc::new(RefCell::new(Type {
-                                        file_id: node.file_id,
-                                        span: node.span,
-                                        attributes: vec![],
                                         kind: TypeKind::Qualified {
                                             qualifiers,
                                             r#type: Rc::clone(&member.borrow().r#type),
                                         },
+                                        ..Type::new(node.file_id, node.span)
                                     }));
                                 } else {
                                     node.r#type = Rc::clone(&member.borrow().r#type);
@@ -1104,10 +1027,8 @@ impl TypeChecker {
                                 let value = !operand.borrow().value.clone();
                                 node.value = value;
                                 node.r#type = Rc::new(RefCell::new(Type {
-                                    file_id: node.file_id,
-                                    span: node.span,
-                                    attributes: vec![],
                                     kind: TypeKind::Int,
+                                    ..Type::new(node.file_id, node.span)
                                 }))
                             } else {
                                 return Err(Diagnostic::error()
@@ -1264,10 +1185,8 @@ impl TypeChecker {
                                     None => {}
                                 }
                                 let r#type = Rc::new(RefCell::new(Type {
-                                    file_id: node.file_id,
-                                    span: node.span,
-                                    attributes: vec![],
                                     kind: TypeKind::Pointer(Rc::clone(&operand.borrow().r#type)),
+                                    ..Type::new(node.file_id, node.span)
                                 }));
                                 node.r#type = r#type;
                             } else {
@@ -1340,10 +1259,8 @@ impl TypeChecker {
 
                                 node.value = value;
                                 node.r#type = Rc::new(RefCell::new(Type {
-                                    file_id: node.file_id,
-                                    span: node.span,
-                                    attributes: vec![],
                                     kind: TypeKind::Int,
+                                    ..Type::new(node.file_id, node.span)
                                 }));
                             }
                         }
@@ -1399,10 +1316,8 @@ impl TypeChecker {
                                 .with_label(Label::primary(right.borrow().file_id,right.borrow().span).with_message("the right operand")));
                             }
                             node.r#type = Rc::new(RefCell::new(Type {
-                                file_id: node.file_id,
-                                span: node.span,
-                                attributes: vec![],
                                 kind: TypeKind::Int,
+                                ..Type::new(node.file_id, node.span)
                             }));
                         }
                         BinOpKind::Eq | BinOpKind::Neq => {
@@ -1440,33 +1355,37 @@ impl TypeChecker {
                                         let new_left = self.try_implicit_cast(
                                             Rc::clone(left),
                                             Rc::new(RefCell::new(Type {
-                                                file_id: left.borrow().file_id,
-                                                span: left.borrow().span,
-                                                attributes: vec![],
                                                 kind: TypeKind::Pointer(Rc::new(RefCell::new(
                                                     Type {
-                                                        file_id: left.borrow().file_id,
-                                                        span: left.borrow().span,
-                                                        attributes: vec![],
                                                         kind: TypeKind::Void,
+                                                        ..Type::new(
+                                                            left.borrow().file_id,
+                                                            left.borrow().span,
+                                                        )
                                                     },
                                                 ))),
+                                                ..Type::new(
+                                                    left.borrow().file_id,
+                                                    left.borrow().span,
+                                                )
                                             })),
                                         )?;
                                         let new_right = self.try_implicit_cast(
                                             Rc::clone(right),
                                             Rc::new(RefCell::new(Type {
-                                                file_id: right.borrow().file_id,
-                                                span: right.borrow().span,
-                                                attributes: vec![],
                                                 kind: TypeKind::Pointer(Rc::new(RefCell::new(
                                                     Type {
-                                                        file_id: right.borrow().file_id,
-                                                        span: right.borrow().span,
-                                                        attributes: vec![],
                                                         kind: TypeKind::Void,
+                                                        ..Type::new(
+                                                            right.borrow().file_id,
+                                                            right.borrow().span,
+                                                        )
                                                     },
                                                 ))),
+                                                ..Type::new(
+                                                    right.borrow().file_id,
+                                                    right.borrow().span,
+                                                )
                                             })),
                                         )?;
                                         *left = new_left;
@@ -1475,15 +1394,11 @@ impl TypeChecker {
                                     _ => unreachable!(),
                                 }
                                 node.r#type = Rc::new(RefCell::new(Type {
-                                    file_id: node.file_id,
-                                    span: node.span,
-                                    attributes: vec![],
                                     kind: TypeKind::Pointer(Rc::new(RefCell::new(Type {
-                                        file_id: node.file_id,
-                                        span: node.span,
-                                        attributes: vec![],
                                         kind: TypeKind::Void,
+                                        ..Type::new(node.file_id, node.span)
                                     }))),
+                                    ..Type::new(node.file_id, node.span)
                                 }));
                             } else {
                                 return Err(Diagnostic::error().with_message(format!(
@@ -1492,10 +1407,8 @@ impl TypeChecker {
                                 .with_label(Label::primary(right.borrow().file_id,right.borrow().span).with_message("the right operand")));
                             }
                             node.r#type = Rc::new(RefCell::new(Type {
-                                file_id: node.file_id,
-                                span: node.span,
-                                attributes: vec![],
                                 kind: TypeKind::Int,
+                                ..Type::new(node.file_id, node.span)
                             }));
                         }
                         BinOpKind::Add | BinOpKind::Sub => {
@@ -1733,8 +1646,10 @@ impl TypeChecker {
                         | BinOpKind::BitOrAssign
                         | BinOpKind::BitXOrAssign => {
                             //表达式 lhs @= rhs 与 lhs = lhs @ ( rhs ) 完全相同
-                            let eq_expr = Rc::new(RefCell::new(Expr {
-                                kind: ExprKind::BinOp {
+                            let eq_expr = Rc::new(RefCell::new(Expr::new(
+                                node.file_id,
+                                node.span,
+                                ExprKind::BinOp {
                                     op: match op {
                                         BinOpKind::MulAssign => BinOpKind::Mul,
                                         BinOpKind::DivAssign => BinOpKind::Div,
@@ -1751,8 +1666,7 @@ impl TypeChecker {
                                     left: Rc::clone(left),
                                     right: Rc::clone(right),
                                 },
-                                ..Expr::new(node.file_id, node.span)
-                            }));
+                            )));
                             let r#type = remove_qualifier(Rc::clone(&left.borrow().r#type));
 
                             self.visit_expr(Rc::clone(&eq_expr))?;
@@ -1824,10 +1738,8 @@ impl TypeChecker {
                         && false_expr.borrow().r#type.borrow().is_void()
                     {
                         node.r#type = Rc::new(RefCell::new(Type {
-                            file_id: node.file_id,
-                            span: node.span,
-                            attributes: vec![],
                             kind: TypeKind::Void,
+                            ..Type::new(node.file_id, node.span)
                         }));
                     } else if true_expr.borrow().r#type.borrow().is_pointer()
                         || true_expr.borrow().r#type.borrow().is_nullptr()
@@ -1843,29 +1755,33 @@ impl TypeChecker {
                                 let new_true_expr = self.try_implicit_cast(
                                     Rc::clone(true_expr),
                                     Rc::new(RefCell::new(Type {
-                                        file_id: true_expr.borrow().file_id,
-                                        span: true_expr.borrow().span,
-                                        attributes: vec![],
                                         kind: TypeKind::Pointer(Rc::new(RefCell::new(Type {
-                                            file_id: true_expr.borrow().file_id,
-                                            span: true_expr.borrow().span,
-                                            attributes: vec![],
                                             kind: TypeKind::Void,
+                                            ..Type::new(
+                                                true_expr.borrow().file_id,
+                                                true_expr.borrow().span,
+                                            )
                                         }))),
+                                        ..Type::new(
+                                            true_expr.borrow().file_id,
+                                            true_expr.borrow().span,
+                                        )
                                     })),
                                 )?;
                                 let new_false_expr = self.try_implicit_cast(
                                     Rc::clone(false_expr),
                                     Rc::new(RefCell::new(Type {
-                                        file_id: false_expr.borrow().file_id,
-                                        span: false_expr.borrow().span,
-                                        attributes: vec![],
                                         kind: TypeKind::Pointer(Rc::new(RefCell::new(Type {
-                                            file_id: false_expr.borrow().file_id,
-                                            span: false_expr.borrow().span,
-                                            attributes: vec![],
                                             kind: TypeKind::Void,
+                                            ..Type::new(
+                                                false_expr.borrow().file_id,
+                                                false_expr.borrow().span,
+                                            )
                                         }))),
+                                        ..Type::new(
+                                            false_expr.borrow().file_id,
+                                            false_expr.borrow().span,
+                                        )
                                     })),
                                 )?;
                                 *true_expr = new_true_expr;
@@ -1874,15 +1790,11 @@ impl TypeChecker {
                             _ => unreachable!(),
                         }
                         node.r#type = Rc::new(RefCell::new(Type {
-                            file_id: node.file_id,
-                            span: node.span,
-                            attributes: vec![],
                             kind: TypeKind::Pointer(Rc::new(RefCell::new(Type {
-                                file_id: node.file_id,
-                                span: node.span,
-                                attributes: vec![],
                                 kind: TypeKind::Void,
+                                ..Type::new(node.file_id, node.span)
                             }))),
+                            ..Type::new(node.file_id, node.span)
                         }));
                     } else {
                         return Err(Diagnostic::error().with_message(format!(
@@ -1921,10 +1833,8 @@ impl TypeChecker {
                     }
                     node.value = value;
                     node.r#type = Rc::new(RefCell::new(Type {
-                        file_id: node.file_id,
-                        span: node.span,
-                        attributes: vec![],
                         kind: TypeKind::ULongLong,
+                        ..Type::new(node.file_id, node.span)
                     }));
                 }
                 ExprKind::SizeOf {
@@ -1951,10 +1861,8 @@ impl TypeChecker {
                     }
                     node.value = value;
                     node.r#type = Rc::new(RefCell::new(Type {
-                        file_id: node.file_id,
-                        span: node.span,
-                        attributes: vec![],
                         kind: TypeKind::ULongLong,
+                        ..Type::new(node.file_id, node.span)
                     }))
                 }
                 ExprKind::SizeOf {
@@ -2015,10 +1923,8 @@ impl TypeChecker {
                     }
 
                     node.r#type = Rc::new(RefCell::new(Type {
-                        file_id: node.file_id,
-                        span: node.span,
-                        attributes: vec![],
                         kind: TypeKind::ULongLong,
+                        ..Type::new(node.file_id, node.span)
                     }));
                 }
                 ExprKind::CompoundLiteral {

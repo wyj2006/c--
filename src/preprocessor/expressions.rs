@@ -2,7 +2,7 @@
 use super::{Preprocessor, Rule};
 use crate::ast::expr::ExprKind;
 use crate::ast::has_c_attribute;
-use crate::diagnostic::{from_pest_span, map_pest_err, warning};
+use crate::diagnostic::{from_pest_span, map_pest_err};
 use crate::parser::CParser;
 use crate::preprocessor::macro_replace::{
     STDC_EMBED_EMPTY, STDC_EMBED_FOUND, STDC_EMBED_NOT_FOUND,
@@ -182,39 +182,23 @@ impl Preprocessor {
                     Ok(STDC_EMBED_NOT_FOUND)
                 }
                 Rule::has_c_attribute => {
-                    let span = primary.as_span();
+                    let mut prefix_name = None;
+                    let mut name = String::new();
 
-                    let mut attribute_str = String::new();
                     for rule in primary.into_inner() {
-                        attribute_str += rule.as_str();
+                        match rule.as_rule() {
+                            Rule::attribute_prefix => prefix_name = Some(rule.as_str().to_string()),
+                            Rule::identifier => name = rule.as_str().to_string(),
+                            _ => unreachable!(),
+                        }
                     }
 
-                    let part_id = files
-                        .lock()
-                        .unwrap()
-                        .add(format!("<part>"), attribute_str.as_str().to_string());
-                    let parser = CParser::new(part_id);
-                    let rules = map_pest_err(
-                        part_id,
-                        CParser::parse(parser::Rule::attribute_list, attribute_str.as_str()),
-                    )?;
-                    if rules.len() > 1 {
-                        warning(
-                            format!("too many arguments, only the first one will be considered"),
-                            self.file_id,
-                            from_pest_span(span),
-                            vec![],
-                        );
+                    if name.starts_with("__") && name.ends_with("__") {
+                        //去除两边的下划线
+                        name = name[2..name.len() - 2].to_string();
                     }
 
-                    for rule in rules {
-                        let attribute = parser.parse_attribute(rule)?;
-                        return Ok(has_c_attribute(
-                            attribute.borrow().prefix_name.clone(),
-                            attribute.borrow().name.clone(),
-                        ));
-                    }
-                    Ok(0)
+                    Ok(has_c_attribute(prefix_name, name))
                 }
                 Rule::predefined_constant => {
                     if primary.as_str() == "true" {

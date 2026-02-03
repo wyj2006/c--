@@ -107,6 +107,17 @@ pub enum RecordKind {
     Union,
 }
 
+impl Type {
+    pub fn new(file_id: usize, span: Span) -> Type {
+        Type {
+            file_id,
+            span,
+            attributes: vec![],
+            kind: TypeKind::Error,
+        }
+    }
+}
+
 impl Display for RecordKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(

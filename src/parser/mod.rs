@@ -12,8 +12,6 @@ use crate::ast::Initializer;
 use crate::ast::InitializerKind;
 use crate::ast::TranslationUnit;
 use crate::ast::expr::ExprKind;
-use crate::ctype::Type;
-use crate::ctype::TypeKind;
 use crate::diagnostic::from_pest_span;
 use crate::diagnostic::map_pest_err;
 use crate::files;
@@ -67,9 +65,8 @@ impl CParser {
             }
         }
         Ok(Rc::new(RefCell::new(TranslationUnit {
-            file_id: self.file_id,
-            span: from_pest_span(span),
             decls,
+            ..TranslationUnit::new(self.file_id, from_pest_span(span))
         })))
     }
 
@@ -183,11 +180,10 @@ impl CParser {
             }
         }
         Ok(Rc::new(RefCell::new(Attribute {
-            file_id: self.file_id,
-            span: from_pest_span(span),
             prefix_name,
             name,
             kind,
+            ..Attribute::new(self.file_id, from_pest_span(span))
         })))
     }
 
@@ -199,18 +195,11 @@ impl CParser {
             match rule.as_rule() {
                 Rule::braced_initializer => return self.parse_braced_initializer(rule),
                 Rule::assignment_expression => {
-                    return Ok(Rc::new(RefCell::new(Initializer {
-                        file_id: self.file_id,
-                        span: from_pest_span(rule.as_span()),
-                        designation: Vec::new(),
-                        r#type: Rc::new(RefCell::new(Type {
-                            file_id: self.file_id,
-                            span: from_pest_span(rule.as_span()),
-                            attributes: vec![],
-                            kind: TypeKind::Error,
-                        })),
-                        kind: InitializerKind::Expr(self.parse_assignment_expression(rule)?),
-                    })));
+                    return Ok(Rc::new(RefCell::new(Initializer::new(
+                        self.file_id,
+                        from_pest_span(rule.as_span()),
+                        InitializerKind::Expr(self.parse_assignment_expression(rule)?),
+                    ))));
                 }
                 _ => unreachable!(),
             }
@@ -237,18 +226,11 @@ impl CParser {
                 _ => unreachable!(),
             }
         }
-        Ok(Rc::new(RefCell::new(Initializer {
-            file_id: self.file_id,
-            span: from_pest_span(span),
-            designation: Vec::new(),
-            kind: InitializerKind::Braced(initializers),
-            r#type: Rc::new(RefCell::new(Type {
-                file_id: self.file_id,
-                span: from_pest_span(span),
-                attributes: vec![],
-                kind: TypeKind::Error,
-            })),
-        })))
+        Ok(Rc::new(RefCell::new(Initializer::new(
+            self.file_id,
+            from_pest_span(span),
+            InitializerKind::Braced(initializers),
+        ))))
     }
 
     pub fn parse_designation(
@@ -259,17 +241,17 @@ impl CParser {
         let mut designations = Vec::new();
         for rule in rule.into_inner() {
             match rule.as_rule() {
-                Rule::constant_expression => designations.push(Designation {
-                    file_id: self.file_id,
-                    span: from_pest_span(span),
-                    kind: DesignationKind::Subscript(self.parse_constant_expression(rule)?),
-                }),
+                Rule::constant_expression => designations.push(Designation::new(
+                    self.file_id,
+                    from_pest_span(span),
+                    DesignationKind::Subscript(self.parse_constant_expression(rule)?),
+                )),
                 Rule::identifier => {
-                    designations.push(Designation {
-                        file_id: self.file_id,
-                        span: from_pest_span(span),
-                        kind: DesignationKind::MemberAccess(rule.as_str().to_string()),
-                    });
+                    designations.push(Designation::new(
+                        self.file_id,
+                        from_pest_span(span),
+                        DesignationKind::MemberAccess(rule.as_str().to_string()),
+                    ));
                 }
                 _ => unreachable!(),
             }

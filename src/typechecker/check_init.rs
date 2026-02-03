@@ -11,7 +11,7 @@ use crate::{
 };
 use codespan::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use num::{BigInt, BigUint, ToPrimitive};
+use num::{BigInt, ToPrimitive};
 use std::{cell::RefCell, rc::Rc};
 
 #[derive(Debug)]
@@ -86,30 +86,22 @@ impl DesignationNode {
 impl SimpleDesignation {
     pub fn to_designation(&self, file_id: usize, span: Span) -> Designation {
         match self {
-            SimpleDesignation::Subscript(index) => Designation {
+            SimpleDesignation::Subscript(index) => Designation::new(
                 file_id,
                 span,
-                kind: DesignationKind::Subscript(Rc::new(RefCell::new(Expr {
-                    kind: ExprKind::Integer {
-                        base: 10,
-                        text: format!("{}", index),
-                        type_suffix: vec![],
-                    },
-                    r#type: Rc::new(RefCell::new(Type {
-                        file_id: file_id,
-                        span,
-                        attributes: vec![],
+                DesignationKind::Subscript(Rc::new(RefCell::new(Expr::new_const_int(
+                    file_id,
+                    span,
+                    *index,
+                    Rc::new(RefCell::new(Type {
                         kind: TypeKind::ULongLong,
+                        ..Type::new(file_id, span)
                     })),
-                    value: Variant::Int(BigInt::from(BigUint::from(*index))),
-                    ..Expr::new(file_id, span)
-                }))),
-            },
-            SimpleDesignation::MemberAccess(name) => Designation {
-                file_id,
-                span,
-                kind: DesignationKind::MemberAccess(name.clone()),
-            },
+                )))),
+            ),
+            SimpleDesignation::MemberAccess(name) => {
+                Designation::new(file_id, span, DesignationKind::MemberAccess(name.clone()))
+            }
         }
     }
 }
@@ -409,27 +401,22 @@ impl TypeChecker {
 
         //补全数组类型
         let file_id = r#type.borrow().file_id;
+        let span = r#type.borrow().span;
         let len = max_index + 1;
         match &mut r#type.borrow_mut().kind {
             TypeKind::Array {
                 len_expr: len_expr @ None,
                 ..
             } => {
-                *len_expr = Some(Rc::new(RefCell::new(Expr {
-                    kind: ExprKind::Integer {
-                        base: 10,
-                        text: format!("{len}"),
-                        type_suffix: vec![],
-                    },
-                    r#type: Rc::new(RefCell::new(Type {
-                        file_id,
-                        span: node.span,
-                        attributes: vec![],
+                *len_expr = Some(Rc::new(RefCell::new(Expr::new_const_int(
+                    file_id,
+                    span,
+                    len,
+                    Rc::new(RefCell::new(Type {
                         kind: TypeKind::ULongLong,
+                        ..Type::new(file_id, span)
                     })),
-                    value: Variant::Int(BigInt::from(BigUint::from(len))),
-                    ..Expr::new(file_id, node.span)
-                })))
+                ))))
             }
             _ => {}
         }

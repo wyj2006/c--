@@ -19,10 +19,8 @@ impl CParser {
                 Rule::declaration => {
                     let span = rule.as_span();
                     stmts.push(Rc::new(RefCell::new(Stmt {
-                        file_id: self.file_id,
-                        span: from_pest_span(span),
-                        attributes: vec![],
                         kind: StmtKind::Decl(self.parse_declaration(rule)?),
+                        ..Stmt::new(self.file_id, from_pest_span(span))
                     })));
                 }
                 Rule::unlabeled_statement => stmts.push(self.parse_unlabeled_statement(rule)?),
@@ -32,10 +30,8 @@ impl CParser {
         }
 
         Ok(Rc::new(RefCell::new(Stmt {
-            file_id: self.file_id,
-            span: from_pest_span(span),
-            attributes: Vec::new(),
             kind: StmtKind::Compound(stmts),
+            ..Stmt::new(self.file_id, from_pest_span(span))
         })))
     }
 
@@ -58,21 +54,17 @@ impl CParser {
                 Rule::expression => {
                     let span = rule.as_span();
                     stmt = Some(Rc::new(RefCell::new(Stmt {
-                        file_id: self.file_id,
-                        span: from_pest_span(span),
-                        attributes: Vec::new(), //在之后会添加
                         kind: StmtKind::Expr(self.parse_expression(rule)?),
+                        ..Stmt::new(self.file_id, from_pest_span(span))
                     })))
                 }
                 _ => unreachable!(),
             }
         }
-        let stmt = stmt.unwrap_or(Rc::new(RefCell::new(Stmt {
-            file_id: self.file_id,
-            span: from_pest_span(span),
-            attributes: Vec::new(), //在之后会添加
-            kind: StmtKind::Null,
-        })));
+        let stmt = stmt.unwrap_or(Rc::new(RefCell::new(Stmt::new(
+            self.file_id,
+            from_pest_span(span),
+        ))));
         stmt.borrow_mut().attributes.extend(attributes);
         Ok(stmt)
     }
@@ -106,10 +98,9 @@ impl CParser {
             StmtKind::Label { name, stmt: None }
         };
         Ok(Rc::new(RefCell::new(Stmt {
-            file_id: self.file_id,
-            span: from_pest_span(span),
             attributes,
             kind,
+            ..Stmt::new(self.file_id, from_pest_span(span))
         })))
     }
 
@@ -139,9 +130,6 @@ impl CParser {
         let condition = condition.unwrap();
         let body = body.unwrap();
         Ok(Rc::new(RefCell::new(Stmt {
-            file_id: self.file_id,
-            span: from_pest_span(span),
-            attributes: Vec::new(),
             kind: if is_if {
                 StmtKind::If {
                     condition,
@@ -151,6 +139,7 @@ impl CParser {
             } else {
                 StmtKind::Switch { condition, body }
             },
+            ..Stmt::new(self.file_id, from_pest_span(span))
         })))
     }
 
@@ -178,9 +167,6 @@ impl CParser {
         stmts.reverse();
 
         Ok(Rc::new(RefCell::new(Stmt {
-            file_id: self.file_id,
-            span: from_pest_span(span),
-            attributes: Vec::new(),
             kind: if str.starts_with("while") {
                 StmtKind::While {
                     condition: exprs.pop().unwrap(),
@@ -200,6 +186,7 @@ impl CParser {
                     body: stmts.pop().unwrap(),
                 }
             },
+            ..Stmt::new(self.file_id, from_pest_span(span))
         })))
     }
 
@@ -220,9 +207,6 @@ impl CParser {
             }
         }
         Ok(Rc::new(RefCell::new(Stmt {
-            file_id: self.file_id,
-            span: from_pest_span(span),
-            attributes: Vec::new(),
             kind: if str.starts_with("goto") {
                 StmtKind::Goto(name)
             } else if str.starts_with("continue") {
@@ -232,6 +216,7 @@ impl CParser {
             } else {
                 StmtKind::Return { expr }
             },
+            ..Stmt::new(self.file_id, from_pest_span(span))
         })))
     }
 

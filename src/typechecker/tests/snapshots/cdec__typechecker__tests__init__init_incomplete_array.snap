@@ -1,6 +1,6 @@
 ---
 source: src/typechecker/tests/init.rs
-expression: "re.replace_all(format! (\"{ast:#?}\").as_str(), \"\")"
+expression: "Regex ::\nnew(r#\"define_loc[\\s\\S]*?name\"#).unwrap().replace_all(& Regex ::\nnew(r#\"\\n.*?file_id[\\s\\S]*?,\"#).unwrap().replace_all(format!\n(\"{ast:#?}\").as_str(), \"\"), \"name\")"
 ---
 RefCell {
     value: TranslationUnit {
@@ -181,8 +181,8 @@ RefCell {
                                                                                     RefCell {
                                                                                         value: Expr {
                                                                                             span: Span {
-                                                                                                start: ByteIndex(35),
-                                                                                                end: ByteIndex(44),
+                                                                                                start: ByteIndex(26),
+                                                                                                end: ByteIndex(28),
                                                                                             },
                                                                                             kind: Integer {
                                                                                                 base: 10,
@@ -192,8 +192,8 @@ RefCell {
                                                                                             type: RefCell {
                                                                                                 value: Type {
                                                                                                     span: Span {
-                                                                                                        start: ByteIndex(35),
-                                                                                                        end: ByteIndex(44),
+                                                                                                        start: ByteIndex(26),
+                                                                                                        end: ByteIndex(28),
                                                                                                     },
                                                                                                     attributes: [],
                                                                                                     kind: ULongLong,
@@ -966,8 +966,8 @@ RefCell {
                                                                                                     RefCell {
                                                                                                         value: Expr {
                                                                                                             span: Span {
-                                                                                                                start: ByteIndex(35),
-                                                                                                                end: ByteIndex(44),
+                                                                                                                start: ByteIndex(26),
+                                                                                                                end: ByteIndex(28),
                                                                                                             },
                                                                                                             kind: Integer {
                                                                                                                 base: 10,
@@ -977,8 +977,8 @@ RefCell {
                                                                                                             type: RefCell {
                                                                                                                 value: Type {
                                                                                                                     span: Span {
-                                                                                                                        start: ByteIndex(35),
-                                                                                                                        end: ByteIndex(44),
+                                                                                                                        start: ByteIndex(26),
+                                                                                                                        end: ByteIndex(28),
                                                                                                                     },
                                                                                                                     attributes: [],
                                                                                                                     kind: ULongLong,

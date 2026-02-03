@@ -17,6 +17,16 @@ pub struct TranslationUnit {
     pub decls: Vec<Rc<RefCell<Declaration>>>,
 }
 
+impl TranslationUnit {
+    pub fn new(file_id: usize, span: Span) -> TranslationUnit {
+        TranslationUnit {
+            file_id,
+            span,
+            decls: vec![],
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Attribute {
     pub file_id: usize,
@@ -24,6 +34,18 @@ pub struct Attribute {
     pub prefix_name: Option<String>,
     pub name: String,
     pub kind: AttributeKind,
+}
+
+impl Attribute {
+    pub fn new(file_id: usize, span: Span) -> Attribute {
+        Attribute {
+            file_id,
+            span,
+            prefix_name: None,
+            name: String::new(),
+            kind: AttributeKind::Unkown { arguments: None },
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -61,11 +83,33 @@ pub struct Initializer {
     pub r#type: Rc<RefCell<Type>>,
 }
 
+impl Initializer {
+    pub fn new(file_id: usize, span: Span, kind: InitializerKind) -> Initializer {
+        Initializer {
+            file_id,
+            span,
+            designation: vec![],
+            kind,
+            r#type: Rc::new(RefCell::new(Type::new(file_id, span))),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Designation {
     pub file_id: usize,
     pub span: Span,
     pub kind: DesignationKind,
+}
+
+impl Designation {
+    pub fn new(file_id: usize, span: Span, kind: DesignationKind) -> Designation {
+        Designation {
+            file_id,
+            span,
+            kind,
+        }
+    }
 }
 
 #[derive(Debug)]
