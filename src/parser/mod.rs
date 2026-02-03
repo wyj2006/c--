@@ -13,7 +13,12 @@ use crate::ast::InitializerKind;
 use crate::ast::TranslationUnit;
 use crate::ctype::Type;
 use crate::ctype::TypeKind;
-use pest::{Parser, error::Error, iterators::Pair};
+use crate::diagnostic::from_pest_span;
+use crate::diagnostic::map_pest_err;
+use crate::files;
+use codespan_reporting::diagnostic::Diagnostic;
+use codespan_reporting::files::Files;
+use pest::{Parser, iterators::Pair};
 use pest_derive::Parser;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -21,17 +26,21 @@ use std::rc::Rc;
 #[derive(Parser)]
 #[grammar = "src/grammar/lexer.pest"]
 #[grammar = "src/grammar/parser.pest"]
-pub struct CParser<'a> {
-    pub file_content: &'a str,
+pub struct CParser {
+    pub file_id: usize,
 }
 
-impl<'a> CParser<'a> {
-    pub fn new(file_content: &'a str) -> CParser<'a> {
-        CParser { file_content }
+impl CParser {
+    pub fn new(file_id: usize) -> CParser {
+        CParser { file_id }
     }
 
-    pub fn parse_to_ast(&self) -> Result<Rc<RefCell<TranslationUnit<'a>>>, Error<Rule>> {
-        let rules = CParser::parse(Rule::translation_unit, self.file_content)?;
+    pub fn parse_to_ast(&self) -> Result<Rc<RefCell<TranslationUnit>>, Diagnostic<usize>> {
+        let source = files.lock().unwrap().source(self.file_id).unwrap();
+        let rules = map_pest_err(
+            self.file_id,
+            CParser::parse(Rule::translation_unit, source.as_str()),
+        )?;
         for rule in rules {
             match rule.as_rule() {
                 Rule::translation_unit => return self.parse_translation_unit(rule),
@@ -43,8 +52,8 @@ impl<'a> CParser<'a> {
 
     pub fn parse_translation_unit(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<TranslationUnit<'a>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<TranslationUnit>>, Diagnostic<usize>> {
         let span = rule.as_span();
         let mut decls = Vec::new();
         for rule in rule.into_inner() {
@@ -55,13 +64,17 @@ impl<'a> CParser<'a> {
                 _ => unreachable!(),
             }
         }
-        Ok(Rc::new(RefCell::new(TranslationUnit { span, decls })))
+        Ok(Rc::new(RefCell::new(TranslationUnit {
+            file_id: self.file_id,
+            span: from_pest_span(span),
+            decls,
+        })))
     }
 
     pub fn parse_attribute_specifier_sequence(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Vec<Rc<RefCell<Attribute<'a>>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Vec<Rc<RefCell<Attribute>>>, Diagnostic<usize>> {
         let mut attributes = Vec::new();
         for rule in rule.into_inner() {
             match rule.as_rule() {
@@ -75,12 +88,15 @@ impl<'a> CParser<'a> {
                             Rule::attribute_token => {
                                 (prefix_name, name) = self.parse_attribute_token(rule)?
                             }
-                            Rule::attribute_argument_clause => arguments = Some(rule),
+                            Rule::attribute_argument_clause => {
+                                arguments = Some(rule.as_str().to_string())
+                            }
                             _ => unreachable!(),
                         }
                     }
                     attributes.push(Rc::new(RefCell::new(Attribute {
-                        span,
+                        file_id: self.file_id,
+                        span: from_pest_span(span),
                         prefix_name,
                         name,
                         kind: AttributeKind::Unkown { arguments },
@@ -94,8 +110,8 @@ impl<'a> CParser<'a> {
 
     pub fn parse_attribute_token(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<(Option<String>, String), Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<(Option<String>, String), Diagnostic<usize>> {
         let mut prefix_name = None;
         let mut name = String::new();
 
@@ -112,17 +128,19 @@ impl<'a> CParser<'a> {
 
     pub fn parse_initializer(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Initializer<'a>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<Initializer>>, Diagnostic<usize>> {
         for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::braced_initializer => return self.parse_braced_initializer(rule),
                 Rule::assignment_expression => {
                     return Ok(Rc::new(RefCell::new(Initializer {
-                        span: rule.as_span(),
+                        file_id: self.file_id,
+                        span: from_pest_span(rule.as_span()),
                         designation: Vec::new(),
                         r#type: Rc::new(RefCell::new(Type {
-                            span: rule.as_span(),
+                            file_id: self.file_id,
+                            span: from_pest_span(rule.as_span()),
                             attributes: vec![],
                             kind: TypeKind::Error,
                         })),
@@ -137,8 +155,8 @@ impl<'a> CParser<'a> {
 
     pub fn parse_braced_initializer(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Initializer<'a>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<Initializer>>, Diagnostic<usize>> {
         let span = rule.as_span();
         let mut initializers = Vec::new();
         let mut designation = Vec::new();
@@ -155,11 +173,13 @@ impl<'a> CParser<'a> {
             }
         }
         Ok(Rc::new(RefCell::new(Initializer {
-            span,
+            file_id: self.file_id,
+            span: from_pest_span(span),
             designation: Vec::new(),
             kind: InitializerKind::Braced(initializers),
             r#type: Rc::new(RefCell::new(Type {
-                span,
+                file_id: self.file_id,
+                span: from_pest_span(span),
                 attributes: vec![],
                 kind: TypeKind::Error,
             })),
@@ -168,18 +188,21 @@ impl<'a> CParser<'a> {
 
     pub fn parse_designation(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Vec<Designation<'a>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Vec<Designation>, Diagnostic<usize>> {
+        let span = rule.as_span();
         let mut designations = Vec::new();
         for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::constant_expression => designations.push(Designation {
-                    span: rule.as_span(),
+                    file_id: self.file_id,
+                    span: from_pest_span(span),
                     kind: DesignationKind::Subscript(self.parse_constant_expression(rule)?),
                 }),
                 Rule::identifier => {
                     designations.push(Designation {
-                        span: rule.as_span(),
+                        file_id: self.file_id,
+                        span: from_pest_span(span),
                         kind: DesignationKind::MemberAccess(rule.as_str().to_string()),
                     });
                 }

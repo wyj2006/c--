@@ -1,9 +1,8 @@
-use crate::*;
+use crate::preprocessor::tests::quick_new_preprocessor;
 
 #[test]
 pub fn line_control() {
-    let mut preprocessor = Preprocessor::new(
-        "<string>".to_string(),
+    let mut preprocessor = quick_new_preprocessor(
         "#line 3
 __LINE__
 __LINE__
@@ -15,8 +14,7 @@ __LINE__
 
 #[test]
 pub fn line_control_with_file() {
-    let mut preprocessor = Preprocessor::new(
-        "<string>".to_string(),
+    let mut preprocessor = quick_new_preprocessor(
         "#line 3 \"string2\"
 __LINE__ __FILE__
 ",

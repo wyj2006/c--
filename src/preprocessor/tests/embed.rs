@@ -1,8 +1,8 @@
-use crate::*;
+use crate::preprocessor::tests::quick_new_preprocessor_with_name;
 
 #[test]
 pub fn embed_without_parameter() {
-    let mut preprocessor = Preprocessor::new(
+    let mut preprocessor = quick_new_preprocessor_with_name(
         "src/preprocessor/tests/embed.string".to_string(),
         "#embed \"embed.txt\"\n",
     );
@@ -12,7 +12,7 @@ pub fn embed_without_parameter() {
 
 #[test]
 pub fn embed_with_limit() {
-    let mut preprocessor = Preprocessor::new(
+    let mut preprocessor = quick_new_preprocessor_with_name(
         "src/preprocessor/tests/embed.string".to_string(),
         "#embed \"embed.txt\" limit(1?1+1:1)\n",
     );
@@ -22,7 +22,7 @@ pub fn embed_with_limit() {
 
 #[test]
 pub fn embed_with_prefix() {
-    let mut preprocessor = Preprocessor::new(
+    let mut preprocessor = quick_new_preprocessor_with_name(
         "src/preprocessor/tests/embed.string".to_string(),
         "#embed \"embed.txt\" prefix(abc )\n",
     );
@@ -32,7 +32,7 @@ pub fn embed_with_prefix() {
 
 #[test]
 pub fn embed_with_suffix() {
-    let mut preprocessor = Preprocessor::new(
+    let mut preprocessor = quick_new_preprocessor_with_name(
         "src/preprocessor/tests/embed.string".to_string(),
         "#embed \"embed.txt\" suffix( ,abc)\n",
     );
@@ -42,7 +42,7 @@ pub fn embed_with_suffix() {
 
 #[test]
 pub fn embed_with_if_empty() {
-    let mut preprocessor = Preprocessor::new(
+    let mut preprocessor = quick_new_preprocessor_with_name(
         "src/preprocessor/tests/embed.string".to_string(),
         "#embed \"embed.txt\" if_empty(0)\n",
     );

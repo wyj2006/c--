@@ -5,17 +5,17 @@ use crate::{
         decl::{Declaration, DeclarationKind, StorageClassKind},
     },
     ctype::{RecordKind, Type, TypeKind, TypeQual, as_parameter_type, cast::remove_qualifier},
-    diagnostic::{Diagnostic, DiagnosticKind},
     symtab::{Namespace, Symbol, SymbolKind, SymbolTable},
     typechecker::Context,
     variant::Variant,
 };
+use codespan_reporting::diagnostic::{Diagnostic, Label};
 use indexmap::IndexMap;
 use num::{BigInt, ToPrimitive};
 use std::{cell::RefCell, rc::Rc};
 
-impl<'a> TypeChecker<'a> {
-    pub fn check_type(&mut self, r#type: &mut Rc<RefCell<Type<'a>>>) -> Result<(), Diagnostic<'a>> {
+impl TypeChecker {
+    pub fn check_type(&mut self, r#type: &mut Rc<RefCell<Type>>) -> Result<(), Diagnostic<usize>> {
         let mut new_type = None;
         {
             let mut r#type = r#type.borrow_mut();
@@ -29,25 +29,26 @@ impl<'a> TypeChecker<'a> {
                                 new_type = Some(Rc::clone(&symbol.borrow().r#type));
                             }
                             _ => {
-                                return Err(Diagnostic {
-                                    span: r#type.span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!("'{name}' is not a {kind}"),
-                                    notes: vec![Diagnostic {
-                                        span: symbol
-                                            .borrow()
-                                            .define_span
-                                            .unwrap_or(symbol.borrow().declare_spans[0]),
-                                        kind: DiagnosticKind::Note,
-                                        message: format!("previous symbol"),
-                                        notes: vec![],
-                                    }],
-                                });
+                                let (file_id, span) = symbol
+                                    .borrow()
+                                    .define_loc
+                                    .unwrap_or(symbol.borrow().declare_locs[0]);
+                                return Err(Diagnostic::error()
+                                    .with_message(format!("'{name}' is not a {kind}"))
+                                    .with_label(
+                                        Label::primary(r#type.file_id, r#type.span)
+                                            .with_message("current type"),
+                                    )
+                                    .with_label(
+                                        Label::secondary(file_id, span)
+                                            .with_message("previous symbol"),
+                                    ));
                             }
                         }
                     } else {
                         new_type = Some(Rc::new(RefCell::new(r#type.clone())));
                         self.visit_declaration(Rc::new(RefCell::new(Declaration {
+                            file_id: r#type.file_id,
                             span: r#type.span,
                             attributes: vec![],
                             name,
@@ -66,25 +67,26 @@ impl<'a> TypeChecker<'a> {
                                 new_type = Some(Rc::clone(&symbol.borrow().r#type));
                             }
                             _ => {
-                                return Err(Diagnostic {
-                                    span: r#type.span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!("'{name}' is not a enum"),
-                                    notes: vec![Diagnostic {
-                                        span: symbol
-                                            .borrow()
-                                            .define_span
-                                            .unwrap_or(symbol.borrow().declare_spans[0]),
-                                        kind: DiagnosticKind::Note,
-                                        message: format!("previous symbol"),
-                                        notes: vec![],
-                                    }],
-                                });
+                                let (file_id, span) = symbol
+                                    .borrow()
+                                    .define_loc
+                                    .unwrap_or(symbol.borrow().declare_locs[0]);
+                                return Err(Diagnostic::error()
+                                    .with_message(format!("'{name}' is not a enum"))
+                                    .with_label(
+                                        Label::primary(r#type.file_id, r#type.span)
+                                            .with_message("current type"),
+                                    )
+                                    .with_label(
+                                        Label::secondary(file_id, span)
+                                            .with_message("previous symbol"),
+                                    ));
                             }
                         }
                     } else {
                         new_type = Some(Rc::new(RefCell::new(r#type.clone())));
                         self.visit_declaration(Rc::new(RefCell::new(Declaration {
+                            file_id: r#type.file_id,
                             span: r#type.span,
                             attributes: vec![],
                             name,
@@ -101,29 +103,27 @@ impl<'a> TypeChecker<'a> {
                         .cur_symtab
                         .borrow()
                         .lookup(Namespace::Ordinary, &name)
-                        .ok_or(Diagnostic {
-                            span: r#type.span,
-                            kind: DiagnosticKind::Error,
-                            message: format!("undefined typedef type '{name}'"),
-                            notes: vec![],
-                        })?;
+                        .ok_or(
+                            Diagnostic::error()
+                                .with_message(format!("undefined type '{name}'"))
+                                .with_label(Label::primary(r#type.file_id, r#type.span)),
+                        )?;
                     match symbol.borrow().kind {
                         SymbolKind::Type => new_type = Some(Rc::clone(&symbol.borrow().r#type)),
                         _ => {
-                            return Err(Diagnostic {
-                                span: r#type.span,
-                                kind: DiagnosticKind::Error,
-                                message: format!("'{name}' is not a type"),
-                                notes: vec![Diagnostic {
-                                    span: symbol
-                                        .borrow()
-                                        .define_span
-                                        .unwrap_or(symbol.borrow().declare_spans[0]),
-                                    kind: DiagnosticKind::Note,
-                                    message: format!("previous symbol"),
-                                    notes: vec![],
-                                }],
-                            });
+                            let (file_id, span) = symbol
+                                .borrow()
+                                .define_loc
+                                .unwrap_or(symbol.borrow().declare_locs[0]);
+                            return Err(Diagnostic::error()
+                                .with_message(format!("'{name}' is not a type"))
+                                .with_label(
+                                    Label::primary(r#type.file_id, r#type.span)
+                                        .with_message("current type"),
+                                )
+                                .with_label(
+                                    Label::secondary(file_id, span).with_message("previous symbol"),
+                                ));
                         }
                     }
                 }
@@ -133,12 +133,12 @@ impl<'a> TypeChecker<'a> {
                     has_varparam,
                 } => {
                     if return_type.borrow().is_array() {
-                        return Err(Diagnostic {
-                            span: return_type.borrow().span,
-                            kind: DiagnosticKind::Error,
-                            message: format!("function cannot return array type"),
-                            notes: vec![],
-                        });
+                        return Err(Diagnostic::error()
+                            .with_message(format!("function cannot return array type"))
+                            .with_label(Label::primary(
+                                return_type.borrow().file_id,
+                                return_type.borrow().span,
+                            )));
                     }
                     self.check_type(return_type)?;
                     new_type = Some(Rc::new(RefCell::new(Type {
@@ -154,6 +154,7 @@ impl<'a> TypeChecker<'a> {
                             },
                             has_varparam: *has_varparam,
                         },
+                        file_id: r#type.file_id,
                         span: r#type.span,
                         attributes: r#type.attributes.clone(),
                     })))
@@ -170,21 +171,23 @@ impl<'a> TypeChecker<'a> {
                             Variant::Int(value) => match value.to_usize() {
                                 Some(_) => {}
                                 None => {
-                                    return Err(Diagnostic {
-                                        span: len_expr.borrow().span,
-                                        kind: DiagnosticKind::Error,
-                                        message: format!("invalid integer for array length"),
-                                        notes: vec![],
-                                    });
+                                    return Err(Diagnostic::error()
+                                        .with_message(format!("invalid integer for array length"))
+                                        .with_label(Label::primary(
+                                            len_expr.borrow().file_id,
+                                            len_expr.borrow().span,
+                                        )));
                                 }
                             },
                             _ => {
-                                return Err(Diagnostic {
-                                    span: len_expr.borrow().span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!("array length must be an integer constant"),
-                                    notes: vec![],
-                                });
+                                return Err(Diagnostic::error()
+                                    .with_message(format!(
+                                        "array length must be an integer constant"
+                                    ))
+                                    .with_label(Label::primary(
+                                        len_expr.borrow().file_id,
+                                        len_expr.borrow().span,
+                                    )));
                             }
                         }
                     }
@@ -204,14 +207,9 @@ impl<'a> TypeChecker<'a> {
                             TypeKind::Array { .. } => true,
                             _ => false,
                         } {
-                            return Err(Diagnostic {
-                                span: r#type.borrow().span,
-                                kind: DiagnosticKind::Error,
-                                message: format!(
+                            return Err(Diagnostic::error().with_message( format!(
                                     "'restrict' requires an array or a pointer point to an object type"
-                                ),
-                                notes: vec![],
-                            });
+                                )).with_label(Label::primary(r#type.borrow().file_id, r#type.borrow().span)));
                         }
                     }
                 }
@@ -231,21 +229,21 @@ impl<'a> TypeChecker<'a> {
                         Variant::Int(value) => match value.to_usize() {
                             Some(_) => {}
                             None => {
-                                return Err(Diagnostic {
-                                    span: width_expr.borrow().span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!("invalid integer for _BitInt"),
-                                    notes: vec![],
-                                });
+                                return Err(Diagnostic::error()
+                                    .with_message(format!("invalid integer for _BitInt"))
+                                    .with_label(Label::primary(
+                                        width_expr.borrow().file_id,
+                                        width_expr.borrow().span,
+                                    )));
                             }
                         },
                         _ => {
-                            return Err(Diagnostic {
-                                span: width_expr.borrow().span,
-                                kind: DiagnosticKind::Error,
-                                message: format!("_BitInt require an integer constant "),
-                                notes: vec![],
-                            });
+                            return Err(Diagnostic::error()
+                                .with_message(format!("_BitInt require an integer constant"))
+                                .with_label(Label::primary(
+                                    width_expr.borrow().file_id,
+                                    width_expr.borrow().span,
+                                )));
                         }
                     }
                 }
@@ -272,21 +270,23 @@ impl<'a> TypeChecker<'a> {
                         Variant::Int(value) => match value.to_usize() {
                             Some(_) => {}
                             None => {
-                                return Err(Diagnostic {
-                                    span: expr.borrow().span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!("invalid integer for alignas"),
-                                    notes: vec![],
-                                });
+                                return Err(Diagnostic::error()
+                                    .with_message(format!("invalid integer for alignas"))
+                                    .with_label(Label::primary(
+                                        expr.borrow().file_id,
+                                        expr.borrow().span,
+                                    )));
                             }
                         },
                         _ => {
-                            return Err(Diagnostic {
-                                span: expr.borrow().span,
-                                kind: DiagnosticKind::Error,
-                                message: format!("alignas require an integer constant or a type"),
-                                notes: vec![],
-                            });
+                            return Err(Diagnostic::error()
+                                .with_message(format!(
+                                    "alignas require an integer constant or a type"
+                                ))
+                                .with_label(Label::primary(
+                                    expr.borrow().file_id,
+                                    expr.borrow().span,
+                                )));
                         }
                     }
                 }
@@ -299,8 +299,8 @@ impl<'a> TypeChecker<'a> {
 
     pub fn visit_declaration(
         &mut self,
-        node: Rc<RefCell<Declaration<'a>>>,
-    ) -> Result<(), Diagnostic<'a>> {
+        node: Rc<RefCell<Declaration>>,
+    ) -> Result<(), Diagnostic<usize>> {
         self.contexts
             .push(Context::Decl(node.borrow().kind.clone()));
 
@@ -322,34 +322,26 @@ impl<'a> TypeChecker<'a> {
         let node = node.borrow();
 
         if node.storage_classes.len() > 1 {
-            return Err(Diagnostic {
-                span: node.span,
-                kind: DiagnosticKind::Error,
-                message: format!("at most one storage class specifier is allowed"),
-                notes: vec![],
-            });
+            return Err(Diagnostic::error()
+                .with_message(format!("at most one storage class specifier is allowed"))
+                .with_label(Label::primary(node.file_id, node.span)));
         }
 
         if node.r#type.borrow().has_alignas() {
             for storage_class in &node.storage_classes {
                 match &storage_class.kind {
                     StorageClassKind::Register => {
-                        return Err(Diagnostic {
-                            span: storage_class.span,
-                            kind: DiagnosticKind::Error,
-                            message: format!(
+                        return Err(Diagnostic::error().with_message(format!(
                                 "alignas cannot be applied to an object with 'register' storage class specifier"
-                            ),
-                            notes: vec![],
-                        });
+                            )).with_label(Label::primary(storage_class.file_id, storage_class.span)));
                     }
                     StorageClassKind::Typedef => {
-                        return Err(Diagnostic {
-                            span: storage_class.span,
-                            kind: DiagnosticKind::Error,
-                            message: format!("alignas cannot be applied to a type"),
-                            notes: vec![],
-                        });
+                        return Err(Diagnostic::error()
+                            .with_message(format!("alignas cannot be applied to a type"))
+                            .with_label(Label::primary(
+                                storage_class.file_id,
+                                storage_class.span,
+                            )));
                     }
                     _ => {}
                 }
@@ -367,11 +359,11 @@ impl<'a> TypeChecker<'a> {
                 self.cur_symtab.borrow_mut().add(
                     Namespace::Ordinary,
                     Rc::new(RefCell::new(Symbol {
-                        define_span: match initializer {
-                            Some(_) => Some(node.span),
+                        define_loc: match initializer {
+                            Some(_) => Some((node.file_id, node.span)),
                             None => None,
                         },
-                        declare_spans: vec![node.span],
+                        declare_locs: vec![(node.file_id, node.span)],
                         name: node.name.clone(),
                         kind: SymbolKind::Object {
                             storage_classes: node.storage_classes.clone(),
@@ -402,11 +394,11 @@ impl<'a> TypeChecker<'a> {
                 parent_symtab.borrow_mut().add(
                     Namespace::Ordinary,
                     Rc::new(RefCell::new(Symbol {
-                        define_span: match body {
-                            Some(_) => Some(node.span),
+                        define_loc: match body {
+                            Some(_) => Some((node.file_id, node.span)),
                             None => None,
                         },
-                        declare_spans: vec![node.span],
+                        declare_locs: vec![(node.file_id, node.span)],
                         name: node.name.clone(),
                         kind: SymbolKind::Function {
                             function_specs: function_specs.to_vec(),
@@ -426,23 +418,23 @@ impl<'a> TypeChecker<'a> {
                             if !return_type.borrow().is_void()
                                 && !return_type.borrow().is_complete()
                             {
-                                return Err(Diagnostic {
-                                    span: return_type.borrow().span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!("return type must be complete"),
-                                    notes: vec![],
-                                });
+                                return Err(Diagnostic::error()
+                                    .with_message(format!("return type must be complete"))
+                                    .with_label(Label::primary(
+                                        return_type.borrow().file_id,
+                                        return_type.borrow().span,
+                                    )));
                             }
                             for parameter_type in parameters_type {
                                 if !parameter_type.borrow().is_void()//这种情况检查参数声明时已经处理过了
                                     && !parameter_type.borrow().is_complete()
                                 {
-                                    return Err(Diagnostic {
-                                        span: parameter_type.borrow().span,
-                                        kind: DiagnosticKind::Error,
-                                        message: format!("parameter type must be complete"),
-                                        notes: vec![],
-                                    });
+                                    return Err(Diagnostic::error()
+                                        .with_message(format!("parameter type must be complete"))
+                                        .with_label(Label::primary(
+                                            parameter_type.borrow().file_id,
+                                            parameter_type.borrow().span,
+                                        )));
                                 }
                             }
                         }
@@ -457,38 +449,32 @@ impl<'a> TypeChecker<'a> {
             }
             DeclarationKind::Parameter => {
                 if node.r#type.borrow().has_alignas() {
-                    return Err(Diagnostic {
-                        span: node.span,
-                        kind: DiagnosticKind::Error,
-                        message: format!("alignas cannot be applied to a parameter"),
-                        notes: vec![],
-                    });
+                    return Err(Diagnostic::error()
+                        .with_message(format!("alignas cannot be applied to a parameter"))
+                        .with_label(Label::primary(node.file_id, node.span)));
                 }
                 for storage_class in &node.storage_classes {
                     if storage_class.kind != StorageClassKind::Register {
-                        return Err(Diagnostic {
-                            span: storage_class.span,
-                            kind: DiagnosticKind::Error,
-                            message: format!(
+                        return Err(Diagnostic::error()
+                            .with_message(format!(
                                 "only 'register' storage class specifier is allowed in parameter"
-                            ),
-                            notes: vec![],
-                        });
+                            ))
+                            .with_label(Label::primary(
+                                storage_class.file_id,
+                                storage_class.span,
+                            )));
                     }
                 }
                 if node.name.len() > 0 && node.r#type.borrow().is_void() {
-                    return Err(Diagnostic {
-                        span: node.span,
-                        kind: DiagnosticKind::Error,
-                        message: format!("parameter cannot have a void type"),
-                        notes: vec![],
-                    });
+                    return Err(Diagnostic::error()
+                        .with_message(format!("parameter cannot have a void type"))
+                        .with_label(Label::primary(node.file_id, node.span)));
                 }
                 self.cur_symtab.borrow_mut().add(
                     Namespace::Ordinary,
                     Rc::new(RefCell::new(Symbol {
-                        define_span: Some(node.span),
-                        declare_spans: vec![node.span],
+                        define_loc: Some((node.file_id, node.span)),
+                        declare_locs: vec![(node.file_id, node.span)],
                         name: node.name.clone(),
                         kind: SymbolKind::Parameter {
                             storage_classes: node.storage_classes.clone(),
@@ -502,11 +488,12 @@ impl<'a> TypeChecker<'a> {
                 self.cur_symtab.borrow_mut().add(
                     Namespace::Ordinary,
                     Rc::new(RefCell::new(Symbol {
-                        define_span: Some(node.span),
-                        declare_spans: vec![node.span],
+                        define_loc: Some((node.file_id, node.span)),
+                        declare_locs: vec![(node.file_id, node.span)],
                         name: node.name.clone(),
                         kind: SymbolKind::Type,
                         r#type: Rc::new(RefCell::new(Type {
+                            file_id: node.file_id,
                             span: node.span,
                             attributes: vec![],
                             kind: TypeKind::Typedef {
@@ -522,11 +509,11 @@ impl<'a> TypeChecker<'a> {
                 self.cur_symtab.borrow_mut().add(
                     Namespace::Tag,
                     Rc::new(RefCell::new(Symbol {
-                        define_span: match members_decl {
-                            Some(_) => Some(node.span),
+                        define_loc: match members_decl {
+                            Some(_) => Some((node.file_id, node.span)),
                             None => None,
                         },
-                        declare_spans: vec![node.span],
+                        declare_locs: vec![(node.file_id, node.span)],
                         name: node.name.clone(),
                         r#type: Rc::clone(&node.r#type),
                         kind: SymbolKind::Record {
@@ -569,30 +556,31 @@ impl<'a> TypeChecker<'a> {
                 if let Some(_) = bit_field
                     && node.r#type.borrow().has_alignas()
                 {
-                    return Err(Diagnostic {
-                        span: node.span,
-                        kind: DiagnosticKind::Error,
-                        message: format!("alignas cannot be applied to a member with bit-field"),
-                        notes: vec![],
-                    });
+                    return Err(Diagnostic::error()
+                        .with_message(format!(
+                            "alignas cannot be applied to a member with bit-field"
+                        ))
+                        .with_label(Label::primary(node.file_id, node.span)));
                 }
 
                 if node.storage_classes.len() > 0 {
-                    return Err(Diagnostic {
-                        span: node.storage_classes[0].span,
-                        kind: DiagnosticKind::Error,
-                        message: format!("member should not hava any storage class specifier"),
-                        notes: vec![],
-                    });
+                    return Err(Diagnostic::error()
+                        .with_message(format!(
+                            "member should not hava any storage class specifier"
+                        ))
+                        .with_label(Label::primary(
+                            node.storage_classes[0].file_id,
+                            node.storage_classes[0].span,
+                        )));
                 }
 
                 if !node.r#type.borrow().is_complete() {
-                    return Err(Diagnostic {
-                        span: node.span,
-                        kind: DiagnosticKind::Error,
-                        message: format!("'{}' is not complete", node.r#type.borrow().to_string()),
-                        notes: vec![],
-                    });
+                    return Err(Diagnostic::error()
+                        .with_message(format!(
+                            "'{}' is not complete",
+                            node.r#type.borrow().to_string()
+                        ))
+                        .with_label(Label::primary(node.file_id, node.span)));
                 }
 
                 if let Some(t) = bit_field {
@@ -600,20 +588,20 @@ impl<'a> TypeChecker<'a> {
                 }
 
                 let symbol = Rc::new(RefCell::new(Symbol {
-                    define_span: Some(node.span),
-                    declare_spans: vec![node.span],
+                    define_loc: Some((node.file_id, node.span)),
+                    declare_locs: vec![(node.file_id, node.span)],
                     name: node.name.clone(),
                     kind: SymbolKind::Member {
                         bit_field: match bit_field {
                             Some(t) => match &t.borrow().value {
                                 Variant::Int(value) => Some(value.clone()),
                                 _ => {
-                                    return Err(Diagnostic {
-                                        span: t.borrow().span,
-                                        kind: DiagnosticKind::Error,
-                                        message: format!("bit-field must has an integer type"),
-                                        notes: vec![],
-                                    });
+                                    return Err(Diagnostic::error()
+                                        .with_message(format!("bit-field must has an integer type"))
+                                        .with_label(Label::primary(
+                                            t.borrow().file_id,
+                                            t.borrow().span,
+                                        )));
                                 }
                             },
                             None => None,
@@ -633,11 +621,11 @@ impl<'a> TypeChecker<'a> {
                 self.cur_symtab.borrow_mut().add(
                     Namespace::Tag,
                     Rc::new(RefCell::new(Symbol {
-                        define_span: match enumerators {
-                            Some(_) => Some(node.span),
+                        define_loc: match enumerators {
+                            Some(_) => Some((node.file_id, node.span)),
                             None => None,
                         },
-                        declare_spans: vec![node.span],
+                        declare_locs: vec![(node.file_id, node.span)],
                         name: node.name.clone(),
                         kind: SymbolKind::Enum,
                         r#type: Rc::clone(&node.r#type),
@@ -703,6 +691,7 @@ impl<'a> TypeChecker<'a> {
                     }
                     if let Some(kind) = kind {
                         let r#type = Rc::new(RefCell::new(Type {
+                            file_id: underlying.borrow().file_id,
                             span: underlying.borrow().span,
                             attributes: underlying.borrow().attributes.clone(),
                             kind,
@@ -721,8 +710,8 @@ impl<'a> TypeChecker<'a> {
                 };
 
                 let symbol = Rc::new(RefCell::new(Symbol {
-                    define_span: Some(node.span),
-                    declare_spans: vec![node.span],
+                    define_loc: Some((node.file_id, node.span)),
+                    declare_locs: vec![(node.file_id, node.span)],
                     name: node.name.clone(),
                     kind: SymbolKind::EnumConst {
                         value: const_value.clone().unwrap_or(BigInt::ZERO),

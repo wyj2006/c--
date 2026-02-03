@@ -1,10 +1,10 @@
 ///包含处理pragma的代码
 use super::{Preprocessor, Rule};
-use pest::error::Error;
+use codespan_reporting::diagnostic::Diagnostic;
 use pest::iterators::Pair;
 
-impl Preprocessor<'_> {
-    pub fn process_pragma(&mut self, rule: Pair<Rule>) -> Result<String, Error<Rule>> {
+impl Preprocessor {
+    pub fn process_pragma(&mut self, rule: Pair<Rule>) -> Result<String, Diagnostic<usize>> {
         for rule in rule.into_inner() {
             if let Rule::pp_tokens = rule.as_rule() {
                 //TODO 具体处理这些指令

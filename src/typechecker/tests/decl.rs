@@ -1,11 +1,9 @@
 use crate::{
     ctype::pointee,
-    parser::CParser,
     symtab::{Namespace, SymbolTable},
-    typechecker::TypeChecker,
+    typechecker::{TypeChecker, tests::quick_new_parser},
     typechecker_test_template,
 };
-use insta::assert_debug_snapshot;
 use std::{cell::RefCell, rc::Rc};
 
 typechecker_test_template!(
@@ -28,7 +26,7 @@ int main()
 
 #[test]
 pub fn reassign() {
-    let parser = CParser::new(
+    let parser = quick_new_parser(
         "
 int main()
 {
@@ -43,7 +41,7 @@ int main()
     let ast = parser.parse_to_ast().unwrap();
 
     let symtab = Rc::new(RefCell::new(SymbolTable::new()));
-    let mut type_checker = TypeChecker::new("<string>", Rc::clone(&symtab));
+    let mut type_checker = TypeChecker::new(Rc::clone(&symtab));
     type_checker.check(Rc::clone(&ast)).unwrap();
 
     let symtab = &symtab.borrow().children[0];
@@ -77,7 +75,7 @@ int main()
 #[test]
 #[should_panic]
 pub fn incomplete_member() {
-    let parser = CParser::new(
+    let parser = quick_new_parser(
         "
 struct A{
     struct A a;
@@ -87,13 +85,13 @@ struct A{
     let ast = parser.parse_to_ast().unwrap();
 
     let symtab = Rc::new(RefCell::new(SymbolTable::new()));
-    let mut type_checker = TypeChecker::new("<string>", Rc::clone(&symtab));
+    let mut type_checker = TypeChecker::new(Rc::clone(&symtab));
     type_checker.check(Rc::clone(&ast)).unwrap();
 }
 
 #[test]
 pub fn forward_declare() {
-    let parser = CParser::new(
+    let parser = quick_new_parser(
         "
 struct s* p = (void*)0;
 struct s { int a; };
@@ -108,7 +106,7 @@ void g(void)
     let ast = parser.parse_to_ast().unwrap();
 
     let symtab = Rc::new(RefCell::new(SymbolTable::new()));
-    let mut type_checker = TypeChecker::new("<string>", Rc::clone(&symtab));
+    let mut type_checker = TypeChecker::new(Rc::clone(&symtab));
     type_checker.check(Rc::clone(&ast)).unwrap();
 
     let s1 = symtab

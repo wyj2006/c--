@@ -1,7 +1,8 @@
 use crate::{
-    parser::CParser, symtab::SymbolTable, typechecker::TypeChecker, typechecker_test_template,
+    symtab::SymbolTable,
+    typechecker::{TypeChecker, tests::quick_new_parser},
+    typechecker_test_template,
 };
-use insta::assert_debug_snapshot;
 use std::{cell::RefCell, rc::Rc};
 
 typechecker_test_template!(
@@ -170,7 +171,7 @@ int main()
 #[test]
 #[should_panic]
 pub fn addressof_bitfield() {
-    let parser = CParser::new(
+    let parser = quick_new_parser(
         "
 struct A{
     int a:1;
@@ -185,6 +186,6 @@ int main()
     let ast = parser.parse_to_ast().unwrap();
 
     let symtab = Rc::new(RefCell::new(SymbolTable::new()));
-    let mut type_checker = TypeChecker::new("<string>", Rc::clone(&symtab));
+    let mut type_checker = TypeChecker::new(Rc::clone(&symtab));
     type_checker.check(Rc::clone(&ast)).unwrap();
 }

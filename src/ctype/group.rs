@@ -1,6 +1,6 @@
 use crate::ctype::{RecordKind, Type, TypeKind};
 
-impl<'a> Type<'a> {
+impl Type {
     pub fn is_pointer(&self) -> bool {
         self.kind.is_pointer()
     }
@@ -62,7 +62,7 @@ impl<'a> Type<'a> {
     }
 }
 
-impl<'a> TypeKind<'a> {
+impl TypeKind {
     pub fn is_pointer(&self) -> bool {
         match self {
             TypeKind::Pointer(_) => true,

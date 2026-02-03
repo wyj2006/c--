@@ -1,8 +1,8 @@
-use crate::*;
+use crate::preprocessor::tests::quick_new_preprocessor_with_name;
 
 #[test]
 pub fn include_direct() {
-    let mut preprocessor = Preprocessor::new(
+    let mut preprocessor = quick_new_preprocessor_with_name(
         "src/preprocessor/tests/include.string".to_string(),
         "#include \"include.txt\"\n",
     );
@@ -12,7 +12,7 @@ pub fn include_direct() {
 
 #[test]
 pub fn include_after_replace() {
-    let mut preprocessor = Preprocessor::new(
+    let mut preprocessor = quick_new_preprocessor_with_name(
         "src/preprocessor/tests/include.string".to_string(),
         "#define A \"include.txt\"
 #include A
@@ -24,7 +24,7 @@ pub fn include_after_replace() {
 
 #[test]
 pub fn include_use_macro() {
-    let mut preprocessor = Preprocessor::new(
+    let mut preprocessor = quick_new_preprocessor_with_name(
         "src/preprocessor/tests/include.string".to_string(),
         "#include \"include.txt\"\nchar p[] = join(x, y);\n",
     );

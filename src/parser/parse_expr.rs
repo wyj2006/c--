@@ -2,10 +2,11 @@ use super::{CParser, Rule};
 use crate::{
     ast::expr::{BinOpKind, EncodePrefix, Expr, ExprKind, GenericAssoc, UnaryOpKind},
     ctype::{Type, TypeKind},
+    diagnostic::{from_pest_span, map_pest_err},
 };
+use codespan_reporting::diagnostic::{Diagnostic, Label};
 use pest::{
     Parser, Span,
-    error::{Error, ErrorVariant},
     iterators::Pair,
     pratt_parser::{Assoc, Op, PrattParser},
 };
@@ -53,11 +54,11 @@ static FLOAT_SUFFIX: &[&str] = &[
 ];
 static INTEGER_SUFFIX: &[&str] = &[&"wb", &"WB", &"ll", &"LL", &"l", &"L", &"u", &"U"];
 
-impl<'a> CParser<'a> {
+impl CParser {
     pub fn parse_assignment_expression(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Expr<'a>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<Expr>>, Diagnostic<usize>> {
         let span = rule.as_span();
         let mut left = None;
         let mut op = None;
@@ -93,14 +94,14 @@ impl<'a> CParser<'a> {
         let right = right.unwrap();
         Ok(Rc::new(RefCell::new(Expr {
             kind: ExprKind::BinOp { op, left, right },
-            ..Expr::new(span)
+            ..Expr::new(self.file_id, from_pest_span(span))
         })))
     }
 
     pub fn parse_expression(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Expr<'a>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<Expr>>, Diagnostic<usize>> {
         let mut expr = None;
         for rule in rule.into_inner() {
             match rule.as_rule() {
@@ -115,7 +116,7 @@ impl<'a> CParser<'a> {
                                 right,
                             },
                             is_lvalue: false,
-                            ..Expr::new(span)
+                            ..Expr::new(self.file_id, from_pest_span(span))
                         })));
                     } else {
                         expr = Some(right);
@@ -129,15 +130,15 @@ impl<'a> CParser<'a> {
 
     pub fn parse_constant_expression(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Expr<'a>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<Expr>>, Diagnostic<usize>> {
         self.parse_conditional_expression(rule)
     }
 
     pub fn parse_conditional_expression(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Expr<'a>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<Expr>>, Diagnostic<usize>> {
         let span = rule.as_span();
         let mut exprs = Vec::new();
         for rule in rule.into_inner() {
@@ -160,15 +161,15 @@ impl<'a> CParser<'a> {
                     true_expr: exprs.pop().unwrap(),
                     false_expr: exprs.pop().unwrap(),
                 },
-                ..Expr::new(span)
+                ..Expr::new(self.file_id, from_pest_span(span))
             })))
         }
     }
 
     pub fn parse_unary_expression(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Expr<'a>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<Expr>>, Diagnostic<usize>> {
         for rule in rule.clone().into_inner() {
             match rule.as_rule() {
                 Rule::sizeof_type => {
@@ -182,13 +183,16 @@ impl<'a> CParser<'a> {
                             Rule::type_name => {
                                 //可能会产生歧义的地方
                                 let span = rule.as_span();
-                                match CParser::parse(Rule::expression, rule.as_str()) {
+                                match map_pest_err(
+                                    self.file_id,
+                                    CParser::parse(Rule::expression, rule.as_str()),
+                                ) {
                                     Ok(rules) => {
                                         for rule in rules {
                                             match self.parse_expression(rule) {
                                                 Ok(t) => {
                                                     //纠正位置
-                                                    t.borrow_mut().span = span;
+                                                    t.borrow_mut().span = from_pest_span(span);
                                                     expr = Some(t);
                                                 }
                                                 Err(e) => errs.push(e),
@@ -219,7 +223,7 @@ impl<'a> CParser<'a> {
                             expr,
                             decls,
                         },
-                        ..Expr::new(span)
+                        ..Expr::new(self.file_id, from_pest_span(span))
                     })));
                 }
                 Rule::alignof => {
@@ -242,7 +246,7 @@ impl<'a> CParser<'a> {
                             r#type: r#type.unwrap(),
                             decls,
                         },
-                        ..Expr::new(span)
+                        ..Expr::new(self.file_id, from_pest_span(span))
                     })));
                 }
                 _ => {}
@@ -276,11 +280,12 @@ impl<'a> CParser<'a> {
                                 decls,
                             },
                             r#type: r#type.unwrap_or(Rc::new(RefCell::new(Type {
-                                span,
+                                file_id: self.file_id,
+                                span: from_pest_span(span),
                                 attributes: vec![],
                                 kind: TypeKind::Error,
                             }))),
-                            ..Expr::new(span)
+                            ..Expr::new(self.file_id, from_pest_span(span))
                         })))
                     }
                     Rule::sizeof => Ok(Rc::new(RefCell::new(Expr {
@@ -289,7 +294,7 @@ impl<'a> CParser<'a> {
                             expr: Some(operand?),
                             decls: vec![],
                         },
-                        ..Expr::new(span)
+                        ..Expr::new(self.file_id, from_pest_span(span))
                     }))),
                     _ => Ok(Rc::new(RefCell::new(Expr {
                         kind: ExprKind::UnaryOp {
@@ -306,7 +311,7 @@ impl<'a> CParser<'a> {
                             },
                             operand: operand?,
                         },
-                        ..Expr::new(span)
+                        ..Expr::new(self.file_id, from_pest_span(span))
                     }))),
                 }
             })
@@ -366,7 +371,7 @@ impl<'a> CParser<'a> {
                             operand: operand?,
                         },
                     },
-                    ..Expr::new(span)
+                    ..Expr::new(self.file_id, from_pest_span(span))
                 })))
             })
             .parse(rule.into_inner())
@@ -374,14 +379,15 @@ impl<'a> CParser<'a> {
 
     pub fn parse_logical_or_expression(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Expr<'a>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<Expr>>, Diagnostic<usize>> {
         PRATT_PARSER
             .map_primary(|rule| match rule.as_rule() {
                 Rule::unary_expression => self.parse_unary_expression(rule),
                 _ => unreachable!(),
             })
             .map_infix(|left, rule, right| {
+                let span = rule.as_span();
                 Ok(Rc::new(RefCell::new(Expr {
                     kind: ExprKind::BinOp {
                         op: match rule.as_rule() {
@@ -408,24 +414,22 @@ impl<'a> CParser<'a> {
                         left: left?,
                         right: right?,
                     },
-                    ..Expr::new(rule.as_span())
+                    ..Expr::new(self.file_id, from_pest_span(span))
                 })))
             })
             .parse(rule.into_inner())
     }
 
-    pub fn parse_primary(
-        &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Expr<'a>>>, Error<Rule>> {
+    pub fn parse_primary(&self, rule: Pair<Rule>) -> Result<Rc<RefCell<Expr>>, Diagnostic<usize>> {
         for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::compound_literal => return self.parse_compound_literal(rule),
                 Rule::generic_selection => return self.parse_generic_selection(rule),
                 Rule::identifier => {
+                    let span = rule.as_span();
                     return Ok(Rc::new(RefCell::new(Expr {
                         kind: ExprKind::Name(rule.as_str().to_string()),
-                        ..Expr::new(rule.as_span())
+                        ..Expr::new(self.file_id, from_pest_span(span))
                     })));
                 }
                 Rule::constant => return self.parse_constant(rule),
@@ -439,8 +443,8 @@ impl<'a> CParser<'a> {
 
     pub fn parse_compound_literal(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Expr<'a>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<Expr>>, Diagnostic<usize>> {
         let span = rule.as_span();
         let mut storage_classes = Vec::new();
         let mut r#type = None;
@@ -470,14 +474,14 @@ impl<'a> CParser<'a> {
                 decls,
             },
             r#type: r#type.unwrap(),
-            ..Expr::new(span)
+            ..Expr::new(self.file_id, from_pest_span(span))
         })))
     }
 
     pub fn parse_generic_selection(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Expr<'a>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<Expr>>, Diagnostic<usize>> {
         let span = rule.as_span();
         let mut expr = None;
         let mut assocs = Vec::new();
@@ -493,14 +497,14 @@ impl<'a> CParser<'a> {
                 control_expr: expr.unwrap(),
                 assocs,
             },
-            ..Expr::new(span)
+            ..Expr::new(self.file_id, from_pest_span(span))
         })))
     }
 
     pub fn parse_generic_association(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<GenericAssoc<'a>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<GenericAssoc>>, Diagnostic<usize>> {
         let span = rule.as_span();
         let mut r#type = None;
         let mut expr = None;
@@ -518,7 +522,8 @@ impl<'a> CParser<'a> {
             }
         }
         Ok(Rc::new(RefCell::new(GenericAssoc {
-            span,
+            file_id: self.file_id,
+            span: from_pest_span(span),
             is_selected: false,
             r#type,
             expr: expr.unwrap(),
@@ -526,10 +531,7 @@ impl<'a> CParser<'a> {
         })))
     }
 
-    pub fn parse_constant(
-        &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Expr<'a>>>, Error<Rule>> {
+    pub fn parse_constant(&self, rule: Pair<Rule>) -> Result<Rc<RefCell<Expr>>, Diagnostic<usize>> {
         for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::floating_constant => return self.parse_floating_constant(rule),
@@ -544,8 +546,9 @@ impl<'a> CParser<'a> {
 
     pub fn parse_floating_constant(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Expr<'a>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<Expr>>, Diagnostic<usize>> {
+        let span = rule.as_span();
         let mut base = 10;
         let mut digits = rule.as_str().to_string();
         let mut type_suffix = Vec::new();
@@ -582,14 +585,15 @@ impl<'a> CParser<'a> {
                 exponent,
                 type_suffix,
             },
-            ..Expr::new(rule.as_span())
+            ..Expr::new(self.file_id, from_pest_span(span))
         })))
     }
 
     pub fn parse_integer_constant(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Expr<'a>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<Expr>>, Diagnostic<usize>> {
+        let span = rule.as_span();
         let mut base = 10;
         let mut text = rule.as_str().to_string();
         let mut type_suffix = Vec::new();
@@ -616,14 +620,15 @@ impl<'a> CParser<'a> {
                 text,
                 type_suffix,
             },
-            ..Expr::new(rule.as_span())
+            ..Expr::new(self.file_id, from_pest_span(span))
         })))
     }
 
     pub fn parse_predefined_constant(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Expr<'a>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<Expr>>, Diagnostic<usize>> {
+        let span = rule.as_span();
         Ok(Rc::new(RefCell::new(Expr {
             kind: match rule.as_str() {
                 "true" => ExprKind::True,
@@ -631,14 +636,14 @@ impl<'a> CParser<'a> {
                 "nullptr" => ExprKind::Nullptr,
                 _ => unreachable!(),
             },
-            ..Expr::new(rule.as_span())
+            ..Expr::new(self.file_id, from_pest_span(span))
         })))
     }
 
     pub fn parse_character_constant(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Expr<'a>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<Expr>>, Diagnostic<usize>> {
         let span = rule.as_span();
         let mut encode_prefix = "";
         let mut text = vec![];
@@ -661,11 +666,11 @@ impl<'a> CParser<'a> {
                 },
                 text,
             },
-            ..Expr::new(span)
+            ..Expr::new(self.file_id, from_pest_span(span))
         })))
     }
 
-    pub fn parse_char(&self, rule: Pair<'a, Rule>) -> Result<char, Error<Rule>> {
+    pub fn parse_char(&self, rule: Pair<Rule>) -> Result<char, Diagnostic<usize>> {
         let str = rule.as_str();
         for rule in rule.into_inner() {
             return Ok(match rule.as_rule() {
@@ -676,7 +681,7 @@ impl<'a> CParser<'a> {
         Ok(str.chars().next().unwrap())
     }
 
-    pub fn parse_escape_sequence(&self, rule: Pair<'a, Rule>) -> Result<char, Error<Rule>> {
+    pub fn parse_escape_sequence(&self, rule: Pair<Rule>) -> Result<char, Diagnostic<usize>> {
         for rule in rule.into_inner() {
             return Ok(match rule.as_rule() {
                 Rule::simple_escape_sequence => match rule.as_str() {
@@ -707,8 +712,8 @@ impl<'a> CParser<'a> {
 
     pub fn parse_string_literal(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Expr<'a>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<Expr>>, Diagnostic<usize>> {
         let span = rule.as_span();
         let mut encode_prefix = "";
         let mut text = vec![];
@@ -731,14 +736,14 @@ impl<'a> CParser<'a> {
                 },
                 text,
             },
-            ..Expr::new(span)
+            ..Expr::new(self.file_id, from_pest_span(span))
         })))
     }
 
     pub fn parse_string_group(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Expr<'a>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<Expr>>, Diagnostic<usize>> {
         let mut span = rule.as_span();
         let mut prefix = EncodePrefix::Default;
         let mut text = String::new();
@@ -756,14 +761,14 @@ impl<'a> CParser<'a> {
                                     prefix = a.clone()
                                 }
                                 _ => {
-                                    return Err(Error::new_from_span(
-                                        ErrorVariant::CustomError {
-                                            message: format!(
-                                                "cannot contact strings with different encoding prefix"
-                                            ),
-                                        },
-                                        cur_span,
-                                    ));
+                                    return Err(Diagnostic::error()
+                                        .with_message(format!(
+                                            "cannot contact strings with different encoding prefix"
+                                        ))
+                                        .with_label(Label::primary(
+                                            self.file_id,
+                                            from_pest_span(cur_span),
+                                        )));
                                 }
                             }
                             text += cur_text.as_str();
@@ -778,7 +783,7 @@ impl<'a> CParser<'a> {
         }
         Ok(Rc::new(RefCell::new(Expr {
             kind: ExprKind::String { prefix, text },
-            ..Expr::new(span)
+            ..Expr::new(self.file_id, from_pest_span(span))
         })))
     }
 }

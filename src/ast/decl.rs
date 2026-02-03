@@ -2,25 +2,27 @@ use super::{Attribute, Initializer};
 use crate::ast::expr::Expr;
 use crate::ast::stmt::Stmt;
 use crate::ctype::Type;
-use pest::Span;
+use codespan::Span;
 use std::cell::RefCell;
 use std::fmt::Display;
 use std::rc::Rc;
 
 #[derive(Debug, Clone)]
-pub struct Declaration<'a> {
-    pub span: Span<'a>,
-    pub attributes: Vec<Rc<RefCell<Attribute<'a>>>>,
+pub struct Declaration {
+    pub file_id: usize,
+    pub span: Span,
+    pub attributes: Vec<Rc<RefCell<Attribute>>>,
     pub name: String,
-    pub r#type: Rc<RefCell<Type<'a>>>,
-    pub storage_classes: Vec<StorageClass<'a>>,
-    pub kind: DeclarationKind<'a>,
-    pub children: Vec<Rc<RefCell<Declaration<'a>>>>,
+    pub r#type: Rc<RefCell<Type>>,
+    pub storage_classes: Vec<StorageClass>,
+    pub kind: DeclarationKind,
+    pub children: Vec<Rc<RefCell<Declaration>>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct StorageClass<'a> {
-    pub span: Span<'a>,
+pub struct StorageClass {
+    pub file_id: usize,
+    pub span: Span,
     pub kind: StorageClassKind,
 }
 
@@ -36,8 +38,9 @@ pub enum StorageClassKind {
 }
 
 #[derive(Debug, Clone)]
-pub struct FunctionSpec<'a> {
-    pub span: Span<'a>,
+pub struct FunctionSpec {
+    pub file_id: usize,
+    pub span: Span,
     pub kind: FunctionSpecKind,
 }
 
@@ -48,40 +51,40 @@ pub enum FunctionSpecKind {
 }
 
 #[derive(Debug, Clone)]
-pub enum DeclarationKind<'a> {
+pub enum DeclarationKind {
     Var {
-        initializer: Option<Rc<RefCell<Initializer<'a>>>>,
+        initializer: Option<Rc<RefCell<Initializer>>>,
     },
     Function {
         //可能包含了参数中的record或者enum的定义
-        parameter_decls: Vec<Rc<RefCell<Declaration<'a>>>>,
-        function_specs: Vec<FunctionSpec<'a>>,
-        body: Option<Rc<RefCell<Stmt<'a>>>>, //为None是声明
+        parameter_decls: Vec<Rc<RefCell<Declaration>>>,
+        function_specs: Vec<FunctionSpec>,
+        body: Option<Rc<RefCell<Stmt>>>, //为None是声明
     },
     Type,
     Record {
-        members_decl: Option<Vec<Rc<RefCell<Declaration<'a>>>>>, //为None是声明
+        members_decl: Option<Vec<Rc<RefCell<Declaration>>>>, //为None是声明
     },
     Enum {
         //借用Declaration处理枚举值
-        enumerators: Option<Vec<Rc<RefCell<Declaration<'a>>>>>, //为None是声明
+        enumerators: Option<Vec<Rc<RefCell<Declaration>>>>, //为None是声明
     },
     StaticAssert {
         //message复用name字段
-        expr: Rc<RefCell<Expr<'a>>>,
+        expr: Rc<RefCell<Expr>>,
     },
     Attribute,
     Enumerator {
-        value: Option<Rc<RefCell<Expr<'a>>>>,
+        value: Option<Rc<RefCell<Expr>>>,
     },
     Parameter,
     Member {
-        bit_field: Option<Rc<RefCell<Expr<'a>>>>,
+        bit_field: Option<Rc<RefCell<Expr>>>,
     },
 }
 
 impl Display for StorageClassKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
             "{}",
@@ -99,7 +102,7 @@ impl Display for StorageClassKind {
 }
 
 impl Display for FunctionSpecKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
             "{}",

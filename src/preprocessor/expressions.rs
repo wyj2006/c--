@@ -1,7 +1,7 @@
 ///包括了与表达式有关的方法
 use super::{Preprocessor, Rule};
 use crate::ast::expr::ExprKind;
-use crate::parser;
+use crate::diagnostic::from_pest_span;
 use crate::parser::CParser;
 use crate::preprocessor::macro_replace::{
     STDC_EMBED_EMPTY, STDC_EMBED_FOUND, STDC_EMBED_NOT_FOUND,
@@ -9,9 +9,10 @@ use crate::preprocessor::macro_replace::{
 use crate::symtab::SymbolTable;
 use crate::typechecker::TypeChecker;
 use crate::variant::Variant;
+use crate::{files, parser};
+use codespan_reporting::diagnostic::{Diagnostic, Label};
 use num::ToPrimitive;
 use pest::Parser;
-use pest::error::{Error, ErrorVariant};
 use pest::iterators::{Pair, Pairs};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
 use std::cell::RefCell;
@@ -42,9 +43,12 @@ static PRATT_PARSER: LazyLock<PrattParser<Rule>> = LazyLock::new(|| {
             | Op::prefix(Rule::not))
 });
 
-impl Preprocessor<'_> {
+impl Preprocessor {
     ///计算constant_expression的值
-    pub fn process_constant_expression(&mut self, rule: Pair<Rule>) -> Result<isize, Error<Rule>> {
+    pub fn process_constant_expression(
+        &mut self,
+        rule: Pair<Rule>,
+    ) -> Result<isize, Diagnostic<usize>> {
         let mut condition = 0;
         let mut true_value = None;
         let mut false_value = None;
@@ -75,20 +79,24 @@ impl Preprocessor<'_> {
     }
 
     ///计算expression的值
-    pub fn process_expression(&mut self, rules: Pairs<Rule>) -> Result<isize, Error<Rule>> {
+    pub fn process_expression(&mut self, rules: Pairs<Rule>) -> Result<isize, Diagnostic<usize>> {
         PRATT_PARSER
             .map_primary(|primary| match primary.as_rule() {
                 Rule::integer_constant => match primary.as_str().parse::<isize>() {
                     Ok(t) => Ok(t),
-                    Err(e) => Err(Error::new_from_span(
-                        ErrorVariant::CustomError {
-                            message: format!("invalid integer '{}': {}", primary.as_str(), e),
-                        },
-                        primary.as_span(),
-                    )),
+                    Err(e) => Err(Diagnostic::error()
+                        .with_message(format!("invalid integer '{}': {}", primary.as_str(), e))
+                        .with_label(Label::primary(
+                            self.file_id,
+                            from_pest_span(primary.as_span()),
+                        ))),
                 },
                 Rule::character_constant => {
-                    let expr = CParser::new(primary.as_str())
+                    let part_id = files
+                        .lock()
+                        .unwrap()
+                        .add(format!("<part>"), primary.as_str().to_string());
+                    let expr = CParser::new(part_id)
                         .parse_character_constant(
                             CParser::parse(parser::Rule::character_constant, primary.as_str())
                                 .unwrap()
@@ -96,22 +104,13 @@ impl Preprocessor<'_> {
                                 .unwrap(),
                         )
                         .unwrap();
-                    let mut type_checker = TypeChecker::new(
-                        &self.file_path,
-                        Rc::new(RefCell::new(SymbolTable::new())),
-                    );
-                    match type_checker.visit_expr(Rc::clone(&expr)) {
-                        Ok(()) => Ok(match &expr.borrow().value {
-                            Variant::Int(value) => value.to_isize().unwrap_or(0),
-                            _ => unreachable!(),
-                        }),
-                        Err(e) => Err(Error::new_from_span(
-                            ErrorVariant::CustomError {
-                                message: e.message.clone(),
-                            },
-                            primary.as_span(),
-                        )),
-                    }
+                    let mut type_checker =
+                        TypeChecker::new(Rc::new(RefCell::new(SymbolTable::new())));
+                    type_checker.visit_expr(Rc::clone(&expr))?;
+                    Ok(match &expr.borrow().value {
+                        Variant::Int(value) => value.to_isize().unwrap_or(0),
+                        _ => 0,
+                    })
                 }
                 Rule::constant_expression => self.process_constant_expression(primary),
                 Rule::identifier => Ok(0),
@@ -127,7 +126,7 @@ impl Preprocessor<'_> {
                             _ => {}
                         }
                     }
-                    if let Some(_) = self.find_macro(&macro_name, &macro_span) {
+                    if let Some(_) = self.find_macro(&macro_name, from_pest_span(macro_span)) {
                         Ok(1)
                     } else {
                         Ok(0)
@@ -237,8 +236,12 @@ impl Preprocessor<'_> {
             .parse(rules)
     }
 
-    pub fn process_string_literal(&self, rule: Pair<Rule>) -> Result<String, Error<Rule>> {
-        let expr = CParser::new(rule.as_str())
+    pub fn process_string_literal(&self, rule: Pair<Rule>) -> Result<String, Diagnostic<usize>> {
+        let part_id = files
+            .lock()
+            .unwrap()
+            .add(format!("<part>"), rule.as_str().to_string());
+        let expr = CParser::new(part_id)
             .parse_string_literal(
                 CParser::parse(parser::Rule::string_literal, rule.as_str())
                     .unwrap()

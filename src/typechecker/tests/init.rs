@@ -1,7 +1,5 @@
-use crate::{
-    parser::CParser, symtab::SymbolTable, typechecker::TypeChecker, typechecker_test_template,
-};
-use insta::assert_debug_snapshot;
+use crate::typechecker::tests::quick_new_parser;
+use crate::{symtab::SymbolTable, typechecker::TypeChecker, typechecker_test_template};
 use std::{cell::RefCell, rc::Rc};
 
 typechecker_test_template!(

@@ -1,55 +1,49 @@
-use crate::parser;
-use pest::Span;
-use pest::error::{Error, ErrorVariant};
+use crate::files;
+use codespan::Span;
+use codespan_reporting::{
+    diagnostic::{Diagnostic, Label},
+    files::Files,
+    term::{
+        Config, emit_into_string, emit_to_write_style,
+        termcolor::{ColorChoice, StandardStream},
+    },
+};
+use pest::{RuleType, error::Error};
 
-#[derive(Debug)]
-pub struct Diagnostic<'a> {
-    pub span: Span<'a>,
-    pub kind: DiagnosticKind,
-    pub message: String,
-    pub notes: Vec<Diagnostic<'a>>,
+pub fn from_pest_span<'a>(span: pest::Span<'a>) -> Span {
+    Span::new(span.start() as u32, span.end() as u32)
 }
 
-#[derive(Debug)]
-pub enum DiagnosticKind {
-    Error,
-    Warning,
-    Note,
-}
-
-impl<'a> Diagnostic<'a> {
-    pub fn print(&self) {
-        self.print_with_path("");
+pub fn map_pest_err<T, R: RuleType>(
+    file_id: usize,
+    result: Result<T, Error<R>>,
+) -> Result<T, Diagnostic<usize>> {
+    match result {
+        Ok(t) => Ok(t),
+        Err(e) => Err(Diagnostic::error().with_message(format!(
+            "\n{}",
+            e.with_path(&files.lock().unwrap().name(file_id).unwrap())
+        ))),
     }
+}
 
-    pub fn print_with_path(&self, path: &str) {
-        for note in &self.notes {
-            note.print();
-        }
-        match self.kind {
-            DiagnosticKind::Error => println!("error:"),
-            DiagnosticKind::Warning => println!("warning:"),
-            DiagnosticKind::Note => println!("note:"),
-        }
+pub fn warning(message: String, file_id: usize, span: Span) {
+    print_diag(
+        Diagnostic::warning()
+            .with_message(message)
+            .with_label(Label::primary(file_id, span)),
+    );
+}
+
+pub fn print_diag(diagnostic: Diagnostic<usize>) {
+    let config = Config::default();
+    if cfg!(not(test)) {
+        let mut writer = StandardStream::stderr(ColorChoice::Always);
+        emit_to_write_style(&mut writer, &config, &*files.lock().unwrap(), &diagnostic).unwrap();
+    } else {
         println!(
             "{}",
-            Error::<parser::Rule>::new_from_span(
-                ErrorVariant::CustomError {
-                    message: self.message.clone()
-                },
-                self.span
-            )
-            .with_path(path)
+            emit_into_string(&config, &*files.lock().unwrap(), &diagnostic).unwrap()
         );
     }
-}
-
-pub fn warning(message: String, span: Span, path: &str) {
-    Diagnostic {
-        span,
-        kind: DiagnosticKind::Warning,
-        message,
-        notes: vec![],
-    }
-    .print_with_path(path);
 }

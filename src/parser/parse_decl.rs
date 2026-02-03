@@ -6,17 +6,18 @@ use crate::ast::expr::ExprKind;
 use crate::ast::{Attribute, AttributeKind};
 use crate::ctype::TypeQual;
 use crate::ctype::{RecordKind, Type, TypeKind};
-use pest::error::ErrorVariant;
-use pest::{error::Error, iterators::Pair};
+use crate::diagnostic::from_pest_span;
+use codespan_reporting::diagnostic::{Diagnostic, Label};
+use pest::iterators::Pair;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-impl<'a> CParser<'a> {
+impl CParser {
     //删除decls中record/enum的非定义和非前向声明
     pub fn filter_decls(
         &self,
-        mut decls: Vec<Rc<RefCell<Declaration<'a>>>>,
-    ) -> Vec<Rc<RefCell<Declaration<'a>>>> {
+        mut decls: Vec<Rc<RefCell<Declaration>>>,
+    ) -> Vec<Rc<RefCell<Declaration>>> {
         let mut may_forward_decl = true;
         for decl in &decls {
             match decl.borrow().kind {
@@ -47,8 +48,8 @@ impl<'a> CParser<'a> {
 
     pub fn parse_function_definition(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Vec<Rc<RefCell<Declaration<'a>>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Vec<Rc<RefCell<Declaration>>>, Diagnostic<usize>> {
         let mut decls = Vec::new();
         let mut attributes = Vec::new();
         let mut type_attrs = Vec::new();
@@ -97,12 +98,9 @@ impl<'a> CParser<'a> {
                     {
                         t.extend(function_specs.clone());
                     } else {
-                        return Err(Error::new_from_span(
-                            ErrorVariant::CustomError {
-                                message: format!("not a function"),
-                            },
-                            span,
-                        ));
+                        return Err(Diagnostic::error()
+                            .with_message(format!("not a function"))
+                            .with_label(Label::primary(self.file_id, from_pest_span(span))));
                     }
                     function_decl = Some(decl);
                 }
@@ -124,8 +122,8 @@ impl<'a> CParser<'a> {
 
     pub fn parse_declaration(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Vec<Rc<RefCell<Declaration<'a>>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Vec<Rc<RefCell<Declaration>>>, Diagnostic<usize>> {
         let span = rule.as_span();
         let mut decls = Vec::new();
         //对象的属性
@@ -165,12 +163,12 @@ impl<'a> CParser<'a> {
                     if let DeclarationKind::Var { initializer: old } = &mut decl_borrow.kind {
                         *old = Some(initializer);
                     } else {
-                        return Err(Error::new_from_span(
-                            ErrorVariant::CustomError {
-                                message: format!("only variables can be initialized"),
-                            },
-                            initializer.borrow().span,
-                        ));
+                        return Err(Diagnostic::error()
+                            .with_message(format!("only variables can be initialized"))
+                            .with_label(Label::primary(
+                                initializer.borrow().file_id,
+                                initializer.borrow().span,
+                            )));
                     }
                     decl_borrow.attributes.extend(attributes.clone());
                 }
@@ -199,12 +197,14 @@ impl<'a> CParser<'a> {
                     {
                         t.extend(function_specs.clone());
                     } else if function_specs.len() > 0 {
-                        return Err(Error::new_from_span(
-                            ErrorVariant::CustomError {
-                                message: format!("function specifier can only appear on functions"),
-                            },
-                            function_specs[0].span,
-                        ));
+                        return Err(Diagnostic::error()
+                            .with_message(format!(
+                                "function specifier can only appear on functions"
+                            ))
+                            .with_label(Label::primary(
+                                function_specs[0].file_id,
+                                function_specs[0].span,
+                            )));
                     }
                     decls.push(decl);
                 }
@@ -222,11 +222,13 @@ impl<'a> CParser<'a> {
                         }
                     }
                     decls.push(Rc::new(RefCell::new(Declaration {
-                        span,
+                        file_id: self.file_id,
+                        span: from_pest_span(span),
                         attributes: attributes.clone(),
                         name: String::new(),
                         r#type: Rc::new(RefCell::new(Type {
-                            span,
+                            file_id: self.file_id,
+                            span: from_pest_span(span),
                             attributes: attributes.clone(),
                             kind: TypeKind::Error,
                         })),
@@ -243,7 +245,8 @@ impl<'a> CParser<'a> {
         {
             //没有declarator时的情况
             decls.push(Rc::new(RefCell::new(Declaration {
-                span,
+                file_id: self.file_id,
+                span: from_pest_span(span),
                 attributes,
                 name: String::new(),
                 r#type: Rc::new(RefCell::new({
@@ -260,19 +263,19 @@ impl<'a> CParser<'a> {
 
     pub fn parse_declaration_specifiers(
         &self,
-        rule: Pair<'a, Rule>,
+        rule: Pair<Rule>,
     ) -> Result<
         (
             //因为解析出来的不是最终的类型, 所以不需要引用计数
-            Type<'a>,
-            Vec<StorageClass<'a>>,
-            Vec<FunctionSpec<'a>>,
+            Type,
+            Vec<StorageClass>,
+            Vec<FunctionSpec>,
             //可能有record或enum的定义
-            Vec<Rc<RefCell<Declaration<'a>>>>,
+            Vec<Rc<RefCell<Declaration>>>,
             //就可能有AlignAs一种属性
-            Vec<Rc<RefCell<Attribute<'a>>>>,
+            Vec<Rc<RefCell<Attribute>>>,
         ),
-        Error<Rule>,
+        Diagnostic<usize>,
     > {
         let span = rule.as_span();
         let mut attributes = Vec::new();
@@ -286,8 +289,13 @@ impl<'a> CParser<'a> {
             match rule.as_rule() {
                 Rule::type_qualifier => qualifiers.push(self.parse_type_qualifier(rule)?),
                 Rule::storage_class_specifier => match self.parse_storage_class_specifier(rule)? {
-                    StorageClass { kind, span } if matches!(kind, StorageClassKind::Auto) => {
+                    StorageClass {
+                        file_id,
+                        kind,
+                        span,
+                    } if matches!(kind, StorageClassKind::Auto) => {
                         types.push(Type {
+                            file_id,
                             span,
                             attributes: vec![],
                             kind: TypeKind::Auto(None),
@@ -296,7 +304,8 @@ impl<'a> CParser<'a> {
                     t => storage_classes.push(t),
                 },
                 Rule::function_specifier => function_specs.push(FunctionSpec {
-                    span: rule.as_span(),
+                    file_id: self.file_id,
+                    span: from_pest_span(span),
                     kind: match rule.as_str() {
                         "inline" => FunctionSpecKind::Inline,
                         "_Noreturn" => FunctionSpecKind::Noreturn,
@@ -331,7 +340,8 @@ impl<'a> CParser<'a> {
                         }
                     }
                     extern_attrs.push(Rc::new(RefCell::new(Attribute {
-                        span,
+                        file_id: self.file_id,
+                        span: from_pest_span(span),
                         prefix_name: None,
                         name: "alignas".to_string(),
                         kind: AttributeKind::AlignAs { r#type, expr },
@@ -342,7 +352,8 @@ impl<'a> CParser<'a> {
                     for rule in rule.into_inner() {
                         if let Rule::identifier = rule.as_rule() {
                             types.push(Type {
-                                span,
+                                file_id: self.file_id,
+                                span: from_pest_span(span),
                                 attributes: vec![],
                                 kind: TypeKind::Typedef {
                                     name: rule.as_str().to_string(),
@@ -372,12 +383,9 @@ impl<'a> CParser<'a> {
         });
         //开始组合类型
         if types.len() == 0 {
-            return Err(Error::new_from_span(
-                ErrorVariant::CustomError {
-                    message: format!("type specifiers missing"),
-                },
-                span,
-            ));
+            return Err(Diagnostic::error()
+                .with_message(format!("type specifiers missing"))
+                .with_label(Label::primary(self.file_id, from_pest_span(span))));
         }
         let init_type = Ok(types.remove(0));
         let mut final_type = types.iter().fold(init_type, |acc, x| {
@@ -423,6 +431,7 @@ impl<'a> CParser<'a> {
                     TypeKind::Complex(Some(t)) => {
                         if let TypeKind::Double = t.borrow().kind {
                             acc.kind = TypeKind::Complex(Some(Rc::new(RefCell::new(Type {
+                                file_id: self.file_id,
                                 span: x.span,
                                 attributes: x.attributes.clone(),
                                 kind: TypeKind::LongDouble,
@@ -506,12 +515,9 @@ impl<'a> CParser<'a> {
                 },
                 _ => {}
             }
-            Err(Error::new_from_span(
-                ErrorVariant::CustomError {
-                    message: format!("cannot combine {} and {}", acc, x),
-                },
-                x.span,
-            ))
+            Err(Diagnostic::error()
+                .with_message(format!("cannot combine {} and {}", acc, x))
+                .with_label(Label::primary(x.file_id, x.span)))
         })?;
 
         let atomic_index = qualifiers.iter().position(|x| {
@@ -523,7 +529,8 @@ impl<'a> CParser<'a> {
         });
         if let Some(atomic_index) = atomic_index {
             final_type = Type {
-                span,
+                file_id: self.file_id,
+                span: from_pest_span(span),
                 attributes: attributes.clone(),
                 kind: TypeKind::Atomic(Rc::new(RefCell::new(final_type))),
             };
@@ -531,7 +538,8 @@ impl<'a> CParser<'a> {
         }
         if qualifiers.len() > 0 {
             final_type = Type {
-                span,
+                file_id: self.file_id,
+                span: from_pest_span(span),
                 attributes,
                 kind: TypeKind::Qualified {
                     qualifiers,
@@ -539,7 +547,7 @@ impl<'a> CParser<'a> {
                 },
             };
         } else {
-            final_type.span = span;
+            final_type.span = from_pest_span(span);
             final_type.attributes.extend(attributes);
         }
         Ok((
@@ -553,8 +561,8 @@ impl<'a> CParser<'a> {
 
     pub fn parse_type_specifier(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<(Type<'a>, Vec<Rc<RefCell<Declaration<'a>>>>), Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<(Type, Vec<Rc<RefCell<Declaration>>>), Diagnostic<usize>> {
         let span = rule.as_span();
         let mut decls = Vec::new();
         let kind = match rule.as_str() {
@@ -647,7 +655,8 @@ impl<'a> CParser<'a> {
         };
         Ok((
             Type {
-                span,
+                file_id: self.file_id,
+                span: from_pest_span(span),
                 attributes: Vec::new(),
                 kind: kind,
             },
@@ -655,7 +664,7 @@ impl<'a> CParser<'a> {
         ))
     }
 
-    pub fn parse_type_qualifier(&self, rule: Pair<'a, Rule>) -> Result<TypeQual, Error<Rule>> {
+    pub fn parse_type_qualifier(&self, rule: Pair<Rule>) -> Result<TypeQual, Diagnostic<usize>> {
         Ok(match rule.as_str() {
             "const" => TypeQual::Const,
             "restrict" => TypeQual::Restrict,
@@ -667,10 +676,12 @@ impl<'a> CParser<'a> {
 
     pub fn parse_storage_class_specifier(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<StorageClass<'a>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<StorageClass, Diagnostic<usize>> {
+        let span = rule.as_span();
         Ok(StorageClass {
-            span: rule.as_span(),
+            file_id: self.file_id,
+            span: from_pest_span(span),
             kind: match rule.as_str() {
                 "auto" => StorageClassKind::Auto,
                 "constexpr" => StorageClassKind::Constexpr,
@@ -686,8 +697,8 @@ impl<'a> CParser<'a> {
 
     pub fn parse_struct_or_union_specifier(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<(Type<'a>, Rc<RefCell<Declaration<'a>>>), Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<(Type, Rc<RefCell<Declaration>>), Diagnostic<usize>> {
         let record_kind = if rule.as_str().starts_with("struct") {
             RecordKind::Struct
         } else {
@@ -712,7 +723,8 @@ impl<'a> CParser<'a> {
             }
         }
         let record_type = Type {
-            span,
+            file_id: self.file_id,
+            span: from_pest_span(span),
             attributes: attributes.clone(),
             kind: TypeKind::Record {
                 name: name.clone(),
@@ -723,7 +735,8 @@ impl<'a> CParser<'a> {
         Ok((
             record_type.clone(),
             Rc::new(RefCell::new(Declaration {
-                span,
+                file_id: self.file_id,
+                span: from_pest_span(span),
                 attributes: attributes.clone(),
                 name: name,
                 //将会在语义分析的时候重新确定type
@@ -739,8 +752,8 @@ impl<'a> CParser<'a> {
 
     pub fn parse_enum_specifier(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<(Type<'a>, Rc<RefCell<Declaration<'a>>>), Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<(Type, Rc<RefCell<Declaration>>), Diagnostic<usize>> {
         let span = rule.as_span();
         let mut name = format!("<unnamed enum {:?}>", span.start_pos().line_col());
         let mut attributes = Vec::new();
@@ -771,12 +784,14 @@ impl<'a> CParser<'a> {
             }
         }
         let enum_type = Type {
-            span,
+            file_id: self.file_id,
+            span: from_pest_span(span),
             attributes: attributes.clone(),
             kind: TypeKind::Enum {
                 name: name.clone(),
                 underlying: Rc::new(RefCell::new(underlying_type.unwrap_or(Type {
-                    span,
+                    file_id: self.file_id,
+                    span: from_pest_span(span),
                     attributes: Vec::new(),
                     kind: TypeKind::Error, //underlying type将在类型检查时确定
                 }))),
@@ -786,7 +801,8 @@ impl<'a> CParser<'a> {
         Ok((
             enum_type.clone(),
             Rc::new(RefCell::new(Declaration {
-                span,
+                file_id: self.file_id,
+                span: from_pest_span(span),
                 attributes: attributes.clone(),
                 name,
                 //将会在语义分析的时候重新确定type
@@ -802,9 +818,9 @@ impl<'a> CParser<'a> {
 
     pub fn parse_declarator(
         &self,
-        spec_type: Type<'a>,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Declaration<'a>>>, Error<Rule>> {
+        spec_type: Type,
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<Declaration>>, Diagnostic<usize>> {
         let span = rule.as_span();
         let mut name = String::new();
         let mut attributes = Vec::new();
@@ -859,7 +875,8 @@ impl<'a> CParser<'a> {
                                     }
                                 }
                                 final_type = Type {
-                                    span,
+                                    file_id: self.file_id,
+                                    span: from_pest_span(span),
                                     attributes,
                                     kind: TypeKind::Function {
                                         return_type: Rc::new(RefCell::new(final_type)),
@@ -870,7 +887,8 @@ impl<'a> CParser<'a> {
 
                                 //需要额外保存函数声明, 以便之后对其进行类型检查
                                 function_decls.push(Rc::new(RefCell::new(Declaration {
-                                    span,
+                                    file_id: self.file_id,
+                                    span: from_pest_span(span),
                                     attributes: Vec::new(),
                                     name: String::new(),
                                     r#type: Rc::new(RefCell::new(final_type.clone())),
@@ -908,7 +926,8 @@ impl<'a> CParser<'a> {
                                 }
 
                                 final_type = Type {
-                                    span,
+                                    file_id: self.file_id,
+                                    span: from_pest_span(span),
                                     attributes: Vec::new(),
                                     kind: TypeKind::Array {
                                         has_static,
@@ -919,7 +938,8 @@ impl<'a> CParser<'a> {
                                 };
                                 if type_quals.len() > 0 {
                                     final_type = Type {
-                                        span,
+                                        file_id: self.file_id,
+                                        span: from_pest_span(span),
                                         attributes: Vec::new(),
                                         kind: TypeKind::Qualified {
                                             qualifiers: type_quals,
@@ -950,13 +970,15 @@ impl<'a> CParser<'a> {
                         }
                     }
                     final_type = Type {
-                        span,
+                        file_id: self.file_id,
+                        span: from_pest_span(span),
                         attributes: Vec::new(),
                         kind: TypeKind::Pointer(Rc::new(RefCell::new(final_type))),
                     };
                     if type_quals.len() > 0 {
                         final_type = Type {
-                            span,
+                            file_id: self.file_id,
+                            span: from_pest_span(span),
                             attributes: Vec::new(),
                             kind: TypeKind::Qualified {
                                 qualifiers: type_quals,
@@ -987,7 +1009,8 @@ impl<'a> CParser<'a> {
             };
 
             Ok(Rc::new(RefCell::new(Declaration {
-                span,
+                file_id: self.file_id,
+                span: from_pest_span(span),
                 attributes,
                 name,
                 r#type: Rc::new(RefCell::new(final_type.clone())),
@@ -1000,8 +1023,8 @@ impl<'a> CParser<'a> {
 
     pub fn parse_member_declaration(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Vec<Rc<RefCell<Declaration<'a>>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Vec<Rc<RefCell<Declaration>>>, Diagnostic<usize>> {
         let span = rule.as_span();
         let mut decls = Vec::new();
         let mut attributes = Vec::new();
@@ -1043,7 +1066,8 @@ impl<'a> CParser<'a> {
         {
             //没有declarator时的情况
             decls.push(Rc::new(RefCell::new(Declaration {
-                span,
+                file_id: self.file_id,
+                span: from_pest_span(span),
                 attributes,
                 name: String::new(),
                 r#type: Rc::new(RefCell::new({
@@ -1060,9 +1084,9 @@ impl<'a> CParser<'a> {
 
     pub fn parse_member_declarator(
         &self,
-        spec_type: Type<'a>,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Declaration<'a>>>, Error<Rule>> {
+        spec_type: Type,
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<Declaration>>, Diagnostic<usize>> {
         let span = rule.as_span();
         let mut decl = None;
         let mut bit_field = None;
@@ -1082,13 +1106,14 @@ impl<'a> CParser<'a> {
                     kind,
                     ..
                 } = &mut *t.borrow_mut();
-                *part_span = span;
+                *part_span = from_pest_span(span);
                 *kind = DeclarationKind::Member { bit_field };
             }
             Ok(t)
         } else {
             Ok(Rc::new(RefCell::new(Declaration {
-                span,
+                file_id: self.file_id,
+                span: from_pest_span(span),
                 attributes: Vec::new(),
                 name: String::new(),
                 r#type: Rc::new(RefCell::new(spec_type)),
@@ -1101,14 +1126,14 @@ impl<'a> CParser<'a> {
 
     pub fn parse_specifier_qualifier_list(
         &self,
-        rule: Pair<'a, Rule>,
+        rule: Pair<Rule>,
     ) -> Result<
         (
-            Type<'a>,
-            Vec<Rc<RefCell<Declaration<'a>>>>,
-            Vec<Rc<RefCell<Attribute<'a>>>>,
+            Type,
+            Vec<Rc<RefCell<Declaration>>>,
+            Vec<Rc<RefCell<Attribute>>>,
         ),
-        Error<Rule>,
+        Diagnostic<usize>,
     > {
         //两者结构相同, 但specifier_qualifier_list内容要少一点
         Ok(match self.parse_declaration_specifiers(rule)? {
@@ -1120,8 +1145,8 @@ impl<'a> CParser<'a> {
 
     pub fn parse_enumerator(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Declaration<'a>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<Declaration>>, Diagnostic<usize>> {
         let span = rule.as_span();
         let mut name = String::new();
         let mut expr = None;
@@ -1137,12 +1162,14 @@ impl<'a> CParser<'a> {
             }
         }
         Ok(Rc::new(RefCell::new(Declaration {
-            span,
+            file_id: self.file_id,
+            span: from_pest_span(span),
             attributes,
             name,
             //不需要type字段
             r#type: Rc::new(RefCell::new(Type {
-                span,
+                file_id: self.file_id,
+                span: from_pest_span(span),
                 attributes: Vec::new(),
                 kind: TypeKind::Error,
             })),
@@ -1154,8 +1181,8 @@ impl<'a> CParser<'a> {
 
     pub fn parse_parameter_declaration(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Vec<Rc<RefCell<Declaration<'a>>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Vec<Rc<RefCell<Declaration>>>, Diagnostic<usize>> {
         let mut decls = Vec::new();
         //两者结构相同
         for decl in self.parse_declaration(rule)? {
@@ -1175,8 +1202,8 @@ impl<'a> CParser<'a> {
 
     pub fn parse_type_qualifier_list(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Vec<TypeQual>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Vec<TypeQual>, Diagnostic<usize>> {
         let mut type_quals = Vec::new();
         for rule in rule.into_inner() {
             match rule.as_rule() {
@@ -1189,8 +1216,8 @@ impl<'a> CParser<'a> {
 
     pub fn parse_type_name(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<(Rc<RefCell<Type<'a>>>, Vec<Rc<RefCell<Declaration<'a>>>>), Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<(Rc<RefCell<Type>>, Vec<Rc<RefCell<Declaration>>>), Diagnostic<usize>> {
         let mut spec_type = None;
         let mut type_attrs = Vec::new();
         let mut r#type = None;
@@ -1234,8 +1261,8 @@ impl<'a> CParser<'a> {
 
     pub fn parse_static_assert_declaration(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Declaration<'a>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<Declaration>>, Diagnostic<usize>> {
         let span = rule.as_span();
         let mut expr = None;
         let mut message = String::new();
@@ -1255,11 +1282,13 @@ impl<'a> CParser<'a> {
             }
         }
         Ok(Rc::new(RefCell::new(Declaration {
-            span,
+            file_id: self.file_id,
+            span: from_pest_span(span),
             attributes: Vec::new(),
             name: message,
             r#type: Rc::new(RefCell::new(Type {
-                span,
+                file_id: self.file_id,
+                span: from_pest_span(span),
                 attributes: Vec::new(),
                 kind: TypeKind::Void,
             })),

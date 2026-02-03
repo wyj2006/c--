@@ -1,39 +1,35 @@
 ---
 source: src/typechecker/tests/expr.rs
-expression: ast
+expression: "Regex ::\nnew(r#\"define_loc[\\s\\S]*?name\"#).unwrap().replace_all(& Regex ::\nnew(r#\"\\n.*?file_id[\\s\\S]*?,\"#).unwrap().replace_all(format!\n(\"{ast:#?}\").as_str(), \"\"), \"name\")"
 ---
 RefCell {
     value: TranslationUnit {
         span: Span {
-            str: "\nint main()\n{\n    int a;\n    _Generic(a,char:1,int:2,default:3);\n}\n",
-            start: 0,
-            end: 67,
+            start: ByteIndex(0),
+            end: ByteIndex(67),
         },
         decls: [
             RefCell {
                 value: Declaration {
                     span: Span {
-                        str: "main()\n",
-                        start: 5,
-                        end: 12,
+                        start: ByteIndex(5),
+                        end: ByteIndex(12),
                     },
                     attributes: [],
                     name: "main",
                     type: RefCell {
                         value: Type {
                             span: Span {
-                                str: "()\n",
-                                start: 9,
-                                end: 12,
+                                start: ByteIndex(9),
+                                end: ByteIndex(12),
                             },
                             attributes: [],
                             kind: Function {
                                 return_type: RefCell {
                                     value: Type {
                                         span: Span {
-                                            str: "int ",
-                                            start: 1,
-                                            end: 5,
+                                            start: ByteIndex(1),
+                                            end: ByteIndex(5),
                                         },
                                         attributes: [],
                                         kind: Int,
@@ -52,9 +48,8 @@ RefCell {
                             RefCell {
                                 value: Stmt {
                                     span: Span {
-                                        str: "{\n    int a;\n    _Generic(a,char:1,int:2,default:3);\n}",
-                                        start: 12,
-                                        end: 66,
+                                        start: ByteIndex(12),
+                                        end: ByteIndex(66),
                                     },
                                     attributes: [],
                                     kind: Compound(
@@ -62,9 +57,8 @@ RefCell {
                                             RefCell {
                                                 value: Stmt {
                                                     span: Span {
-                                                        str: "int a;",
-                                                        start: 18,
-                                                        end: 24,
+                                                        start: ByteIndex(18),
+                                                        end: ByteIndex(24),
                                                     },
                                                     attributes: [],
                                                     kind: Decl(
@@ -72,18 +66,16 @@ RefCell {
                                                             RefCell {
                                                                 value: Declaration {
                                                                     span: Span {
-                                                                        str: "a",
-                                                                        start: 22,
-                                                                        end: 23,
+                                                                        start: ByteIndex(22),
+                                                                        end: ByteIndex(23),
                                                                     },
                                                                     attributes: [],
                                                                     name: "a",
                                                                     type: RefCell {
                                                                         value: Type {
                                                                             span: Span {
-                                                                                str: "int ",
-                                                                                start: 18,
-                                                                                end: 22,
+                                                                                start: ByteIndex(18),
+                                                                                end: ByteIndex(22),
                                                                             },
                                                                             attributes: [],
                                                                             kind: Int,
@@ -103,35 +95,31 @@ RefCell {
                                             RefCell {
                                                 value: Stmt {
                                                     span: Span {
-                                                        str: "_Generic(a,char:1,int:2,default:3)",
-                                                        start: 29,
-                                                        end: 63,
+                                                        start: ByteIndex(29),
+                                                        end: ByteIndex(63),
                                                     },
                                                     attributes: [],
                                                     kind: Expr(
                                                         RefCell {
                                                             value: Expr {
                                                                 span: Span {
-                                                                    str: "_Generic(a,char:1,int:2,default:3)",
-                                                                    start: 29,
-                                                                    end: 63,
+                                                                    start: ByteIndex(29),
+                                                                    end: ByteIndex(63),
                                                                 },
                                                                 kind: GenericSelection {
                                                                     control_expr: RefCell {
                                                                         value: Expr {
                                                                             span: Span {
-                                                                                str: "a",
-                                                                                start: 38,
-                                                                                end: 39,
+                                                                                start: ByteIndex(38),
+                                                                                end: ByteIndex(39),
                                                                             },
                                                                             kind: Cast {
                                                                                 is_implicit: true,
                                                                                 target: RefCell {
                                                                                     value: Expr {
                                                                                         span: Span {
-                                                                                            str: "a",
-                                                                                            start: 38,
-                                                                                            end: 39,
+                                                                                            start: ByteIndex(38),
+                                                                                            end: ByteIndex(39),
                                                                                         },
                                                                                         kind: Name(
                                                                                             "a",
@@ -139,9 +127,8 @@ RefCell {
                                                                                         type: RefCell {
                                                                                             value: Type {
                                                                                                 span: Span {
-                                                                                                    str: "int ",
-                                                                                                    start: 18,
-                                                                                                    end: 22,
+                                                                                                    start: ByteIndex(18),
+                                                                                                    end: ByteIndex(22),
                                                                                                 },
                                                                                                 attributes: [],
                                                                                                 kind: Int,
@@ -152,14 +139,6 @@ RefCell {
                                                                                         symbol: Some(
                                                                                             RefCell {
                                                                                                 value: Symbol {
-                                                                                                    define_span: None,
-                                                                                                    declare_spans: [
-                                                                                                        Span {
-                                                                                                            str: "a",
-                                                                                                            start: 22,
-                                                                                                            end: 23,
-                                                                                                        },
-                                                                                                    ],
                                                                                                     name: "a",
                                                                                                     kind: Object {
                                                                                                         storage_classes: [],
@@ -167,9 +146,8 @@ RefCell {
                                                                                                     type: RefCell {
                                                                                                         value: Type {
                                                                                                             span: Span {
-                                                                                                                str: "int ",
-                                                                                                                start: 18,
-                                                                                                                end: 22,
+                                                                                                                start: ByteIndex(18),
+                                                                                                                end: ByteIndex(22),
                                                                                                             },
                                                                                                             attributes: [],
                                                                                                             kind: Int,
@@ -186,9 +164,8 @@ RefCell {
                                                                             type: RefCell {
                                                                                 value: Type {
                                                                                     span: Span {
-                                                                                        str: "int ",
-                                                                                        start: 18,
-                                                                                        end: 22,
+                                                                                        start: ByteIndex(18),
+                                                                                        end: ByteIndex(22),
                                                                                     },
                                                                                     attributes: [],
                                                                                     kind: Int,
@@ -203,18 +180,16 @@ RefCell {
                                                                         RefCell {
                                                                             value: GenericAssoc {
                                                                                 span: Span {
-                                                                                    str: "char:1",
-                                                                                    start: 40,
-                                                                                    end: 46,
+                                                                                    start: ByteIndex(40),
+                                                                                    end: ByteIndex(46),
                                                                                 },
                                                                                 is_selected: false,
                                                                                 type: Some(
                                                                                     RefCell {
                                                                                         value: Type {
                                                                                             span: Span {
-                                                                                                str: "char",
-                                                                                                start: 40,
-                                                                                                end: 44,
+                                                                                                start: ByteIndex(40),
+                                                                                                end: ByteIndex(44),
                                                                                             },
                                                                                             attributes: [],
                                                                                             kind: Char,
@@ -224,9 +199,8 @@ RefCell {
                                                                                 expr: RefCell {
                                                                                     value: Expr {
                                                                                         span: Span {
-                                                                                            str: "1",
-                                                                                            start: 45,
-                                                                                            end: 46,
+                                                                                            start: ByteIndex(45),
+                                                                                            end: ByteIndex(46),
                                                                                         },
                                                                                         kind: Integer {
                                                                                             base: 10,
@@ -236,9 +210,8 @@ RefCell {
                                                                                         type: RefCell {
                                                                                             value: Type {
                                                                                                 span: Span {
-                                                                                                    str: "1",
-                                                                                                    start: 45,
-                                                                                                    end: 46,
+                                                                                                    start: ByteIndex(45),
+                                                                                                    end: ByteIndex(46),
                                                                                                 },
                                                                                                 attributes: [],
                                                                                                 kind: Error,
@@ -255,18 +228,16 @@ RefCell {
                                                                         RefCell {
                                                                             value: GenericAssoc {
                                                                                 span: Span {
-                                                                                    str: "int:2",
-                                                                                    start: 47,
-                                                                                    end: 52,
+                                                                                    start: ByteIndex(47),
+                                                                                    end: ByteIndex(52),
                                                                                 },
                                                                                 is_selected: true,
                                                                                 type: Some(
                                                                                     RefCell {
                                                                                         value: Type {
                                                                                             span: Span {
-                                                                                                str: "int",
-                                                                                                start: 47,
-                                                                                                end: 50,
+                                                                                                start: ByteIndex(47),
+                                                                                                end: ByteIndex(50),
                                                                                             },
                                                                                             attributes: [],
                                                                                             kind: Int,
@@ -276,9 +247,8 @@ RefCell {
                                                                                 expr: RefCell {
                                                                                     value: Expr {
                                                                                         span: Span {
-                                                                                            str: "2",
-                                                                                            start: 51,
-                                                                                            end: 52,
+                                                                                            start: ByteIndex(51),
+                                                                                            end: ByteIndex(52),
                                                                                         },
                                                                                         kind: Integer {
                                                                                             base: 10,
@@ -288,9 +258,8 @@ RefCell {
                                                                                         type: RefCell {
                                                                                             value: Type {
                                                                                                 span: Span {
-                                                                                                    str: "2",
-                                                                                                    start: 51,
-                                                                                                    end: 52,
+                                                                                                    start: ByteIndex(51),
+                                                                                                    end: ByteIndex(52),
                                                                                                 },
                                                                                                 attributes: [],
                                                                                                 kind: Int,
@@ -309,18 +278,16 @@ RefCell {
                                                                         RefCell {
                                                                             value: GenericAssoc {
                                                                                 span: Span {
-                                                                                    str: "default:3",
-                                                                                    start: 53,
-                                                                                    end: 62,
+                                                                                    start: ByteIndex(53),
+                                                                                    end: ByteIndex(62),
                                                                                 },
                                                                                 is_selected: false,
                                                                                 type: None,
                                                                                 expr: RefCell {
                                                                                     value: Expr {
                                                                                         span: Span {
-                                                                                            str: "3",
-                                                                                            start: 61,
-                                                                                            end: 62,
+                                                                                            start: ByteIndex(61),
+                                                                                            end: ByteIndex(62),
                                                                                         },
                                                                                         kind: Integer {
                                                                                             base: 10,
@@ -330,9 +297,8 @@ RefCell {
                                                                                         type: RefCell {
                                                                                             value: Type {
                                                                                                 span: Span {
-                                                                                                    str: "3",
-                                                                                                    start: 61,
-                                                                                                    end: 62,
+                                                                                                    start: ByteIndex(61),
+                                                                                                    end: ByteIndex(62),
                                                                                                 },
                                                                                                 attributes: [],
                                                                                                 kind: Error,
@@ -351,9 +317,8 @@ RefCell {
                                                                 type: RefCell {
                                                                     value: Type {
                                                                         span: Span {
-                                                                            str: "2",
-                                                                            start: 51,
-                                                                            end: 52,
+                                                                            start: ByteIndex(51),
+                                                                            end: ByteIndex(52),
                                                                         },
                                                                         attributes: [],
                                                                         kind: Int,

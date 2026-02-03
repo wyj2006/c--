@@ -1,6 +1,3 @@
-use num::{BigInt, BigUint, ToPrimitive};
-use pest::Span;
-
 use crate::ast::expr::{EncodePrefix, Expr, ExprKind};
 use crate::ast::{Designation, DesignationKind};
 use crate::ctype::cast::remove_qualifier;
@@ -11,14 +8,16 @@ use crate::variant::Variant;
 use crate::{
     ast::{Initializer, InitializerKind},
     ctype::Type,
-    diagnostic::{Diagnostic, DiagnosticKind},
 };
+use codespan::Span;
+use codespan_reporting::diagnostic::{Diagnostic, Label};
+use num::{BigInt, BigUint, ToPrimitive};
 use std::{cell::RefCell, rc::Rc};
 
 #[derive(Debug)]
-struct DesignationNode<'a> {
+struct DesignationNode {
     pub index: usize, //该节点是父节点的第几个子节点
-    pub r#type: Rc<RefCell<Type<'a>>>,
+    pub r#type: Rc<RefCell<Type>>,
     pub designation: SimpleDesignation,
 }
 
@@ -28,9 +27,9 @@ enum SimpleDesignation {
     MemberAccess(String),
 }
 
-impl<'a> DesignationNode<'a> {
+impl DesignationNode {
     //该节点的第index个子节点, 不存在返回None
-    pub fn child(&self, index: usize) -> Result<Option<DesignationNode<'a>>, Diagnostic<'a>> {
+    pub fn child(&self, index: usize) -> Result<Option<DesignationNode>, Diagnostic<usize>> {
         let r#type = self.r#type.borrow();
         match &r#type.kind {
             TypeKind::Array {
@@ -49,12 +48,9 @@ impl<'a> DesignationNode<'a> {
                         Ok(None)
                     }
                 }
-                _ => Err(Diagnostic {
-                    span: r#type.span,
-                    kind: DiagnosticKind::Error,
-                    message: format!("the size of array must has integer type"),
-                    notes: vec![],
-                }),
+                _ => Err(Diagnostic::error()
+                    .with_message(format!("the size of array must has integer type"))
+                    .with_label(Label::primary(r#type.file_id, r#type.span))),
             },
             TypeKind::Array {
                 element_type,
@@ -79,21 +75,19 @@ impl<'a> DesignationNode<'a> {
                     Ok(None)
                 }
             }
-            TypeKind::Record { members: None, .. } => Err(Diagnostic {
-                span: r#type.span,
-                kind: DiagnosticKind::Error,
-                message: format!("incomplete type: '{}'", r#type.to_string()),
-                notes: vec![],
-            }),
+            TypeKind::Record { members: None, .. } => Err(Diagnostic::error()
+                .with_message(format!("incomplete type: '{}'", r#type.to_string()))
+                .with_label(Label::primary(r#type.file_id, r#type.span))),
             _ => Ok(None),
         }
     }
 }
 
 impl SimpleDesignation {
-    pub fn to_designation<'a>(&self, span: Span<'a>) -> Designation<'a> {
+    pub fn to_designation(&self, file_id: usize, span: Span) -> Designation {
         match self {
             SimpleDesignation::Subscript(index) => Designation {
+                file_id,
                 span,
                 kind: DesignationKind::Subscript(Rc::new(RefCell::new(Expr {
                     kind: ExprKind::Integer {
@@ -102,15 +96,17 @@ impl SimpleDesignation {
                         type_suffix: vec![],
                     },
                     r#type: Rc::new(RefCell::new(Type {
+                        file_id: file_id,
                         span,
                         attributes: vec![],
                         kind: TypeKind::ULongLong,
                     })),
                     value: Variant::Int(BigInt::from(BigUint::from(*index))),
-                    ..Expr::new(span)
+                    ..Expr::new(file_id, span)
                 }))),
             },
             SimpleDesignation::MemberAccess(name) => Designation {
+                file_id,
                 span,
                 kind: DesignationKind::MemberAccess(name.clone()),
             },
@@ -118,12 +114,12 @@ impl SimpleDesignation {
     }
 }
 
-impl<'a> TypeChecker<'a> {
+impl TypeChecker {
     fn next_designation(
         &self,
         mut i: usize,
-        path: &mut Vec<DesignationNode<'a>>,
-    ) -> Result<(), Diagnostic<'a>> {
+        path: &mut Vec<DesignationNode>,
+    ) -> Result<(), Diagnostic<usize>> {
         while i < path.len() - 1 {
             path.pop();
         }
@@ -154,8 +150,8 @@ impl<'a> TypeChecker<'a> {
 
     fn new_designation_path(
         &self,
-        r#type: Rc<RefCell<Type<'a>>>,
-    ) -> Result<Vec<DesignationNode<'a>>, Diagnostic<'a>> {
+        r#type: Rc<RefCell<Type>>,
+    ) -> Result<Vec<DesignationNode>, Diagnostic<usize>> {
         let mut path = vec![DesignationNode {
             index: 0,
             r#type: Rc::clone(&r#type),
@@ -170,9 +166,9 @@ impl<'a> TypeChecker<'a> {
 
     pub fn visit_initializer(
         &mut self,
-        node: Rc<RefCell<Initializer<'a>>>,
-        r#type: Rc<RefCell<Type<'a>>>, //这个初始化的类型
-    ) -> Result<(), Diagnostic<'a>> {
+        node: Rc<RefCell<Initializer>>,
+        r#type: Rc<RefCell<Type>>, //这个初始化的类型
+    ) -> Result<(), Diagnostic<usize>> {
         self.contexts
             .push(Context::Init(node.borrow().kind.clone()));
 
@@ -191,20 +187,21 @@ impl<'a> TypeChecker<'a> {
                         if r#type.borrow().is_union() {
                             warning(
                                 format!("excess element in union initializer"),
+                                initializer.borrow().file_id,
                                 initializer.borrow().span,
-                                self.file_path,
                             );
                             continue;
                         } else if path.len() <= 1 {
                             warning(
                                 format!("excess element in scale initializer"),
+                                initializer.borrow().file_id,
                                 initializer.borrow().span,
-                                self.file_path,
                             );
                             continue;
                         }
                     }
 
+                    let file_id = initializer.borrow().file_id;
                     let span = initializer.borrow().span;
                     let mut keep_num = 2; //保留的节点数
 
@@ -216,7 +213,7 @@ impl<'a> TypeChecker<'a> {
                         //尝试匹配
                         while i < designations.len() && i + 1 < path.len() {
                             let j = i + 1;
-                            let a = path[j].designation.to_designation(span);
+                            let a = path[j].designation.to_designation(file_id, span);
                             let b = &designations[i];
                             self.visit_designation(b)?;
                             match (&a.kind, &b.kind) {
@@ -243,24 +240,18 @@ impl<'a> TypeChecker<'a> {
                         if i < designations.len() {
                             let b = &designations[i];
                             return match &b.kind {
-                                DesignationKind::Subscript(index) => Err(Diagnostic {
-                                    span: b.span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!(
+                                DesignationKind::Subscript(index) => Err(Diagnostic::error()
+                                    .with_message(format!(
                                         "array designator index ({}) exceeds array bounds",
                                         index.borrow().unparse()
-                                    ),
-                                    notes: vec![],
-                                }),
-                                DesignationKind::MemberAccess(name) => Err(Diagnostic {
-                                    span: b.span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!(
+                                    ))
+                                    .with_label(Label::primary(b.file_id, b.span))),
+                                DesignationKind::MemberAccess(name) => Err(Diagnostic::error()
+                                    .with_message(format!(
                                         "field designator '{}' does not refer to any field",
                                         name
-                                    ),
-                                    notes: vec![],
-                                }),
+                                    ))
+                                    .with_label(Label::primary(b.file_id, b.span))),
                             };
                         }
                         //designations的长度 + 一个root(path[0])
@@ -287,7 +278,7 @@ impl<'a> TypeChecker<'a> {
                         initializer
                             .borrow_mut()
                             .designation
-                            .push(node.designation.to_designation(span));
+                            .push(node.designation.to_designation(file_id, span));
                     }
 
                     match path.get(1) {
@@ -305,8 +296,8 @@ impl<'a> TypeChecker<'a> {
                                     Variant::Int(len) if *len < BigInt::from(max_index + 1) => {
                                         warning(
                                             format!("excess element in array initializer"),
+                                            file_id,
                                             span,
-                                            self.file_path,
                                         );
                                     }
                                     _ => {}
@@ -381,16 +372,11 @@ impl<'a> TypeChecker<'a> {
                             is_compatible(Rc::clone(element_type), Rc::clone(&string_element_type))
                         }
                     } {
-                        return Err(Diagnostic {
-                            span: node.span,
-                            kind: DiagnosticKind::Error,
-                            message: format!(
+                        return Err(Diagnostic::error().with_message(format!(
                                 "cannot initializer array of '{}' with array of '{}'(from string literal)",
                                 element_type.borrow().to_string(),
                                 string_element_type.borrow().to_string()
-                            ),
-                            notes: vec![],
-                        });
+                            )).with_label(Label::primary(node.file_id, node.span)));
                     }
                     if let Some(len_expr) = len_expr
                         && let Some(string_len_expr) = string_len_expr
@@ -398,8 +384,8 @@ impl<'a> TypeChecker<'a> {
                         if len_expr.borrow().value < string_len_expr.borrow().value {
                             warning(
                                 format!("initializer-string is too large"),
+                                node.file_id,
                                 node.span,
-                                self.file_path,
                             );
                         }
                     }
@@ -418,6 +404,7 @@ impl<'a> TypeChecker<'a> {
         }
 
         //补全数组类型
+        let file_id = r#type.borrow().file_id;
         let len = max_index + 1;
         match &mut r#type.borrow_mut().kind {
             TypeKind::Array {
@@ -431,12 +418,13 @@ impl<'a> TypeChecker<'a> {
                         type_suffix: vec![],
                     },
                     r#type: Rc::new(RefCell::new(Type {
+                        file_id,
                         span: node.span,
                         attributes: vec![],
                         kind: TypeKind::ULongLong,
                     })),
                     value: Variant::Int(BigInt::from(BigUint::from(len))),
-                    ..Expr::new(node.span)
+                    ..Expr::new(file_id, node.span)
                 })))
             }
             _ => {}
@@ -448,8 +436,8 @@ impl<'a> TypeChecker<'a> {
 
     pub fn visit_designation(
         &mut self,
-        designation: &Designation<'a>,
-    ) -> Result<(), Diagnostic<'a>> {
+        designation: &Designation,
+    ) -> Result<(), Diagnostic<usize>> {
         match &designation.kind {
             DesignationKind::Subscript(index) => self.visit_expr(Rc::clone(index)),
             DesignationKind::MemberAccess(_) => Ok(()),

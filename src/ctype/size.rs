@@ -4,13 +4,13 @@ use crate::{
 };
 use num::ToPrimitive;
 
-impl<'a> Type<'a> {
+impl Type {
     pub fn size(&self) -> Option<usize> {
         self.kind.size()
     }
 }
 
-impl<'a> TypeKind<'a> {
+impl TypeKind {
     pub fn size(&self) -> Option<usize> {
         match &self {
             //TODO 根据平台决定

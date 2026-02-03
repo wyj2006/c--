@@ -1,39 +1,35 @@
 ---
 source: src/parser/tests/expr.rs
-expression: ast
+expression: "re.replace_all(format! (\"{ast:#?}\").as_str(), \"\")"
 ---
 RefCell {
     value: TranslationUnit {
         span: Span {
-            str: "\nint main()\n{\n    \"f\" \"f\";\n}\n",
-            start: 0,
-            end: 29,
+            start: ByteIndex(0),
+            end: ByteIndex(29),
         },
         decls: [
             RefCell {
                 value: Declaration {
                     span: Span {
-                        str: "main()\n",
-                        start: 5,
-                        end: 12,
+                        start: ByteIndex(5),
+                        end: ByteIndex(12),
                     },
                     attributes: [],
                     name: "main",
                     type: RefCell {
                         value: Type {
                             span: Span {
-                                str: "()\n",
-                                start: 9,
-                                end: 12,
+                                start: ByteIndex(9),
+                                end: ByteIndex(12),
                             },
                             attributes: [],
                             kind: Function {
                                 return_type: RefCell {
                                     value: Type {
                                         span: Span {
-                                            str: "int ",
-                                            start: 1,
-                                            end: 5,
+                                            start: ByteIndex(1),
+                                            end: ByteIndex(5),
                                         },
                                         attributes: [],
                                         kind: Int,
@@ -52,9 +48,8 @@ RefCell {
                             RefCell {
                                 value: Stmt {
                                     span: Span {
-                                        str: "{\n    \"f\" \"f\";\n}",
-                                        start: 12,
-                                        end: 28,
+                                        start: ByteIndex(12),
+                                        end: ByteIndex(28),
                                     },
                                     attributes: [],
                                     kind: Compound(
@@ -62,18 +57,16 @@ RefCell {
                                             RefCell {
                                                 value: Stmt {
                                                     span: Span {
-                                                        str: "\"f\" \"f\"",
-                                                        start: 18,
-                                                        end: 25,
+                                                        start: ByteIndex(18),
+                                                        end: ByteIndex(25),
                                                     },
                                                     attributes: [],
                                                     kind: Expr(
                                                         RefCell {
                                                             value: Expr {
                                                                 span: Span {
-                                                                    str: "\"f\" \"f\"",
-                                                                    start: 18,
-                                                                    end: 25,
+                                                                    start: ByteIndex(18),
+                                                                    end: ByteIndex(25),
                                                                 },
                                                                 kind: String {
                                                                     prefix: Default,
@@ -82,9 +75,8 @@ RefCell {
                                                                 type: RefCell {
                                                                     value: Type {
                                                                         span: Span {
-                                                                            str: "\"f\" \"f\"",
-                                                                            start: 18,
-                                                                            end: 25,
+                                                                            start: ByteIndex(18),
+                                                                            end: ByteIndex(25),
                                                                         },
                                                                         attributes: [],
                                                                         kind: Error,

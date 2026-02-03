@@ -3,69 +3,73 @@ pub mod expr;
 pub mod printer;
 pub mod stmt;
 
+use crate::ast::decl::Declaration;
 use crate::ctype::Type;
-use crate::{ast::decl::Declaration, parser::Rule};
+use codespan::Span;
 use expr::Expr;
-use pest::{Span, iterators::Pair};
 use std::cell::RefCell;
 use std::rc::Rc;
 
 #[derive(Debug)]
-pub struct TranslationUnit<'a> {
-    pub span: Span<'a>,
-    pub decls: Vec<Rc<RefCell<Declaration<'a>>>>,
+pub struct TranslationUnit {
+    pub file_id: usize,
+    pub span: Span,
+    pub decls: Vec<Rc<RefCell<Declaration>>>,
 }
 
 #[derive(Debug)]
-pub struct Attribute<'a> {
-    pub span: Span<'a>,
+pub struct Attribute {
+    pub file_id: usize,
+    pub span: Span,
     pub prefix_name: Option<String>,
     pub name: String,
-    pub kind: AttributeKind<'a>,
+    pub kind: AttributeKind,
 }
 
 #[derive(Debug)]
-pub enum AttributeKind<'a> {
+pub enum AttributeKind {
     AlignAs {
-        r#type: Option<Rc<RefCell<Type<'a>>>>,
-        expr: Option<Rc<RefCell<Expr<'a>>>>,
+        r#type: Option<Rc<RefCell<Type>>>,
+        expr: Option<Rc<RefCell<Expr>>>,
     },
     //用于函数参数中由数组转换过来的指针类型, 保留原来数组类型的信息供后续分析
     PtrFromArray {
-        array_type: Rc<RefCell<Type<'a>>>,
+        array_type: Rc<RefCell<Type>>,
     },
     Unkown {
-        arguments: Option<Pair<'a, Rule>>,
+        arguments: Option<String>,
     },
 }
 
 #[derive(Debug)]
-pub struct Initializer<'a> {
-    pub span: Span<'a>,
-    pub designation: Vec<Designation<'a>>, //只有braced initializer中的initializer才有可能有
-    pub kind: InitializerKind<'a>,
-    pub r#type: Rc<RefCell<Type<'a>>>,
+pub struct Initializer {
+    pub file_id: usize,
+    pub span: Span,
+    pub designation: Vec<Designation>, //只有braced initializer中的initializer才有可能有
+    pub kind: InitializerKind,
+    pub r#type: Rc<RefCell<Type>>,
 }
 
 #[derive(Debug)]
-pub struct Designation<'a> {
-    pub span: Span<'a>,
-    pub kind: DesignationKind<'a>,
+pub struct Designation {
+    pub file_id: usize,
+    pub span: Span,
+    pub kind: DesignationKind,
 }
 
 #[derive(Debug)]
-pub enum DesignationKind<'a> {
-    Subscript(Rc<RefCell<Expr<'a>>>),
+pub enum DesignationKind {
+    Subscript(Rc<RefCell<Expr>>),
     MemberAccess(String),
 }
 
 #[derive(Debug, Clone)]
-pub enum InitializerKind<'a> {
-    Braced(Vec<Rc<RefCell<Initializer<'a>>>>),
-    Expr(Rc<RefCell<Expr<'a>>>),
+pub enum InitializerKind {
+    Braced(Vec<Rc<RefCell<Initializer>>>),
+    Expr(Rc<RefCell<Expr>>),
 }
 
-impl Initializer<'_> {
+impl Initializer {
     pub fn unparse(&self) -> String {
         format!(
             "{}{}",

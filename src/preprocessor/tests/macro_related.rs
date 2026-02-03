@@ -1,9 +1,8 @@
-use crate::*;
+use crate::preprocessor::tests::quick_new_preprocessor;
 
 #[test]
 pub fn macro_example_6_10_5_1_1() {
-    let mut preprocessor = Preprocessor::new(
-        "<string>".to_string(),
+    let mut preprocessor = quick_new_preprocessor(
         " # define LPAREN() (
 #define G(Q) 42
 #define F(R, X, ...) __VA_OPT__(G R X) )
@@ -16,8 +15,7 @@ int x = F(LPAREN(), 0, <:-);
 
 #[test]
 pub fn macro_example_6_10_5_1_2_1() {
-    let mut preprocessor = Preprocessor::new(
-        "<string>".to_string(),
+    let mut preprocessor = quick_new_preprocessor(
         "#define F(...) f(0 __VA_OPT__(,) __VA_ARGS__)
 #define G(X, ...) f(0, X __VA_OPT__(,) __VA_ARGS__)
 #define SDEF(sname, ...) S sname __VA_OPT__(= { __VA_ARGS__ })
@@ -53,8 +51,7 @@ S bar = {  1, 2 };
 
 #[test]
 pub fn macro_example_6_10_5_1_2_2() {
-    let mut preprocessor = Preprocessor::new(
-        "<string>".to_string(),
+    let mut preprocessor = quick_new_preprocessor(
         "#define H1(X, ...) X __VA_OPT__(##) __VA_ARGS__
 #define H2(X, Y, ...) __VA_OPT__(X ## Y,) __VA_ARGS__
 H2(a, b, c, d)
@@ -72,8 +69,7 @@ ab,  c, d
 
 #[test]
 pub fn macro_example_6_10_5_1_2_3() {
-    let mut preprocessor = Preprocessor::new(
-        "<string>".to_string(),
+    let mut preprocessor = quick_new_preprocessor(
         "#define H3(X, ...) #__VA_OPT__(X##X X##X)
 H3(, 0)
 #define H4(X, ...) __VA_OPT__(a X ## X) ## b
@@ -93,8 +89,7 @@ a b
 
 #[test]
 pub fn macro_example_6_10_5_1_2_4() {
-    let mut preprocessor = Preprocessor::new(
-        "<string>".to_string(),
+    let mut preprocessor = quick_new_preprocessor(
         "#define H5A(...) __VA_OPT__()/**/__VA_OPT__()
 #define H5B(X) a ## X ## b
 #define H5C(X) H5B(X)
@@ -114,8 +109,7 @@ a/**/b
 
 #[test]
 pub fn macro_example_6_10_5_3() {
-    let mut preprocessor = Preprocessor::new(
-        "<string>".to_string(),
+    let mut preprocessor = quick_new_preprocessor(
         "#define hash_hash # ## #
 #define mkstr(a) # a
 #define in_between(a) mkstr(a)

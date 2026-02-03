@@ -1,5 +1,3 @@
-use crate::variant::Variant;
-
 use super::decl::{Declaration, DeclarationKind};
 use super::expr::{Expr, ExprKind, GenericAssoc};
 use super::stmt::{Stmt, StmtKind};
@@ -7,6 +5,10 @@ use super::{
     Attribute, AttributeKind, Designation, DesignationKind, Initializer, InitializerKind,
     TranslationUnit,
 };
+use crate::files;
+use crate::variant::Variant;
+use codespan::Span;
+use codespan_reporting::files::Files;
 use std::{cell::RefCell, rc::Rc};
 
 pub trait Print {
@@ -77,12 +79,11 @@ impl<T: Print> Print for Option<T> {
     }
 }
 
-impl Print for TranslationUnit<'_> {
+impl Print for TranslationUnit {
     fn display(&self) -> String {
         format!(
-            "TranslationUnit <{:?},{:?}>",
-            self.span.start_pos().line_col(),
-            self.span.end_pos().line_col()
+            "TranslationUnit {}",
+            format_location(self.file_id, self.span)
         )
     }
 
@@ -93,10 +94,10 @@ impl Print for TranslationUnit<'_> {
     }
 }
 
-impl Print for Declaration<'_> {
+impl Print for Declaration {
     fn display(&self) -> String {
         format!(
-            "{} <{:?},{:?}> {} {} {}",
+            "{} {} {} {} {}",
             match &self.kind {
                 DeclarationKind::Var { initializer: _ } => "VarDecl",
                 DeclarationKind::Function {
@@ -120,8 +121,7 @@ impl Print for Declaration<'_> {
                 DeclarationKind::Parameter => "ParamDecl",
                 DeclarationKind::Member { bit_field: _ } => "MemberDecl",
             },
-            self.span.start_pos().line_col(),
-            self.span.end_pos().line_col(),
+            format_location(self.file_id, self.span),
             self.name,
             self.r#type.borrow(),
             self.storage_classes
@@ -174,12 +174,11 @@ impl Print for Declaration<'_> {
     }
 }
 
-impl Print for Initializer<'_> {
+impl Print for Initializer {
     fn display(&self) -> String {
         format!(
-            "Initializer <{:?},{:?}> {}",
-            self.span.start_pos().line_col(),
-            self.span.end_pos().line_col(),
+            "Initializer {} {}",
+            format_location(self.file_id, self.span),
             self.r#type.borrow().to_string()
         )
     }
@@ -198,10 +197,10 @@ impl Print for Initializer<'_> {
     }
 }
 
-impl Print for Stmt<'_> {
+impl Print for Stmt {
     fn display(&self) -> String {
         format!(
-            "{} <{:?},{:?}>",
+            "{} {}",
             match &self.kind {
                 StmtKind::Break => "Break",
                 StmtKind::Case { .. } => "Case",
@@ -223,8 +222,7 @@ impl Print for Stmt<'_> {
                 StmtKind::Switch { .. } => "Switch",
                 StmtKind::While { .. } => "While",
             },
-            self.span.start_pos().line_col(),
-            self.span.end_pos().line_col()
+            format_location(self.file_id, self.span)
         )
     }
 
@@ -289,10 +287,10 @@ impl Print for Stmt<'_> {
     }
 }
 
-impl Print for Expr<'_> {
+impl Print for Expr {
     fn display(&self) -> String {
         format!(
-            "{} <{:?},{:?}> {} {} {}",
+            "{} {} {} {} {}",
             match &self.kind {
                 ExprKind::Alignof { r#type, .. } => &format!("Alignof {}", r#type.borrow()),
                 ExprKind::BinOp { op, .. } => &format!("BinOp {:?}", op),
@@ -354,8 +352,7 @@ impl Print for Expr<'_> {
                 ExprKind::FunctionCall { .. } => "FunctionCall",
                 ExprKind::Subscript { .. } => "Subscript",
             },
-            self.span.start_pos().line_col(),
-            self.span.end_pos().line_col(),
+            format_location(self.file_id, self.span),
             self.r#type.borrow().to_string(),
             if let Variant::Unknown = self.value {
                 String::new()
@@ -429,12 +426,11 @@ impl Print for Expr<'_> {
     }
 }
 
-impl Print for GenericAssoc<'_> {
+impl Print for GenericAssoc {
     fn display(&self) -> String {
         format!(
-            "GenericAssoc <{:?},{:?}> {} {}",
-            self.span.start_pos().line_col(),
-            self.span.end_pos().line_col(),
+            "GenericAssoc {} {} {}",
+            format_location(self.file_id, self.span),
             if let Some(t) = &self.r#type {
                 format!("{}", t.borrow())
             } else {
@@ -452,10 +448,10 @@ impl Print for GenericAssoc<'_> {
     }
 }
 
-impl Print for Attribute<'_> {
+impl Print for Attribute {
     fn display(&self) -> String {
         format!(
-            "{} <{:?},{:?}>",
+            "{} {}",
             match &self.kind {
                 AttributeKind::Unkown { arguments } => format!(
                     "Attribute {}::{} ({:?})",
@@ -474,8 +470,7 @@ impl Print for Attribute<'_> {
                 AttributeKind::PtrFromArray { array_type } =>
                     format!("ArrayPtr {}", array_type.borrow().to_string()),
             },
-            self.span.start_pos().line_col(),
-            self.span.end_pos().line_col(),
+            format_location(self.file_id, self.span)
         )
     }
 
@@ -491,12 +486,11 @@ impl Print for Attribute<'_> {
     }
 }
 
-impl Print for Designation<'_> {
+impl Print for Designation {
     fn display(&self) -> String {
         format!(
-            "Designation <{:?},{:?}> {}",
-            self.span.start_pos().line_col(),
-            self.span.end_pos().line_col(),
+            "Designation {} {}",
+            format_location(self.file_id, self.span),
             match &self.kind {
                 DesignationKind::MemberAccess(name) => &name,
                 _ => "",
@@ -514,4 +508,24 @@ impl Print for Designation<'_> {
 
         lines
     }
+}
+
+pub fn format_location(file_id: usize, span: Span) -> String {
+    let start_location = files
+        .lock()
+        .unwrap()
+        .location(file_id, span.start().to_usize())
+        .unwrap();
+    let end_location = files
+        .lock()
+        .unwrap()
+        .location(file_id, span.end().to_usize())
+        .unwrap();
+    format!(
+        "<({}, {}), ({}, {})>",
+        start_location.line_number,
+        start_location.column_number,
+        end_location.line_number,
+        end_location.column_number
+    )
 }

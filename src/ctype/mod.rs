@@ -8,8 +8,8 @@ pub mod size;
 use crate::ast::{Attribute, expr::Expr};
 use crate::ctype::cast::{array_to_ptr, func_to_ptr};
 use crate::symtab::{Symbol, SymbolKind};
+use codespan::Span;
 use indexmap::IndexMap;
-use pest::Span;
 use std::cell::RefCell;
 use std::fmt::Display;
 use std::iter::zip;
@@ -17,14 +17,15 @@ use std::mem::discriminant;
 use std::rc::Rc;
 
 #[derive(Debug, Clone)]
-pub struct Type<'a> {
-    pub span: Span<'a>,
-    pub attributes: Vec<Rc<RefCell<Attribute<'a>>>>,
-    pub kind: TypeKind<'a>,
+pub struct Type {
+    pub file_id: usize,
+    pub span: Span,
+    pub attributes: Vec<Rc<RefCell<Attribute>>>,
+    pub kind: TypeKind,
 }
 
 #[derive(Debug, Clone)]
-pub enum TypeKind<'a> {
+pub enum TypeKind {
     Void,
     Bool,
     Char,
@@ -42,52 +43,52 @@ pub enum TypeKind<'a> {
     ULongLong,
     BitInt {
         unsigned: bool,
-        width_expr: Rc<RefCell<Expr<'a>>>,
+        width_expr: Rc<RefCell<Expr>>,
     },
     Float,
     Double,
     LongDouble,
-    Complex(Option<Rc<RefCell<Type<'a>>>>),
+    Complex(Option<Rc<RefCell<Type>>>),
     Decimal32,
     Decimal64,
     Decimal128,
     Function {
-        return_type: Rc<RefCell<Type<'a>>>,
-        parameters_type: Vec<Rc<RefCell<Type<'a>>>>,
+        return_type: Rc<RefCell<Type>>,
+        parameters_type: Vec<Rc<RefCell<Type>>>,
         has_varparam: bool,
     },
     Qualified {
         qualifiers: Vec<TypeQual>,
-        r#type: Rc<RefCell<Type<'a>>>,
+        r#type: Rc<RefCell<Type>>,
     },
-    Atomic(Rc<RefCell<Type<'a>>>),
+    Atomic(Rc<RefCell<Type>>),
     Typedef {
         name: String,
-        r#type: Option<Rc<RefCell<Type<'a>>>>,
+        r#type: Option<Rc<RefCell<Type>>>,
     },
     Typeof {
         unqual: bool,
-        expr: Option<Rc<RefCell<Expr<'a>>>>,
-        r#type: Option<Rc<RefCell<Type<'a>>>>,
+        expr: Option<Rc<RefCell<Expr>>>,
+        r#type: Option<Rc<RefCell<Type>>>,
     },
     Record {
         name: String,
         kind: RecordKind,
-        members: Option<IndexMap<String, Rc<RefCell<Symbol<'a>>>>>,
+        members: Option<IndexMap<String, Rc<RefCell<Symbol>>>>,
     },
     Enum {
         name: String,
-        underlying: Rc<RefCell<Type<'a>>>,
-        enum_consts: Option<IndexMap<String, Rc<RefCell<Symbol<'a>>>>>,
+        underlying: Rc<RefCell<Type>>,
+        enum_consts: Option<IndexMap<String, Rc<RefCell<Symbol>>>>,
     },
     Array {
         has_static: bool,
         has_star: bool,
-        element_type: Rc<RefCell<Type<'a>>>,
-        len_expr: Option<Rc<RefCell<Expr<'a>>>>,
+        element_type: Rc<RefCell<Type>>,
+        len_expr: Option<Rc<RefCell<Expr>>>,
     },
-    Pointer(Rc<RefCell<Type<'a>>>),
-    Auto(Option<Rc<RefCell<Type<'a>>>>),
+    Pointer(Rc<RefCell<Type>>),
+    Auto(Option<Rc<RefCell<Type>>>),
     Nullptr,
     Error,
 }
@@ -134,7 +135,7 @@ impl Display for TypeQual {
     }
 }
 
-impl<'a> Type<'a> {
+impl Type {
     pub fn can_modify(&self) -> bool {
         self.kind.can_modify()
     }
@@ -144,7 +145,7 @@ impl<'a> Type<'a> {
     }
 }
 
-impl TypeKind<'_> {
+impl TypeKind {
     pub fn can_modify(&self) -> bool {
         match self {
             TypeKind::Qualified { qualifiers, .. } => !qualifiers.contains(&TypeQual::Const),
@@ -161,23 +162,22 @@ impl TypeKind<'_> {
 }
 
 //当这个类型位于参数列表里时应当转换成什么类型
-pub fn as_parameter_type<'a>(a: Rc<RefCell<Type<'a>>>) -> Rc<RefCell<Type<'a>>> {
+pub fn as_parameter_type(a: Rc<RefCell<Type>>) -> Rc<RefCell<Type>> {
     match &a.borrow().kind {
         TypeKind::Array { .. } => array_to_ptr(Rc::clone(&a)),
         TypeKind::Function { .. } => func_to_ptr(Rc::clone(&a)),
         TypeKind::Qualified { qualifiers, r#type } => Rc::new(RefCell::new(Type {
-            span: a.borrow().span,
-            attributes: a.borrow().attributes.clone(),
             kind: TypeKind::Qualified {
                 qualifiers: qualifiers.clone(),
                 r#type: as_parameter_type(Rc::clone(r#type)),
             },
+            ..a.borrow().clone()
         })),
         _ => Rc::clone(&a),
     }
 }
 
-pub fn is_compatible<'a>(a: Rc<RefCell<Type<'a>>>, b: Rc<RefCell<Type<'a>>>) -> bool {
+pub fn is_compatible(a: Rc<RefCell<Type>>, b: Rc<RefCell<Type>>) -> bool {
     if Rc::ptr_eq(&a, &b) {
         return true;
     }
@@ -375,10 +375,7 @@ pub fn array_element(a: Rc<RefCell<Type>>) -> Option<Rc<RefCell<Type>>> {
     }
 }
 
-pub fn arith_result_type<'a>(
-    a: Rc<RefCell<Type<'a>>>,
-    b: Rc<RefCell<Type<'a>>>,
-) -> Rc<RefCell<Type<'a>>> {
+pub fn arith_result_type(a: Rc<RefCell<Type>>, b: Rc<RefCell<Type>>) -> Rc<RefCell<Type>> {
     if a.borrow().is_complex() {
         Rc::clone(&a)
     } else if b.borrow().is_complex() {

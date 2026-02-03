@@ -1,46 +1,48 @@
 use super::Rule;
-use pest::{Span, iterators::Pair};
+use crate::diagnostic::from_pest_span;
+use codespan::Span;
+use pest::iterators::Pair;
 use std::{cmp::PartialEq, fmt::Display};
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum Macro<'a> {
+pub enum Macro {
     Object {
         name: String,
-        replace_list: Vec<PlaceMarker<'a>>,
+        replace_list: Vec<PlaceMarker>,
     },
     Function {
         name: String,
         parameters: Vec<String>,
         has_varparam: bool,
-        replace_list: Vec<PlaceMarker<'a>>,
+        replace_list: Vec<PlaceMarker>,
     },
 }
 
 ///作为宏替换的单元
 #[derive(Debug, PartialEq, Clone)]
-pub enum PlaceMarker<'a> {
-    Text(String, bool, Span<'a>), //bool用于判断这是否是空白字符
-    Identifier(String, Span<'a>),
-    StringizeStart(Span<'a>),
-    StringizeEnd(Span<'a>),
-    Contactor(Span<'a>),
-    VaOptStart(bool, Span<'a>), //bool用来表示VaOptStart到VaOptEnd之间的内容是否保留
-    VaOptEnd(Span<'a>),
+pub enum PlaceMarker {
+    Text(String, bool, Span), //bool用于判断这是否是空白字符
+    Identifier(String, Span),
+    StringizeStart(Span),
+    StringizeEnd(Span),
+    Contactor(Span),
+    VaOptStart(bool, Span), //bool用来表示VaOptStart到VaOptEnd之间的内容是否保留
+    VaOptEnd(Span),
     //相互配对的CallStart和CallEnd内容应该一样
-    CallStart(String, Span<'a>),
-    CallEnd(String, Span<'a>),
+    CallStart(String, Span),
+    CallEnd(String, Span),
     //CallArgStart和CallArgEnd同理
-    CallArgStart(String, u128, Span<'a>),
-    CallArgEnd(String, u128, Span<'a>),
+    CallArgStart(String, u128, Span),
+    CallArgEnd(String, u128, Span),
     //'#'的运算结果
-    Stringized(Vec<PlaceMarker<'a>>, Span<'a>),
+    Stringized(Vec<PlaceMarker>, Span),
     //'##'的运算结果
-    Contacted(Box<PlaceMarker<'a>>, Box<PlaceMarker<'a>>, Span<'a>),
+    Contacted(Box<PlaceMarker>, Box<PlaceMarker>, Span),
 }
 
-impl PlaceMarker<'_> {
+impl PlaceMarker {
     ///transform_hashhash: 是否将'##'转换成Contactor
-    pub fn vec_from<'a>(rule: Pair<'a, Rule>, transform_hashhash: bool) -> Vec<PlaceMarker<'a>> {
+    pub fn vec_from<'a>(rule: Pair<'a, Rule>, transform_hashhash: bool) -> Vec<PlaceMarker> {
         let mut placemarkers: Vec<PlaceMarker> = Vec::new();
         match rule.as_rule() {
             Rule::replacement_list => {
@@ -54,26 +56,26 @@ impl PlaceMarker<'_> {
                 }
             }
             Rule::punctuator if rule.as_str() == "##" && transform_hashhash => {
-                placemarkers.push(PlaceMarker::Contactor(rule.as_span()));
+                placemarkers.push(PlaceMarker::Contactor(from_pest_span(rule.as_span())));
             }
             Rule::identifier => {
                 placemarkers.push(PlaceMarker::Identifier(
                     rule.as_str().to_string(),
-                    rule.as_span(),
+                    from_pest_span(rule.as_span()),
                 ));
             }
             Rule::WHITESPACE => {
                 placemarkers.push(PlaceMarker::Text(
                     rule.as_str().to_string(),
                     true,
-                    rule.as_span(),
+                    from_pest_span(rule.as_span()),
                 ));
             }
             _ => {
                 placemarkers.push(PlaceMarker::Text(
                     rule.as_str().to_string(),
                     false,
-                    rule.as_span(),
+                    from_pest_span(rule.as_span()),
                 ));
             }
         }
@@ -89,7 +91,7 @@ impl PlaceMarker<'_> {
     }
 }
 
-impl Display for PlaceMarker<'_> {
+impl Display for PlaceMarker {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,

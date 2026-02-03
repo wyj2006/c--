@@ -3,23 +3,24 @@ use crate::ast::decl::{Declaration, StorageClass};
 use crate::ctype::{Type, TypeKind};
 use crate::symtab::Symbol;
 use crate::variant::Variant;
-use pest::Span;
+use codespan::Span;
 use std::cell::RefCell;
 use std::fmt::Display;
 use std::rc::Rc;
 
 #[derive(Debug, Clone)]
-pub struct Expr<'a> {
-    pub span: Span<'a>,
-    pub kind: ExprKind<'a>,
-    pub r#type: Rc<RefCell<Type<'a>>>,
+pub struct Expr {
+    pub file_id: usize,
+    pub span: Span,
+    pub kind: ExprKind,
+    pub r#type: Rc<RefCell<Type>>,
     pub value: Variant,
     pub is_lvalue: bool,
-    pub symbol: Option<Rc<RefCell<Symbol<'a>>>>,
+    pub symbol: Option<Rc<RefCell<Symbol>>>,
 }
 
 #[derive(Debug, Clone)]
-pub enum ExprKind<'a> {
+pub enum ExprKind {
     Name(String),
     Integer {
         base: u32,
@@ -45,64 +46,65 @@ pub enum ExprKind<'a> {
     False,
     Nullptr,
     GenericSelection {
-        control_expr: Rc<RefCell<Expr<'a>>>,
-        assocs: Vec<Rc<RefCell<GenericAssoc<'a>>>>,
+        control_expr: Rc<RefCell<Expr>>,
+        assocs: Vec<Rc<RefCell<GenericAssoc>>>,
     },
     CompoundLiteral {
-        decls: Vec<Rc<RefCell<Declaration<'a>>>>,
-        storage_classes: Vec<StorageClass<'a>>,
-        initializer: Rc<RefCell<Initializer<'a>>>,
+        decls: Vec<Rc<RefCell<Declaration>>>,
+        storage_classes: Vec<StorageClass>,
+        initializer: Rc<RefCell<Initializer>>,
     },
     BinOp {
         op: BinOpKind,
-        left: Rc<RefCell<Expr<'a>>>,
-        right: Rc<RefCell<Expr<'a>>>,
+        left: Rc<RefCell<Expr>>,
+        right: Rc<RefCell<Expr>>,
     },
     UnaryOp {
         op: UnaryOpKind,
-        operand: Rc<RefCell<Expr<'a>>>,
+        operand: Rc<RefCell<Expr>>,
     },
     Cast {
         is_implicit: bool,
-        target: Rc<RefCell<Expr<'a>>>,
-        decls: Vec<Rc<RefCell<Declaration<'a>>>>,
+        target: Rc<RefCell<Expr>>,
+        decls: Vec<Rc<RefCell<Declaration>>>,
     },
     Subscript {
-        target: Rc<RefCell<Expr<'a>>>,
-        index: Rc<RefCell<Expr<'a>>>,
+        target: Rc<RefCell<Expr>>,
+        index: Rc<RefCell<Expr>>,
     },
     MemberAccess {
-        target: Rc<RefCell<Expr<'a>>>,
+        target: Rc<RefCell<Expr>>,
         is_arrow: bool,
         name: String,
     },
     FunctionCall {
-        target: Rc<RefCell<Expr<'a>>>,
-        arguments: Vec<Rc<RefCell<Expr<'a>>>>,
+        target: Rc<RefCell<Expr>>,
+        arguments: Vec<Rc<RefCell<Expr>>>,
     },
     SizeOf {
-        r#type: Option<Rc<RefCell<Type<'a>>>>,
-        expr: Option<Rc<RefCell<Expr<'a>>>>,
-        decls: Vec<Rc<RefCell<Declaration<'a>>>>,
+        r#type: Option<Rc<RefCell<Type>>>,
+        expr: Option<Rc<RefCell<Expr>>>,
+        decls: Vec<Rc<RefCell<Declaration>>>,
     },
     Alignof {
-        r#type: Rc<RefCell<Type<'a>>>,
-        decls: Vec<Rc<RefCell<Declaration<'a>>>>,
+        r#type: Rc<RefCell<Type>>,
+        decls: Vec<Rc<RefCell<Declaration>>>,
     },
     Conditional {
-        condition: Rc<RefCell<Expr<'a>>>,
-        true_expr: Rc<RefCell<Expr<'a>>>,
-        false_expr: Rc<RefCell<Expr<'a>>>,
+        condition: Rc<RefCell<Expr>>,
+        true_expr: Rc<RefCell<Expr>>,
+        false_expr: Rc<RefCell<Expr>>,
     },
 }
 
 #[derive(Debug)]
-pub struct GenericAssoc<'a> {
-    pub span: Span<'a>,
+pub struct GenericAssoc {
+    pub file_id: usize,
+    pub span: Span,
     pub is_selected: bool,
-    pub r#type: Option<Rc<RefCell<Type<'a>>>>, //为None的就是default
-    pub expr: Rc<RefCell<Expr<'a>>>,
-    pub decls: Vec<Rc<RefCell<Declaration<'a>>>>,
+    pub r#type: Option<Rc<RefCell<Type>>>, //为None的就是default
+    pub expr: Rc<RefCell<Expr>>,
+    pub decls: Vec<Rc<RefCell<Declaration>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -174,12 +176,14 @@ macro_rules! unparse_with_priority {
     }};
 }
 
-impl<'a> Expr<'a> {
-    pub fn new(span: Span<'a>) -> Self {
+impl Expr {
+    pub fn new(file_id: usize, span: Span) -> Self {
         Expr {
+            file_id,
             span,
             kind: ExprKind::Nullptr,
             r#type: Rc::new(RefCell::new(Type {
+                file_id,
                 span,
                 attributes: vec![],
                 kind: TypeKind::Error,
@@ -369,7 +373,7 @@ impl<'a> Expr<'a> {
 }
 
 impl Display for BinOpKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
             "{}",
@@ -410,7 +414,7 @@ impl Display for BinOpKind {
 }
 
 impl Display for EncodePrefix {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
             "{}",
@@ -426,7 +430,7 @@ impl Display for EncodePrefix {
 }
 
 impl Display for UnaryOpKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
             "{}",

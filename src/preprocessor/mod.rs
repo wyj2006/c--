@@ -5,10 +5,12 @@ pub mod pragma;
 #[cfg(test)]
 pub mod tests;
 
-use crate::diagnostic::warning;
+use crate::diagnostic::{from_pest_span, map_pest_err, warning};
+use crate::files;
 use cmacro::{Macro, PlaceMarker};
+use codespan_reporting::diagnostic::{Diagnostic, Label};
+use codespan_reporting::files::Files;
 use pest::Parser;
-use pest::error::{Error, ErrorVariant};
 use pest::iterators::Pair;
 use pest_derive::Parser;
 use std::cmp::min;
@@ -21,27 +23,35 @@ use std::{fs, usize};
 #[derive(Parser)]
 #[grammar = "src/grammar/lexer.pest"]
 #[grammar = "src/grammar/preprocessor.pest"]
-pub struct Preprocessor<'a> {
-    pub file_path: String,
-    pub file_content: &'a str,
-    pub user_macro: HashMap<String, Macro<'a>>,
+pub struct Preprocessor {
+    pub file_id: usize,
+    pub user_macro: HashMap<String, Macro>,
     pub line_offset: isize,
+    pub file_name: String,
     pub include_path: Vec<String>,
 }
 
-impl<'a> Preprocessor<'a> {
-    pub fn new(file_path: String, file_content: &'a str) -> Preprocessor<'a> {
+impl Preprocessor {
+    pub fn new(file_id: usize) -> Preprocessor {
         Preprocessor {
-            file_path,
-            file_content,
+            file_id,
             user_macro: HashMap::new(),
             line_offset: 0,
+            file_name: files.lock().unwrap().name(file_id).unwrap(),
             include_path: Vec::new(),
         }
     }
 
-    pub fn process(&mut self) -> Result<String, Error<Rule>> {
-        let rules = Preprocessor::parse(Rule::preprocessing_file, self.file_content)?;
+    pub fn file_path(&self) -> String {
+        files.lock().unwrap().name(self.file_id).unwrap()
+    }
+
+    pub fn process(&mut self) -> Result<String, Diagnostic<usize>> {
+        let source = files.lock().unwrap().source(self.file_id).unwrap();
+        let rules = map_pest_err(
+            self.file_id,
+            Preprocessor::parse(Rule::preprocessing_file, source.as_str()),
+        )?;
         let mut result = String::new();
         for rule in rules {
             if let Rule::preprocessing_file = rule.as_rule() {
@@ -55,7 +65,7 @@ impl<'a> Preprocessor<'a> {
         Ok(result)
     }
 
-    fn process_group(&mut self, rule: Pair<'a, Rule>) -> Result<String, Error<Rule>> {
+    fn process_group(&mut self, rule: Pair<Rule>) -> Result<String, Diagnostic<usize>> {
         let mut result = String::new();
         for rule in rule.into_inner() {
             match rule.as_rule() {
@@ -72,8 +82,8 @@ impl<'a> Preprocessor<'a> {
                 Rule::non_directive_line => {
                     warning(
                         format!("Unkown preprocessing directive: {}", rule.as_str()),
-                        rule.as_span(),
-                        &self.file_path,
+                        self.file_id,
+                        from_pest_span(rule.as_span()),
                     );
                 }
                 _ => {}
@@ -82,7 +92,7 @@ impl<'a> Preprocessor<'a> {
         Ok(result)
     }
 
-    fn process_directive(&mut self, rule: Pair<'a, Rule>) -> Result<String, Error<Rule>> {
+    fn process_directive(&mut self, rule: Pair<Rule>) -> Result<String, Diagnostic<usize>> {
         let mut input = String::new();
         if let Rule::up_directives = rule.as_rule() {
             for pair in rule.clone().into_inner() {
@@ -99,13 +109,14 @@ impl<'a> Preprocessor<'a> {
             }
         }
         if input == "" {
+            //替换后再处理
             input = "#".to_string()//'#'不是一个Rule
                 + &PlaceMarker::vec_tostring(
                     self.replace_macro(PlaceMarker::vec_from(rule, false), &mut Vec::new())?,
                 )
                 + "\n";
         }
-        let rules = Preprocessor::parse(Rule::directives, Box::leak(input.into_boxed_str()))?;
+        let rules = map_pest_err(self.file_id, Preprocessor::parse(Rule::directives, &input))?;
         let mut result = String::new();
         for rule in rules {
             if let Rule::directives = rule.as_rule() {
@@ -146,10 +157,7 @@ impl<'a> Preprocessor<'a> {
         Ok(result)
     }
 
-    pub fn process_macro_define<'b>(
-        &mut self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<String, Error<Rule>> {
+    pub fn process_macro_define(&mut self, rule: Pair<Rule>) -> Result<String, Diagnostic<usize>> {
         let mut object_like = true;
         let mut name = String::new();
         let mut name_span = rule.as_span();
@@ -198,14 +206,11 @@ impl<'a> Preprocessor<'a> {
                 replace_list,
             };
         }
-        if let Some(pre_macro) = self.find_macro(&name, &name_span) {
+        if let Some(pre_macro) = self.find_macro(&name, from_pest_span(name_span)) {
             if pre_macro != cmacro {
-                return Err(Error::new_from_span(
-                    ErrorVariant::CustomError {
-                        message: format!("macro '{}' redefined", name),
-                    },
-                    span,
-                ));
+                return Err(Diagnostic::error()
+                    .with_message(format!("macro '{}' redefined", name))
+                    .with_label(Label::primary(self.file_id, from_pest_span(span))));
             }
         } else {
             self.user_macro.insert(name, cmacro);
@@ -213,7 +218,7 @@ impl<'a> Preprocessor<'a> {
         Ok("\n".to_string())
     }
 
-    pub fn process_macro_undef(&mut self, rule: Pair<Rule>) -> Result<String, Error<Rule>> {
+    pub fn process_macro_undef(&mut self, rule: Pair<Rule>) -> Result<String, Diagnostic<usize>> {
         let mut name = String::new();
         for rule in rule.into_inner() {
             match rule.as_rule() {
@@ -225,7 +230,7 @@ impl<'a> Preprocessor<'a> {
         Ok("\n".to_string())
     }
 
-    pub fn process_warning(&mut self, rule: Pair<Rule>) -> Result<String, Error<Rule>> {
+    pub fn process_warning(&mut self, rule: Pair<Rule>) -> Result<String, Diagnostic<usize>> {
         let mut message = String::new();
         let span = rule.as_span();
         for rule in rule.into_inner() {
@@ -234,11 +239,11 @@ impl<'a> Preprocessor<'a> {
                 _ => {}
             }
         }
-        warning(message, span, &self.file_path);
+        warning(message, self.file_id, from_pest_span(span));
         Ok("\n".to_string())
     }
 
-    pub fn process_error(&mut self, rule: Pair<Rule>) -> Result<String, Error<Rule>> {
+    pub fn process_error(&mut self, rule: Pair<Rule>) -> Result<String, Diagnostic<usize>> {
         let mut message = String::new();
         let span = rule.as_span();
         for rule in rule.into_inner() {
@@ -247,13 +252,12 @@ impl<'a> Preprocessor<'a> {
                 _ => {}
             }
         }
-        Err(
-            Error::new_from_span(ErrorVariant::CustomError { message }, span)
-                .with_path(&self.file_path),
-        )
+        Err(Diagnostic::error()
+            .with_message(message)
+            .with_label(Label::primary(self.file_id, from_pest_span(span))))
     }
 
-    pub fn process_line_control(&mut self, rule: Pair<Rule>) -> Result<String, Error<Rule>> {
+    pub fn process_line_control(&mut self, rule: Pair<Rule>) -> Result<String, Diagnostic<usize>> {
         for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::digit_sequence => {
@@ -262,7 +266,7 @@ impl<'a> Preprocessor<'a> {
                         - 1
                 }
                 Rule::string_literal => {
-                    self.file_path = self.process_string_literal(rule)?;
+                    self.file_name = self.process_string_literal(rule)?;
                 }
                 _ => {}
             }
@@ -278,7 +282,7 @@ impl<'a> Preprocessor<'a> {
             .collect::<Vec<PathBuf>>();
         let mut possible_path = Vec::new();
         if header_name.starts_with('"') {
-            if let Some(t) = Path::new(&self.file_path).parent() {
+            if let Some(t) = Path::new(&self.file_path()).parent() {
                 search_path.push(PathBuf::from(t));
             }
         }
@@ -295,7 +299,7 @@ impl<'a> Preprocessor<'a> {
     pub fn process_source_file_inclusion(
         &mut self,
         rule: Pair<Rule>,
-    ) -> Result<String, Error<Rule>> {
+    ) -> Result<String, Diagnostic<usize>> {
         for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::header_name => {
@@ -303,40 +307,35 @@ impl<'a> Preprocessor<'a> {
                         let file_content = match fs::read_to_string(&file_path) {
                             Ok(t) => t,
                             Err(e) => {
-                                return Err(Error::new_from_span(
-                                    ErrorVariant::CustomError {
-                                        message: format!(
-                                            "Error occurred when opening or reading: {}",
-                                            e
-                                        ),
-                                    },
-                                    rule.as_span(),
-                                ));
+                                return Err(Diagnostic::error()
+                                    .with_message(e.to_string())
+                                    .with_label(
+                                        Label::primary(
+                                            self.file_id,
+                                            from_pest_span(rule.as_span()),
+                                        )
+                                        .with_message("error occured when opening or reading"),
+                                    ));
                             }
                         };
-                        let mut preprocessor = Preprocessor::new(
-                            file_path.to_string_lossy().to_string(),
-                            Box::leak(file_content.into_boxed_str()),
-                        );
+                        let include_id = files
+                            .lock()
+                            .unwrap()
+                            .add(file_path.to_string_lossy().to_string(), file_content);
+                        let mut preprocessor = Preprocessor::new(include_id);
                         //让preprocessor可以用自己的macro
                         preprocessor.user_macro.extend(self.user_macro.clone());
-                        let result = match preprocessor.process() {
-                            Ok(t) => t,
-                            Err(e) => return Err(e),
-                        };
+                        let result = preprocessor.process()?;
                         //补充新定义的macro
                         self.user_macro.extend(preprocessor.user_macro);
                         return Ok(result + "\n");
                     }
-                    return Err(Error::new_from_span(
-                        ErrorVariant::CustomError {
-                            message: format!(
-                                "File '{}' not found",
-                                rule.as_str()[1..rule.as_str().len() - 1].to_string()
-                            ),
-                        },
-                        rule.as_span(),
-                    ));
+                    return Err(Diagnostic::error()
+                        .with_message(format!(
+                            "file '{}' not found",
+                            rule.as_str()[1..rule.as_str().len() - 1].to_string()
+                        ))
+                        .with_label(Label::primary(self.file_id, from_pest_span(rule.as_span()))));
                 }
                 _ => {}
             }
@@ -347,7 +346,7 @@ impl<'a> Preprocessor<'a> {
     pub fn process_binary_resource_inclusion(
         &mut self,
         rule: Pair<Rule>,
-    ) -> Result<String, Error<Rule>> {
+    ) -> Result<String, Diagnostic<usize>> {
         let mut header_name = "";
         let mut limit = usize::MAX;
         let mut prefix = String::new();
@@ -372,11 +371,9 @@ impl<'a> Preprocessor<'a> {
             let file = match File::open(file_path) {
                 Ok(t) => t,
                 Err(e) => {
-                    return Err(Error::new_from_span(
-                        ErrorVariant::CustomError {
-                            message: format!("Error occurred when opening: {}", e),
-                        },
-                        span,
+                    return Err(Diagnostic::error().with_message(e.to_string()).with_label(
+                        Label::primary(self.file_id, from_pest_span(span))
+                            .with_message("error occurred when opening"),
                     ));
                 }
             };
@@ -386,11 +383,9 @@ impl<'a> Preprocessor<'a> {
                 let n = match reader.read(&mut buf) {
                     Ok(t) => t,
                     Err(e) => {
-                        return Err(Error::new_from_span(
-                            ErrorVariant::CustomError {
-                                message: format!("Error occurred when reading: {}", e),
-                            },
-                            span,
+                        return Err(Diagnostic::error().with_message(e.to_string()).with_label(
+                            Label::primary(self.file_id, from_pest_span(span))
+                                .with_message("error occurred when reading"),
                         ));
                     }
                 };
@@ -415,22 +410,18 @@ impl<'a> Preprocessor<'a> {
                 return Ok(if_empty.to_string());
             }
         }
-
-        Err(Error::new_from_span(
-            ErrorVariant::CustomError {
-                message: format!(
-                    "File '{}' not found",
-                    header_name[1..header_name.len() - 1].to_string()
-                ),
-            },
-            span,
-        ))
+        Err(Diagnostic::error()
+            .with_message(format!(
+                "file '{}' not found",
+                header_name[1..header_name.len() - 1].to_string()
+            ))
+            .with_label(Label::primary(self.file_id, from_pest_span(span))))
     }
 
     pub fn process_embed_parameters(
         &mut self,
         rule: Pair<Rule>,
-    ) -> Result<(usize, String, String, String), Error<Rule>> {
+    ) -> Result<(usize, String, String, String), Diagnostic<usize>> {
         let mut limit = usize::MAX;
         let mut prefix = "";
         let mut suffix = "";
@@ -457,10 +448,13 @@ impl<'a> Preprocessor<'a> {
                     match param_name {
                         "limit" | "__limit__" => {
                             limit = self.process_constant_expression(
-                                Preprocessor::parse(Rule::constant_expression, param_clause)?
-                                    .into_iter()
-                                    .next()
-                                    .unwrap(),
+                                map_pest_err(
+                                    self.file_id,
+                                    Preprocessor::parse(Rule::constant_expression, param_clause),
+                                )?
+                                .into_iter()
+                                .next()
+                                .unwrap(),
                             )? as usize;
                         }
                         "prefix" | "__prefix__" => {
@@ -474,9 +468,9 @@ impl<'a> Preprocessor<'a> {
                         }
                         _ => {
                             warning(
-                                format!("Unkown parameter: {}", param_name),
-                                span,
-                                &self.file_path,
+                                format!("unkown parameter: {}", param_name),
+                                self.file_id,
+                                from_pest_span(span),
                             );
                         }
                     }
@@ -493,7 +487,7 @@ impl<'a> Preprocessor<'a> {
         ))
     }
 
-    pub fn process_if_section(&mut self, rule: Pair<'a, Rule>) -> Result<String, Error<Rule>> {
+    pub fn process_if_section(&mut self, rule: Pair<Rule>) -> Result<String, Diagnostic<usize>> {
         for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::if_group | Rule::elif_group => {
@@ -526,12 +520,14 @@ impl<'a> Preprocessor<'a> {
                     match tag {
                         "if" => is_true = condition != 0,
                         "ifdef" => {
-                            if let Some(_) = self.find_macro(&macro_name, &macro_span) {
+                            if let Some(_) =
+                                self.find_macro(&macro_name, from_pest_span(macro_span))
+                            {
                                 is_true = true;
                             }
                         }
                         "ifndef" => {
-                            if let None = self.find_macro(&macro_name, &macro_span) {
+                            if let None = self.find_macro(&macro_name, from_pest_span(macro_span)) {
                                 is_true = true;
                             }
                         }

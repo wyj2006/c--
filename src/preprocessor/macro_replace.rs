@@ -1,17 +1,20 @@
+use crate::files;
+
+use super::Preprocessor;
 ///包括了与宏替换与展开相关的一些方法
 use super::cmacro::{Macro, PlaceMarker};
-use super::{Preprocessor, Rule};
 use chrono::{Datelike, Local};
-use pest::Span;
-use pest::error::{Error, ErrorVariant};
+use codespan::Span;
+use codespan_reporting::diagnostic::{Diagnostic, Label};
+use codespan_reporting::files::Files;
 
 pub static STDC_EMBED_NOT_FOUND: isize = 0;
 pub static STDC_EMBED_FOUND: isize = 1;
 pub static STDC_EMBED_EMPTY: isize = 2;
 
-impl Preprocessor<'_> {
+impl Preprocessor {
     ///查找宏, 包括预定义的和用户定义的
-    pub fn find_macro<'a>(&'a self, macro_name: &String, span: &Span<'a>) -> Option<Macro<'a>> {
+    pub fn find_macro(&self, macro_name: &String, span: Span) -> Option<Macro> {
         match macro_name.as_str() {
             "__DATE__" => {
                 let nowtime = Local::now();
@@ -27,16 +30,16 @@ impl Preprocessor<'_> {
                     replace_list: vec![PlaceMarker::Text(
                         format!("{:?}", timeformat.into_iter().collect::<String>()),
                         false,
-                        *span,
+                        span,
                     )],
                 })
             }
             "__FILE__" => Some(Macro::Object {
                 name: "__FILE__".to_string(),
                 replace_list: vec![PlaceMarker::Text(
-                    format!("{:?}", self.file_path),
+                    format!("{:?}", self.file_name),
                     false,
-                    *span,
+                    span,
                 )],
             }),
             "__TIME__" => Some(Macro::Object {
@@ -44,7 +47,7 @@ impl Preprocessor<'_> {
                 replace_list: vec![PlaceMarker::Text(
                     format!("{:?}", Local::now().format("%H:%M:%S").to_string()),
                     false,
-                    *span,
+                    span,
                 )],
             }),
             "__LINE__" => Some(Macro::Object {
@@ -52,45 +55,43 @@ impl Preprocessor<'_> {
                 replace_list: vec![PlaceMarker::Text(
                     format!(
                         "{}",
-                        span.start_pos().line_col().0 as isize + self.line_offset
+                        files
+                            .lock()
+                            .unwrap()
+                            .location(self.file_id, span.start().to_usize())
+                            .unwrap()
+                            .line_number as isize
+                            + self.line_offset,
                     ),
                     false,
-                    *span,
+                    span,
                 )],
             }),
             "__STDC__" | "__STDC_HOSTED__" | "__STDC_UTF_16__" | "__STDC_UTF_32__" => {
                 Some(Macro::Object {
                     name: macro_name.clone(),
-                    replace_list: vec![PlaceMarker::Text(format!("1"), false, *span)],
+                    replace_list: vec![PlaceMarker::Text(format!("1"), false, span)],
                 })
             }
             "__STDC_EMBED_FOUND__" => Some(Macro::Object {
                 name: "__STDC_EMBED_FOUND__".to_string(),
-                replace_list: vec![PlaceMarker::Text(
-                    STDC_EMBED_FOUND.to_string(),
-                    false,
-                    *span,
-                )],
+                replace_list: vec![PlaceMarker::Text(STDC_EMBED_FOUND.to_string(), false, span)],
             }),
             "__STDC_EMBED_NOT_FOUND__" => Some(Macro::Object {
                 name: "__STDC_EMBED_NOT_FOUND__".to_string(),
                 replace_list: vec![PlaceMarker::Text(
                     STDC_EMBED_NOT_FOUND.to_string(),
                     false,
-                    *span,
+                    span,
                 )],
             }),
             "__STDC_EMBED_EMPTY__" => Some(Macro::Object {
                 name: "__STDC_EMBED_EMPTY__".to_string(),
-                replace_list: vec![PlaceMarker::Text(
-                    STDC_EMBED_EMPTY.to_string(),
-                    false,
-                    *span,
-                )],
+                replace_list: vec![PlaceMarker::Text(STDC_EMBED_EMPTY.to_string(), false, span)],
             }),
             "__STDC_VERSION__" => Some(Macro::Object {
                 name: "__STDC_VERSION__".to_string(),
-                replace_list: vec![PlaceMarker::Text(format!("202311L"), false, *span)],
+                replace_list: vec![PlaceMarker::Text(format!("202311L"), false, span)],
             }),
             _ => {
                 if let Some(t) = self.user_macro.get(macro_name) {
@@ -102,11 +103,11 @@ impl Preprocessor<'_> {
         }
     }
 
-    pub fn replace_macro<'a>(
-        &'a self,
-        mut placemarkers: Vec<PlaceMarker<'a>>,
+    pub fn replace_macro(
+        &self,
+        mut placemarkers: Vec<PlaceMarker>,
         expanded_macro: &mut Vec<String>, //已经展开过的宏
-    ) -> Result<Vec<PlaceMarker<'a>>, Error<Rule>> {
+    ) -> Result<Vec<PlaceMarker>, Diagnostic<usize>> {
         let mut need_rescan = true;
         while need_rescan {
             need_rescan = false;
@@ -127,7 +128,7 @@ impl Preprocessor<'_> {
                             parameters: _,
                             has_varparam: _,
                             replace_list: _,
-                        }) = self.find_macro(&macro_name, &span)
+                        }) = self.find_macro(&macro_name, span)
                         {
                             //手动解析macro call
                             placemarkers.push(PlaceMarker::CallStart(macro_name.clone(), span));
@@ -139,7 +140,7 @@ impl Preprocessor<'_> {
                         } else if let Some(Macro::Object {
                             name: _,
                             replace_list,
-                        }) = self.find_macro(&macro_name, &span)
+                        }) = self.find_macro(&macro_name, span)
                         {
                             need_rescan = true;
                             placemarkers.extend(replace_list.to_vec());
@@ -212,13 +213,13 @@ impl Preprocessor<'_> {
     }
 
     ///用在展开类函数宏的替换列表时
-    pub fn expand_funclike_macro<'b>(
+    pub fn expand_funclike_macro(
         &self,
-        replace_list: &Vec<PlaceMarker<'b>>,
+        replace_list: &Vec<PlaceMarker>,
         parameters: &Vec<String>,
         has_varparam: &bool,
-        args: &Vec<Vec<PlaceMarker<'b>>>,
-    ) -> Result<Vec<PlaceMarker<'b>>, Error<Rule>> {
+        args: &Vec<Vec<PlaceMarker>>,
+    ) -> Result<Vec<PlaceMarker>, Diagnostic<usize>> {
         let mut placemarkers = replace_list.clone();
         let mut unmatch_stringize = 0; //已经存在的StringizeStart的数量
         let mut stringize_param = String::new(); //'#'后面的参数名, 用于确保添加StringizeEnd的是正确的参数
@@ -230,14 +231,11 @@ impl Preprocessor<'_> {
             match &placemarkers[i].clone() {
                 PlaceMarker::Identifier(name, span) if name == "__VA_ARGS__" => {
                     if !*has_varparam {
-                        return Err(Error::new_from_span(
-                            ErrorVariant::CustomError {
-                                message: format!(
-                                    "'__VA_ARGS__' can only appear in the expansion of a variadic macro"
-                                ),
-                            },
-                            *span,
-                        ));
+                        return Err(Diagnostic::error()
+                            .with_message(format!(
+                                "'__VA_ARGS__' can only appear in the expansion of a variadic macro"
+                            ))
+                            .with_label(Label::primary(self.file_id, *span)));
                     }
 
                     placemarkers.remove(i);
@@ -261,23 +259,17 @@ impl Preprocessor<'_> {
                 }
                 PlaceMarker::Identifier(name, span) if name == "__VA_OPT__" => {
                     if !*has_varparam {
-                        return Err(Error::new_from_span(
-                            ErrorVariant::CustomError {
-                                message: format!(
-                                    "'__VA_OPT__' can only appear in the expansion of a variadic macro"
-                                ),
-                            },
-                            *span,
-                        ));
+                        return Err(Diagnostic::error()
+                            .with_message(format!(
+                                "'__VA_OPT__' can only appear in the expansion of a variadic macro"
+                            ))
+                            .with_label(Label::primary(self.file_id, *span)));
                     }
 
                     if in_parse_vaopt {
-                        return Err(Error::new_from_span(
-                            ErrorVariant::CustomError {
-                                message: format!("'__VA_OPT__' may not appear in a '__VA_OPT__'"),
-                            },
-                            *span,
-                        ));
+                        return Err(Diagnostic::error()
+                            .with_message(format!("'__VA_OPT__' may not appear in a '__VA_OPT__'"))
+                            .with_label(Label::primary(self.file_id, *span)));
                     }
 
                     if unmatch_stringize > 0 && stringize_param == "" {
@@ -342,12 +334,12 @@ impl Preprocessor<'_> {
     }
 
     ///以从内到外的顺序移除部分类型的placemarker
-    pub fn remove_placemarker<'b>(
-        &'b self,
-        mut placemarkers: Vec<PlaceMarker<'b>>,
+    pub fn remove_placemarker(
+        &self,
+        mut placemarkers: Vec<PlaceMarker>,
         need_rescan: &mut bool,
         expanded_macro: &mut Vec<String>,
-    ) -> Result<Vec<PlaceMarker<'b>>, Error<Rule>> {
+    ) -> Result<Vec<PlaceMarker>, Diagnostic<usize>> {
         let mut i = 0;
         while i < placemarkers.len() {
             if let PlaceMarker::StringizeStart(span) = &placemarkers[i].clone() {
@@ -416,12 +408,9 @@ impl Preprocessor<'_> {
 
                     placemarkers.insert(i, PlaceMarker::Stringized(stringize_placemarker, *span));
                 } else {
-                    return Err(Error::new_from_span(
-                        ErrorVariant::CustomError {
-                            message: format!("'#' is not followed by a macro parameter"),
-                        },
-                        *span,
-                    ));
+                    return Err(Diagnostic::error()
+                        .with_message(format!("'#' is not followed by a macro parameter"))
+                        .with_label(Label::primary(self.file_id, *span)));
                 }
             } else if let PlaceMarker::CallStart(name, span) = &placemarkers[i].clone() {
                 *need_rescan = true;
@@ -518,7 +507,7 @@ impl Preprocessor<'_> {
                         parameters,
                         has_varparam,
                         replace_list,
-                    }) = &self.find_macro(&name, &span)
+                    }) = &self.find_macro(&name, *span)
                     && ((*has_varparam && args.len() >= parameters.len())
                         || (!*has_varparam && args.len() == parameters.len()))
                 {
@@ -558,14 +547,11 @@ impl Preprocessor<'_> {
                     match &placemarkers[i] {
                         PlaceMarker::Text(_, true, _) => {
                             if i == 0 {
-                                return Err(Error::new_from_span(
-                                    ErrorVariant::CustomError {
-                                        message: format!(
-                                            "'##' cannot appear at start of macro expansion"
-                                        ),
-                                    },
-                                    *span,
-                                ));
+                                return Err(Diagnostic::error()
+                                    .with_message(format!(
+                                        "'##' cannot appear at start of macro expansion"
+                                    ))
+                                    .with_label(Label::primary(self.file_id, *span)));
                             }
                             i -= 1;
                         }
@@ -597,12 +583,9 @@ impl Preprocessor<'_> {
                     }
                 }
                 if placemarkers.len() == 0 {
-                    return Err(Error::new_from_span(
-                        ErrorVariant::CustomError {
-                            message: format!("'##' cannot appear at end of macro expansion"),
-                        },
-                        *span,
-                    ));
+                    return Err(Diagnostic::error()
+                        .with_message(format!("'##' cannot appear at end of macro expansion"))
+                        .with_label(Label::primary(self.file_id, *span)));
                 }
                 let right = placemarkers.remove(i);
 

@@ -1,39 +1,35 @@
 ---
 source: src/typechecker/tests/expr.rs
-expression: ast
+expression: "re.replace_all(format! (\"{ast:#?}\").as_str(), \"\")"
 ---
 RefCell {
     value: TranslationUnit {
         span: Span {
-            str: "\nint main()\n{\n    0.1;\n    0.;\n    .1;\n    0.1e-2;\n    0x0.fp1;\n}\n",
-            start: 0,
-            end: 66,
+            start: ByteIndex(0),
+            end: ByteIndex(66),
         },
         decls: [
             RefCell {
                 value: Declaration {
                     span: Span {
-                        str: "main()\n",
-                        start: 5,
-                        end: 12,
+                        start: ByteIndex(5),
+                        end: ByteIndex(12),
                     },
                     attributes: [],
                     name: "main",
                     type: RefCell {
                         value: Type {
                             span: Span {
-                                str: "()\n",
-                                start: 9,
-                                end: 12,
+                                start: ByteIndex(9),
+                                end: ByteIndex(12),
                             },
                             attributes: [],
                             kind: Function {
                                 return_type: RefCell {
                                     value: Type {
                                         span: Span {
-                                            str: "int ",
-                                            start: 1,
-                                            end: 5,
+                                            start: ByteIndex(1),
+                                            end: ByteIndex(5),
                                         },
                                         attributes: [],
                                         kind: Int,
@@ -52,9 +48,8 @@ RefCell {
                             RefCell {
                                 value: Stmt {
                                     span: Span {
-                                        str: "{\n    0.1;\n    0.;\n    .1;\n    0.1e-2;\n    0x0.fp1;\n}",
-                                        start: 12,
-                                        end: 65,
+                                        start: ByteIndex(12),
+                                        end: ByteIndex(65),
                                     },
                                     attributes: [],
                                     kind: Compound(
@@ -62,18 +57,16 @@ RefCell {
                                             RefCell {
                                                 value: Stmt {
                                                     span: Span {
-                                                        str: "0.1",
-                                                        start: 18,
-                                                        end: 21,
+                                                        start: ByteIndex(18),
+                                                        end: ByteIndex(21),
                                                     },
                                                     attributes: [],
                                                     kind: Expr(
                                                         RefCell {
                                                             value: Expr {
                                                                 span: Span {
-                                                                    str: "0.1",
-                                                                    start: 18,
-                                                                    end: 21,
+                                                                    start: ByteIndex(18),
+                                                                    end: ByteIndex(21),
                                                                 },
                                                                 kind: Float {
                                                                     base: 10,
@@ -85,9 +78,8 @@ RefCell {
                                                                 type: RefCell {
                                                                     value: Type {
                                                                         span: Span {
-                                                                            str: "0.1",
-                                                                            start: 18,
-                                                                            end: 21,
+                                                                            start: ByteIndex(18),
+                                                                            end: ByteIndex(21),
                                                                         },
                                                                         attributes: [],
                                                                         kind: Double,
@@ -109,18 +101,16 @@ RefCell {
                                             RefCell {
                                                 value: Stmt {
                                                     span: Span {
-                                                        str: "0.",
-                                                        start: 27,
-                                                        end: 29,
+                                                        start: ByteIndex(27),
+                                                        end: ByteIndex(29),
                                                     },
                                                     attributes: [],
                                                     kind: Expr(
                                                         RefCell {
                                                             value: Expr {
                                                                 span: Span {
-                                                                    str: "0.",
-                                                                    start: 27,
-                                                                    end: 29,
+                                                                    start: ByteIndex(27),
+                                                                    end: ByteIndex(29),
                                                                 },
                                                                 kind: Float {
                                                                     base: 10,
@@ -132,9 +122,8 @@ RefCell {
                                                                 type: RefCell {
                                                                     value: Type {
                                                                         span: Span {
-                                                                            str: "0.",
-                                                                            start: 27,
-                                                                            end: 29,
+                                                                            start: ByteIndex(27),
+                                                                            end: ByteIndex(29),
                                                                         },
                                                                         attributes: [],
                                                                         kind: Double,
@@ -156,18 +145,16 @@ RefCell {
                                             RefCell {
                                                 value: Stmt {
                                                     span: Span {
-                                                        str: ".1",
-                                                        start: 35,
-                                                        end: 37,
+                                                        start: ByteIndex(35),
+                                                        end: ByteIndex(37),
                                                     },
                                                     attributes: [],
                                                     kind: Expr(
                                                         RefCell {
                                                             value: Expr {
                                                                 span: Span {
-                                                                    str: ".1",
-                                                                    start: 35,
-                                                                    end: 37,
+                                                                    start: ByteIndex(35),
+                                                                    end: ByteIndex(37),
                                                                 },
                                                                 kind: Float {
                                                                     base: 10,
@@ -179,9 +166,8 @@ RefCell {
                                                                 type: RefCell {
                                                                     value: Type {
                                                                         span: Span {
-                                                                            str: ".1",
-                                                                            start: 35,
-                                                                            end: 37,
+                                                                            start: ByteIndex(35),
+                                                                            end: ByteIndex(37),
                                                                         },
                                                                         attributes: [],
                                                                         kind: Double,
@@ -203,18 +189,16 @@ RefCell {
                                             RefCell {
                                                 value: Stmt {
                                                     span: Span {
-                                                        str: "0.1e-2",
-                                                        start: 43,
-                                                        end: 49,
+                                                        start: ByteIndex(43),
+                                                        end: ByteIndex(49),
                                                     },
                                                     attributes: [],
                                                     kind: Expr(
                                                         RefCell {
                                                             value: Expr {
                                                                 span: Span {
-                                                                    str: "0.1e-2",
-                                                                    start: 43,
-                                                                    end: 49,
+                                                                    start: ByteIndex(43),
+                                                                    end: ByteIndex(49),
                                                                 },
                                                                 kind: Float {
                                                                     base: 10,
@@ -226,9 +210,8 @@ RefCell {
                                                                 type: RefCell {
                                                                     value: Type {
                                                                         span: Span {
-                                                                            str: "0.1e-2",
-                                                                            start: 43,
-                                                                            end: 49,
+                                                                            start: ByteIndex(43),
+                                                                            end: ByteIndex(49),
                                                                         },
                                                                         attributes: [],
                                                                         kind: Double,
@@ -250,18 +233,16 @@ RefCell {
                                             RefCell {
                                                 value: Stmt {
                                                     span: Span {
-                                                        str: "0x0.fp1",
-                                                        start: 55,
-                                                        end: 62,
+                                                        start: ByteIndex(55),
+                                                        end: ByteIndex(62),
                                                     },
                                                     attributes: [],
                                                     kind: Expr(
                                                         RefCell {
                                                             value: Expr {
                                                                 span: Span {
-                                                                    str: "0x0.fp1",
-                                                                    start: 55,
-                                                                    end: 62,
+                                                                    start: ByteIndex(55),
+                                                                    end: ByteIndex(62),
                                                                 },
                                                                 kind: Float {
                                                                     base: 16,
@@ -273,9 +254,8 @@ RefCell {
                                                                 type: RefCell {
                                                                     value: Type {
                                                                         span: Span {
-                                                                            str: "0x0.fp1",
-                                                                            start: 55,
-                                                                            end: 62,
+                                                                            start: ByteIndex(55),
+                                                                            end: ByteIndex(62),
                                                                         },
                                                                         attributes: [],
                                                                         kind: Double,

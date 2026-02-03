@@ -13,21 +13,18 @@ use crate::{
         },
         is_compatible, pointee,
     },
-    diagnostic::{Diagnostic, DiagnosticKind, warning},
+    diagnostic::warning,
     symtab::{Namespace, SymbolKind},
     typechecker::Context,
     variant::Variant,
 };
+use codespan_reporting::diagnostic::{Diagnostic, Label, LabelStyle};
 use num::BigUint;
 use num::{BigInt, BigRational, FromPrimitive, Num};
 use std::{cell::RefCell, rc::Rc, str::FromStr};
 
-impl<'a> TypeChecker<'a> {
-    pub fn wrap_implicit_cast(
-        &self,
-        expr: Rc<RefCell<Expr<'a>>>,
-        r#type: Rc<RefCell<Type<'a>>>,
-    ) -> Expr<'a> {
+impl TypeChecker {
+    pub fn wrap_implicit_cast(&self, expr: Rc<RefCell<Expr>>, r#type: Rc<RefCell<Type>>) -> Expr {
         Expr {
             kind: ExprKind::Cast {
                 is_implicit: true,
@@ -36,16 +33,16 @@ impl<'a> TypeChecker<'a> {
             },
             r#type,
             value: expr.borrow().value.clone(),
-            ..Expr::new(expr.borrow().span)
+            ..Expr::new(expr.borrow().file_id, expr.borrow().span)
         }
     }
 
     //尝试进行隐式转换, 失败返回None, 成功返回修改后的表达式
     pub fn try_implicit_cast(
         &self,
-        source: Rc<RefCell<Expr<'a>>>,
-        target_type: Rc<RefCell<Type<'a>>>,
-    ) -> Result<Rc<RefCell<Expr<'a>>>, Diagnostic<'a>> {
+        source: Rc<RefCell<Expr>>,
+        target_type: Rc<RefCell<Type>>,
+    ) -> Result<Rc<RefCell<Expr>>, Diagnostic<usize>> {
         let t = &source.borrow().r#type;
         if is_compatible(Rc::clone(&target_type), Rc::clone(t)) {
             Ok(Rc::clone(&source))
@@ -69,20 +66,20 @@ impl<'a> TypeChecker<'a> {
                 self.wrap_implicit_cast(Rc::clone(&source), target_type),
             )))
         } else {
-            Err(Diagnostic {
-                span: source.borrow().span,
-                kind: DiagnosticKind::Error,
-                message: format!(
+            Err(Diagnostic::error()
+                .with_message(format!(
                     "cannot convert '{}' to '{}'",
                     t.borrow().to_string(),
                     target_type.borrow().to_string()
-                ),
-                notes: vec![],
-            })
+                ))
+                .with_label(Label::primary(
+                    source.borrow().file_id,
+                    source.borrow().span,
+                )))
         }
     }
 
-    pub fn visit_expr(&mut self, node: Rc<RefCell<Expr<'a>>>) -> Result<(), Diagnostic<'a>> {
+    pub fn visit_expr(&mut self, node: Rc<RefCell<Expr>>) -> Result<(), Diagnostic<usize>> {
         let allow_lvalue_cast = match self.contexts.last() {
             Some(Context::Expr(
                 ExprKind::UnaryOp {
@@ -239,24 +236,18 @@ impl<'a> TypeChecker<'a> {
                         }
                         EncodePrefix::UTF8 => {
                             if text.as_bytes().len() > 1 {
-                                return Err(Diagnostic {
-                                    span: node.span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!("the character is too large as utf-8"),
-                                    notes: vec![],
-                                });
+                                return Err(Diagnostic::error()
+                                    .with_message(format!("the character is too large as utf-8"))
+                                    .with_label(Label::primary(node.file_id, node.span)));
                             }
                             node.value = Variant::Int(BigInt::from(text.as_bytes()[0]));
                             kind = TypeKind::UnsignedChar;
                         }
                         EncodePrefix::UTF16 => {
                             if text.encode_utf16().count() > 1 {
-                                return Err(Diagnostic {
-                                    span: node.span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!("the character is too large as utf-16"),
-                                    notes: vec![],
-                                });
+                                return Err(Diagnostic::error()
+                                    .with_message(format!("the character is too large as utf-16"))
+                                    .with_label(Label::primary(node.file_id, node.span)));
                             }
                             node.value =
                                 Variant::Int(BigInt::from(text.encode_utf16().next().unwrap()));
@@ -264,12 +255,9 @@ impl<'a> TypeChecker<'a> {
                         }
                         EncodePrefix::UTF32 => {
                             if text.chars().count() > 1 {
-                                return Err(Diagnostic {
-                                    span: node.span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!("the character is too large as utf-32"),
-                                    notes: vec![],
-                                });
+                                return Err(Diagnostic::error()
+                                    .with_message(format!("the character is too large as utf-32"))
+                                    .with_label(Label::primary(node.file_id, node.span)));
                             }
                             node.value =
                                 Variant::Int(BigInt::from(text.chars().next().unwrap() as u32));
@@ -285,11 +273,13 @@ impl<'a> TypeChecker<'a> {
                         }
                     }
                     node.r#type = Rc::new(RefCell::new(Type {
+                        file_id: node.file_id,
                         span: node.span,
                         attributes: vec![],
                         kind: TypeKind::Qualified {
                             qualifiers: vec![TypeQual::Const],
                             r#type: Rc::new(RefCell::new(Type {
+                                file_id: node.file_id,
                                 span: node.span,
                                 attributes: vec![],
                                 kind,
@@ -335,17 +325,20 @@ impl<'a> TypeChecker<'a> {
                     array.push(Variant::Int(BigInt::ZERO)); // '\0'
 
                     node.r#type = Rc::new(RefCell::new(Type {
+                        file_id: node.file_id,
                         span: node.span,
                         attributes: vec![],
                         kind: TypeKind::Array {
                             has_static: false,
                             has_star: false,
                             element_type: Rc::new(RefCell::new(Type {
+                                file_id: node.file_id,
                                 span: node.span,
                                 attributes: vec![],
                                 kind: TypeKind::Qualified {
                                     qualifiers: vec![TypeQual::Const],
                                     r#type: Rc::new(RefCell::new(Type {
+                                        file_id: node.file_id,
                                         span: node.span,
                                         attributes: vec![],
                                         kind: element_kind,
@@ -359,12 +352,13 @@ impl<'a> TypeChecker<'a> {
                                     type_suffix: vec![],
                                 },
                                 r#type: Rc::new(RefCell::new(Type {
+                                    file_id: node.file_id,
                                     span: node.span,
                                     attributes: vec![],
                                     kind: TypeKind::ULongLong,
                                 })),
                                 value: Variant::Int(BigInt::from(array.len())),
-                                ..Expr::new(node.span)
+                                ..Expr::new(node.file_id, node.span)
                             }))),
                         },
                     }));
@@ -385,26 +379,21 @@ impl<'a> TypeChecker<'a> {
                             SymbolKind::Object { .. } | SymbolKind::Parameter { .. } => true,
                             SymbolKind::Function { .. } | SymbolKind::EnumConst { .. } => false,
                             _ => {
-                                return Err(Diagnostic {
-                                    span: node.span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!("invalid symbol as expression"),
-                                    notes: vec![],
-                                });
+                                return Err(Diagnostic::error()
+                                    .with_message(format!("invalid symbol as expression"))
+                                    .with_label(Label::primary(node.file_id, node.span)));
                             }
                         };
                     } else {
-                        return Err(Diagnostic {
-                            span: node.span,
-                            kind: DiagnosticKind::Error,
-                            message: format!("'{name}' is undefined"),
-                            notes: vec![],
-                        });
+                        return Err(Diagnostic::error()
+                            .with_message(format!("'{name}' is undefined"))
+                            .with_label(Label::primary(node.file_id, node.span)));
                     }
                 }
                 ExprKind::True => {
                     node.value = Variant::Bool(true);
                     node.r#type = Rc::new(RefCell::new(Type {
+                        file_id: node.file_id,
                         span: node.span,
                         attributes: vec![],
                         kind: TypeKind::Bool,
@@ -413,6 +402,7 @@ impl<'a> TypeChecker<'a> {
                 ExprKind::False => {
                     node.value = Variant::Bool(false);
                     node.r#type = Rc::new(RefCell::new(Type {
+                        file_id: node.file_id,
                         span: node.span,
                         attributes: vec![],
                         kind: TypeKind::Bool,
@@ -421,6 +411,7 @@ impl<'a> TypeChecker<'a> {
                 ExprKind::Nullptr => {
                     node.value = Variant::Nullptr;
                     node.r#type = Rc::new(RefCell::new(Type {
+                        file_id: node.file_id,
                         span: node.span,
                         attributes: vec![],
                         kind: TypeKind::Nullptr,
@@ -442,6 +433,7 @@ impl<'a> TypeChecker<'a> {
                         && type_suffix.contains(&"u".to_string())
                     {
                         candidates = vec![Type {
+                            file_id: node.file_id,
                             span: node.span,
                             attributes: vec![],
                             kind: TypeKind::BitInt {
@@ -453,17 +445,19 @@ impl<'a> TypeChecker<'a> {
                                         type_suffix: vec![],
                                     },
                                     r#type: Rc::new(RefCell::new(Type {
+                                        file_id: node.file_id,
                                         span: node.span,
                                         attributes: vec![],
                                         kind: TypeKind::ULongLong,
                                     })),
                                     value: Variant::Int(BigInt::from(value.bits())),
-                                    ..Expr::new(node.span)
+                                    ..Expr::new(node.file_id, node.span)
                                 })),
                             },
                         }];
                     } else if type_suffix.contains(&"wb".to_string()) {
                         candidates = vec![Type {
+                            file_id: node.file_id,
                             span: node.span,
                             attributes: vec![],
                             kind: TypeKind::BitInt {
@@ -475,13 +469,14 @@ impl<'a> TypeChecker<'a> {
                                         type_suffix: vec![],
                                     },
                                     r#type: Rc::new(RefCell::new(Type {
+                                        file_id: node.file_id,
                                         span: node.span,
                                         attributes: vec![],
                                         kind: TypeKind::ULongLong,
                                     })),
                                     //还有一位符号位
                                     value: Variant::Int(BigInt::from(value.bits() + 1)),
-                                    ..Expr::new(node.span)
+                                    ..Expr::new(node.file_id, node.span)
                                 })),
                             },
                         }];
@@ -489,18 +484,21 @@ impl<'a> TypeChecker<'a> {
                         && type_suffix.contains(&"u".to_string())
                     {
                         candidates = vec![Type {
+                            file_id: node.file_id,
                             span: node.span,
                             attributes: vec![],
                             kind: TypeKind::ULongLong,
                         }];
                     } else if type_suffix.contains(&"ll".to_string()) {
                         candidates = vec![Type {
+                            file_id: node.file_id,
                             span: node.span,
                             attributes: vec![],
                             kind: TypeKind::LongLong,
                         }];
                         if *base != 10 {
                             candidates.push(Type {
+                                file_id: node.file_id,
                                 span: node.span,
                                 attributes: vec![],
                                 kind: TypeKind::ULongLong,
@@ -511,11 +509,13 @@ impl<'a> TypeChecker<'a> {
                     {
                         candidates = vec![
                             Type {
+                                file_id: node.file_id,
                                 span: node.span,
                                 attributes: vec![],
                                 kind: TypeKind::ULong,
                             },
                             Type {
+                                file_id: node.file_id,
                                 span: node.span,
                                 attributes: vec![],
                                 kind: TypeKind::ULongLong,
@@ -524,16 +524,19 @@ impl<'a> TypeChecker<'a> {
                     } else if type_suffix.contains(&"l".to_string()) {
                         candidates = vec![
                             Type {
+                                file_id: node.file_id,
                                 span: node.span,
                                 attributes: vec![],
                                 kind: TypeKind::Long,
                             },
                             Type {
+                                file_id: node.file_id,
                                 span: node.span,
                                 attributes: vec![],
                                 kind: TypeKind::ULong,
                             },
                             Type {
+                                file_id: node.file_id,
                                 span: node.span,
                                 attributes: vec![],
                                 kind: TypeKind::LongLong,
@@ -541,6 +544,7 @@ impl<'a> TypeChecker<'a> {
                         ];
                         if *base != 10 {
                             candidates.push(Type {
+                                file_id: node.file_id,
                                 span: node.span,
                                 attributes: vec![],
                                 kind: TypeKind::ULongLong,
@@ -549,16 +553,19 @@ impl<'a> TypeChecker<'a> {
                     } else if type_suffix.contains(&"u".to_string()) {
                         candidates = vec![
                             Type {
+                                file_id: node.file_id,
                                 span: node.span,
                                 attributes: vec![],
                                 kind: TypeKind::UInt,
                             },
                             Type {
+                                file_id: node.file_id,
                                 span: node.span,
                                 attributes: vec![],
                                 kind: TypeKind::ULong,
                             },
                             Type {
+                                file_id: node.file_id,
                                 span: node.span,
                                 attributes: vec![],
                                 kind: TypeKind::ULongLong,
@@ -567,21 +574,25 @@ impl<'a> TypeChecker<'a> {
                     } else {
                         candidates = vec![
                             Type {
+                                file_id: node.file_id,
                                 span: node.span,
                                 attributes: vec![],
                                 kind: TypeKind::Int,
                             },
                             Type {
+                                file_id: node.file_id,
                                 span: node.span,
                                 attributes: vec![],
                                 kind: TypeKind::Long,
                             },
                             Type {
+                                file_id: node.file_id,
                                 span: node.span,
                                 attributes: vec![],
                                 kind: TypeKind::ULong,
                             },
                             Type {
+                                file_id: node.file_id,
                                 span: node.span,
                                 attributes: vec![],
                                 kind: TypeKind::LongLong,
@@ -590,11 +601,13 @@ impl<'a> TypeChecker<'a> {
                         if *base != 10 {
                             candidates.extend(vec![
                                 Type {
+                                    file_id: node.file_id,
                                     span: node.span,
                                     attributes: vec![],
                                     kind: TypeKind::UInt,
                                 },
                                 Type {
+                                    file_id: node.file_id,
                                     span: node.span,
                                     attributes: vec![],
                                     kind: TypeKind::ULongLong,
@@ -618,12 +631,9 @@ impl<'a> TypeChecker<'a> {
                     if let Some(t) = r#type {
                         node.r#type = Rc::new(RefCell::new(t));
                     } else {
-                        return Err(Diagnostic {
-                            span: node.span,
-                            kind: DiagnosticKind::Error,
-                            message: format!("the integer is too large"),
-                            notes: vec![],
-                        });
+                        return Err(Diagnostic::error()
+                            .with_message(format!("the integer is too large"))
+                            .with_label(Label::primary(node.file_id, node.span)));
                     }
 
                     node.value = Variant::Int(value.clone());
@@ -689,6 +699,7 @@ impl<'a> TypeChecker<'a> {
                     }
 
                     node.r#type = Rc::new(RefCell::new(Type {
+                        file_id: node.file_id,
                         span: node.span,
                         attributes: vec![],
                         kind: if type_suffix.contains(&"df".to_string()) {
@@ -769,12 +780,9 @@ impl<'a> TypeChecker<'a> {
                             _ => unreachable!(),
                         }
                     } else {
-                        return Err(Diagnostic {
-                            span: node.span,
-                            kind: DiagnosticKind::Error,
-                            message: format!("cannot find suitable association"),
-                            notes: vec![],
-                        });
+                        return Err(Diagnostic::error()
+                            .with_message(format!("cannot find suitable association"))
+                            .with_label(Label::primary(node.file_id, node.span)));
                     }
                 }
                 ExprKind::FunctionCall { target, arguments } => {
@@ -805,20 +813,14 @@ impl<'a> TypeChecker<'a> {
                         };
 
                         if parameters_type.len() > arguments.len() {
-                            return Err(Diagnostic {
-                                span: node.span,
-                                kind: DiagnosticKind::Error,
-                                message: format!("too few arguments to function call"),
-                                notes: vec![],
-                            });
+                            return Err(Diagnostic::error()
+                                .with_message(format!("too few arguments to function call"))
+                                .with_label(Label::primary(node.file_id, node.span)));
                         }
                         if !*has_varparam && parameters_type.len() < arguments.len() {
-                            return Err(Diagnostic {
-                                span: node.span,
-                                kind: DiagnosticKind::Error,
-                                message: format!("too many arguments to function call"),
-                                notes: vec![],
-                            });
+                            return Err(Diagnostic::error()
+                                .with_message(format!("too many arguments to function call"))
+                                .with_label(Label::primary(node.file_id, node.span)));
                         }
                         node.r#type = Rc::clone(return_type);
 
@@ -874,8 +876,8 @@ impl<'a> TypeChecker<'a> {
                                                     len_expr.borrow().value,
                                                     min_len_expr.borrow().value
                                                 ),
+                                                argument.borrow().file_id,
                                                 argument.borrow().span,
-                                                self.file_path,
                                             );
                                         }
                                     }
@@ -900,6 +902,7 @@ impl<'a> TypeChecker<'a> {
                                     self.try_implicit_cast(Rc::clone(argument), target_type)?;
                             } else if let TypeKind::Float = r#type.borrow().kind {
                                 let target_type = Rc::new(RefCell::new(Type {
+                                    file_id: argument.borrow().file_id,
                                     span: argument.borrow().span,
                                     attributes: vec![],
                                     kind: TypeKind::Double,
@@ -910,15 +913,15 @@ impl<'a> TypeChecker<'a> {
                             i = i + 1;
                         }
                     } else {
-                        return Err(Diagnostic {
-                            span: target.borrow().span,
-                            kind: DiagnosticKind::Error,
-                            message: format!(
+                        return Err(Diagnostic::error()
+                            .with_message(format!(
                                 "{} is not a function or a function pointer",
                                 target.borrow().r#type.borrow().to_string()
-                            ),
-                            notes: vec![],
-                        });
+                            ))
+                            .with_label(Label::primary(
+                                target.borrow().file_id,
+                                target.borrow().span,
+                            )));
                     }
                 }
                 ExprKind::Subscript { target, index } => {
@@ -959,14 +962,9 @@ impl<'a> TypeChecker<'a> {
                         node.is_lvalue = true;
                         node.value = value.get(&i).clone();
                     } else {
-                        return Err(Diagnostic {
-                            span: node.span,
-                            kind: DiagnosticKind::Error,
-                            message: format!(
+                        return Err(Diagnostic::error().with_message(format!(
                                 "subscripted value must be a pointer or array and index must be an integer"
-                            ),
-                            notes: vec![],
-                        });
+                            )).with_label(Label::primary(node.file_id,node.span)));
                     }
                 }
                 ExprKind::MemberAccess {
@@ -983,15 +981,15 @@ impl<'a> TypeChecker<'a> {
                         match &target.borrow().r#type.borrow().kind {
                             TypeKind::Pointer(pointee) => target_type = Rc::clone(pointee),
                             _ => {
-                                return Err(Diagnostic {
-                                    span: target.borrow().span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!(
+                                return Err(Diagnostic::error()
+                                    .with_message(format!(
                                         "'{}' is not a pointer",
                                         target.borrow().r#type.borrow().to_string()
-                                    ),
-                                    notes: vec![],
-                                });
+                                    ))
+                                    .with_label(Label::primary(
+                                        target.borrow().file_id,
+                                        target.borrow().span,
+                                    )));
                             }
                         }
                     } else {
@@ -1026,6 +1024,7 @@ impl<'a> TypeChecker<'a> {
                                 node.symbol = Some(Rc::clone(member));
                                 if qualifiers.len() > 0 {
                                     node.r#type = Rc::new(RefCell::new(Type {
+                                        file_id: node.file_id,
                                         span: node.span,
                                         attributes: vec![],
                                         kind: TypeKind::Qualified {
@@ -1037,34 +1036,34 @@ impl<'a> TypeChecker<'a> {
                                     node.r#type = Rc::clone(&member.borrow().r#type);
                                 }
                             } else {
-                                return Err(Diagnostic {
-                                    span: target.borrow().span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!(
+                                return Err(Diagnostic::error()
+                                    .with_message(format!(
                                         "no member named '{name}' in '{}'",
                                         t.borrow().to_string()
-                                    ),
-                                    notes: vec![],
-                                });
+                                    ))
+                                    .with_label(Label::primary(
+                                        target.borrow().file_id,
+                                        target.borrow().span,
+                                    )));
                             }
                         } else {
-                            return Err(Diagnostic {
-                                span: target.borrow().span,
-                                kind: DiagnosticKind::Error,
-                                message: format!("'{}' is incomplete", t.borrow().to_string()),
-                                notes: vec![],
-                            });
+                            return Err(Diagnostic::error()
+                                .with_message(format!("'{}' is incomplete", t.borrow().to_string()))
+                                .with_label(Label::primary(
+                                    target.borrow().file_id,
+                                    target.borrow().span,
+                                )));
                         }
                     } else {
-                        return Err(Diagnostic {
-                            span: target.borrow().span,
-                            kind: DiagnosticKind::Error,
-                            message: format!(
+                        return Err(Diagnostic::error()
+                            .with_message(format!(
                                 "'{}' is not a struct or union",
                                 target.borrow().r#type.borrow().to_string()
-                            ),
-                            notes: vec![],
-                        });
+                            ))
+                            .with_label(Label::primary(
+                                target.borrow().file_id,
+                                target.borrow().span,
+                            )));
                     }
                     node.is_lvalue = is_lvalue;
                 }
@@ -1076,20 +1075,21 @@ impl<'a> TypeChecker<'a> {
                                 let value = !operand.borrow().value.clone();
                                 node.value = value;
                                 node.r#type = Rc::new(RefCell::new(Type {
+                                    file_id: node.file_id,
                                     span: node.span,
                                     attributes: vec![],
                                     kind: TypeKind::Int,
                                 }))
                             } else {
-                                return Err(Diagnostic {
-                                    span: operand.borrow().span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!(
+                                return Err(Diagnostic::error()
+                                    .with_message(format!(
                                         "'{}' is not a scale type",
                                         operand.borrow().r#type.borrow().to_string()
-                                    ),
-                                    notes: vec![],
-                                });
+                                    ))
+                                    .with_label(Label::primary(
+                                        operand.borrow().file_id,
+                                        operand.borrow().span,
+                                    )));
                             }
                         }
                         UnaryOpKind::Positive | UnaryOpKind::Negative => {
@@ -1114,15 +1114,15 @@ impl<'a> TypeChecker<'a> {
                                 node.value = value;
                                 node.r#type = promote_type;
                             } else {
-                                return Err(Diagnostic {
-                                    span: operand.borrow().span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!(
+                                return Err(Diagnostic::error()
+                                    .with_message(format!(
                                         "'{}' is not a arithmetic type",
                                         operand.borrow().r#type.borrow().to_string()
-                                    ),
-                                    notes: vec![],
-                                });
+                                    ))
+                                    .with_label(Label::primary(
+                                        operand.borrow().file_id,
+                                        operand.borrow().span,
+                                    )));
                             }
                         }
                         UnaryOpKind::BitNot => {
@@ -1144,15 +1144,15 @@ impl<'a> TypeChecker<'a> {
                                 node.value = value;
                                 node.r#type = promote_type;
                             } else {
-                                return Err(Diagnostic {
-                                    span: operand.borrow().span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!(
+                                return Err(Diagnostic::error()
+                                    .with_message(format!(
                                         "'{}' is not a integer type",
                                         operand.borrow().r#type.borrow().to_string()
-                                    ),
-                                    notes: vec![],
-                                });
+                                    ))
+                                    .with_label(Label::primary(
+                                        operand.borrow().file_id,
+                                        operand.borrow().span,
+                                    )));
                             }
                         }
                         UnaryOpKind::PrefixInc
@@ -1161,25 +1161,25 @@ impl<'a> TypeChecker<'a> {
                         | UnaryOpKind::PostfixDec => {
                             let r#type = Rc::clone(&operand.borrow().r#type);
                             if !operand.borrow().is_lvalue || !r#type.borrow().can_modify() {
-                                return Err(Diagnostic {
-                                    span: operand.borrow().span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!("invalid operand"),
-                                    notes: vec![],
-                                });
+                                return Err(Diagnostic::error()
+                                    .with_message(format!("invalid operand"))
+                                    .with_label(Label::primary(
+                                        operand.borrow().file_id,
+                                        operand.borrow().span,
+                                    )));
                             } else if !(r#type.borrow().is_integer()
                                 || r#type.borrow().is_real_float()
                                 || r#type.borrow().is_pointer())
                             {
-                                return Err(Diagnostic {
-                                    span: operand.borrow().span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!(
+                                return Err(Diagnostic::error()
+                                    .with_message(format!(
                                         "'{}' is not a integer, real floating or pointer",
                                         r#type.borrow().to_string()
-                                    ),
-                                    notes: vec![],
-                                });
+                                    ))
+                                    .with_label(Label::primary(
+                                        operand.borrow().file_id,
+                                        operand.borrow().span,
+                                    )));
                             } else {
                                 let value = if let UnaryOpKind::PrefixInc
                                 | UnaryOpKind::PostfixInc = op
@@ -1208,28 +1208,23 @@ impl<'a> TypeChecker<'a> {
                                 match operand.borrow().symbol {
                                     Some(ref symbol) => match &symbol.borrow().kind {
                                         SymbolKind::Member { bit_field: Some(_) } => {
-                                            return Err(Diagnostic {
-                                                span: node.span,
-                                                kind: DiagnosticKind::Error,
-                                                message: format!(
+                                            return Err(Diagnostic::error()
+                                                .with_message(format!(
                                                     "cannot take address of bit-field"
-                                                ),
-                                                notes: vec![],
-                                            });
+                                                ))
+                                                .with_label(Label::primary(
+                                                    node.file_id,
+                                                    node.span,
+                                                )));
                                         }
                                         SymbolKind::Object { storage_classes }
                                         | SymbolKind::Parameter { storage_classes } => {
                                             for storage_class in storage_classes {
                                                 match &storage_class.kind {
                                                     StorageClassKind::Register => {
-                                                        return Err(Diagnostic {
-                                                            span: node.span,
-                                                            kind: DiagnosticKind::Error,
-                                                            message: format!(
+                                                        return Err(Diagnostic::error().with_message(format!(
                                                                 "cannot take address of register variable"
-                                                            ),
-                                                            notes: vec![],
-                                                        });
+                                                            )).with_label(Label::primary(node.file_id,node.span)));
                                                     }
                                                     _ => {}
                                                 }
@@ -1240,20 +1235,16 @@ impl<'a> TypeChecker<'a> {
                                     None => {}
                                 }
                                 let r#type = Rc::new(RefCell::new(Type {
+                                    file_id: node.file_id,
                                     span: node.span,
                                     attributes: vec![],
                                     kind: TypeKind::Pointer(Rc::clone(&operand.borrow().r#type)),
                                 }));
                                 node.r#type = r#type;
                             } else {
-                                return Err(Diagnostic {
-                                    span: operand.borrow().span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!(
+                                return Err(Diagnostic::error().with_message(format!(
                                         "the operand of '&' must be a function, lvalue or dereference"
-                                    ),
-                                    notes: vec![],
-                                });
+                                    )).with_label(Label::primary(operand.borrow().file_id,operand.borrow().span)));
                             }
                         }
                         UnaryOpKind::Dereference => {
@@ -1272,15 +1263,15 @@ impl<'a> TypeChecker<'a> {
                                 node.r#type = r#type;
                                 node.is_lvalue = is_lvalue;
                             } else {
-                                return Err(Diagnostic {
-                                    span: operand.borrow().span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!(
+                                return Err(Diagnostic::error()
+                                    .with_message(format!(
                                         "'{}' is not a pointer",
                                         operand.borrow().r#type.borrow().to_string()
-                                    ),
-                                    notes: vec![],
-                                });
+                                    ))
+                                    .with_label(Label::primary(
+                                        operand.borrow().file_id,
+                                        operand.borrow().span,
+                                    )));
                             }
                         }
                     }
@@ -1292,23 +1283,23 @@ impl<'a> TypeChecker<'a> {
                     match op {
                         BinOpKind::And | BinOpKind::Or => {
                             if !left.borrow().r#type.borrow().is_scale() {
-                                return Err(Diagnostic {
-                                    span: left.borrow().span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!(
+                                return Err(Diagnostic::error()
+                                    .with_message(format!(
                                         "the operator of '{op}' must have a scale type"
-                                    ),
-                                    notes: vec![],
-                                });
+                                    ))
+                                    .with_label(Label::primary(
+                                        left.borrow().file_id,
+                                        left.borrow().span,
+                                    )));
                             } else if !right.borrow().r#type.borrow().is_scale() {
-                                return Err(Diagnostic {
-                                    span: right.borrow().span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!(
+                                return Err(Diagnostic::error()
+                                    .with_message(format!(
                                         "the operator of '{op}' must have a scale type"
-                                    ),
-                                    notes: vec![],
-                                });
+                                    ))
+                                    .with_label(Label::primary(
+                                        right.borrow().file_id,
+                                        right.borrow().span,
+                                    )));
                             } else {
                                 let (x, y) =
                                     (left.borrow().value.clone(), right.borrow().value.clone());
@@ -1320,6 +1311,7 @@ impl<'a> TypeChecker<'a> {
 
                                 node.value = value;
                                 node.r#type = Rc::new(RefCell::new(Type {
+                                    file_id: node.file_id,
                                     span: node.span,
                                     attributes: vec![],
                                     kind: TypeKind::Int,
@@ -1360,38 +1352,25 @@ impl<'a> TypeChecker<'a> {
                                     pointee(Rc::clone(&left.borrow().r#type)).unwrap(),
                                     pointee(Rc::clone(&right.borrow().r#type)).unwrap(),
                                 ) {
-                                    return Err(Diagnostic {
-                                        span: left.borrow().span,
-                                        kind: DiagnosticKind::Error,
-                                        message: format!(
+                                    return Err(Diagnostic::error()
+                                        .with_message(format!(
                                             "'{}' is not compatible with '{}'",
                                             left.borrow().r#type.borrow().to_string(),
                                             right.borrow().r#type.borrow().to_string()
-                                        ),
-                                        notes: vec![Diagnostic {
-                                            span: right.borrow().span,
-                                            kind: DiagnosticKind::Note,
-                                            message: format!("right operand"),
-                                            notes: vec![],
-                                        }],
-                                    });
+                                        ))
+                                        .with_label(Label::primary(
+                                            left.borrow().file_id,
+                                            left.borrow().span,
+                                        )));
                                 }
                             } else {
-                                return Err(Diagnostic {
-                                    span: left.borrow().span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!(
+                                return Err(Diagnostic::error().with_message(format!(
                                         "the operator of '{op}' must have an real type or is a pointer"
-                                    ),
-                                    notes: vec![Diagnostic {
-                                        span: right.borrow().span,
-                                        kind: DiagnosticKind::Note,
-                                        message: format!("right operand"),
-                                        notes: vec![],
-                                    }],
-                                });
+                                    )).with_label(Label::primary(left.borrow().file_id,left.borrow().span)).with_message("the left operand")
+                                .with_label(Label::primary(right.borrow().file_id,right.borrow().span).with_message("the right operand")));
                             }
                             node.r#type = Rc::new(RefCell::new(Type {
+                                file_id: node.file_id,
                                 span: node.span,
                                 attributes: vec![],
                                 kind: TypeKind::Int,
@@ -1432,10 +1411,12 @@ impl<'a> TypeChecker<'a> {
                                         let new_left = self.try_implicit_cast(
                                             Rc::clone(left),
                                             Rc::new(RefCell::new(Type {
+                                                file_id: left.borrow().file_id,
                                                 span: left.borrow().span,
                                                 attributes: vec![],
                                                 kind: TypeKind::Pointer(Rc::new(RefCell::new(
                                                     Type {
+                                                        file_id: left.borrow().file_id,
                                                         span: left.borrow().span,
                                                         attributes: vec![],
                                                         kind: TypeKind::Void,
@@ -1446,10 +1427,12 @@ impl<'a> TypeChecker<'a> {
                                         let new_right = self.try_implicit_cast(
                                             Rc::clone(right),
                                             Rc::new(RefCell::new(Type {
+                                                file_id: right.borrow().file_id,
                                                 span: right.borrow().span,
                                                 attributes: vec![],
                                                 kind: TypeKind::Pointer(Rc::new(RefCell::new(
                                                     Type {
+                                                        file_id: right.borrow().file_id,
                                                         span: right.borrow().span,
                                                         attributes: vec![],
                                                         kind: TypeKind::Void,
@@ -1463,30 +1446,24 @@ impl<'a> TypeChecker<'a> {
                                     _ => unreachable!(),
                                 }
                                 node.r#type = Rc::new(RefCell::new(Type {
+                                    file_id: node.file_id,
                                     span: node.span,
                                     attributes: vec![],
                                     kind: TypeKind::Pointer(Rc::new(RefCell::new(Type {
+                                        file_id: node.file_id,
                                         span: node.span,
                                         attributes: vec![],
                                         kind: TypeKind::Void,
                                     }))),
                                 }));
                             } else {
-                                return Err(Diagnostic {
-                                    span: left.borrow().span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!(
+                                return Err(Diagnostic::error().with_message(format!(
                                         "the operator of '{op}' must have an arithmetic type or is a pointer"
-                                    ),
-                                    notes: vec![Diagnostic {
-                                        span: right.borrow().span,
-                                        kind: DiagnosticKind::Note,
-                                        message: format!("right operand"),
-                                        notes: vec![],
-                                    }],
-                                });
+                                    )).with_label(Label::primary(left.borrow().file_id,left.borrow().span)).with_message("the left operand")
+                                .with_label(Label::primary(right.borrow().file_id,right.borrow().span).with_message("the right operand")));
                             }
                             node.r#type = Rc::new(RefCell::new(Type {
+                                file_id: node.file_id,
                                 span: node.span,
                                 attributes: vec![],
                                 kind: TypeKind::Int,
@@ -1530,14 +1507,9 @@ impl<'a> TypeChecker<'a> {
                                 if let BinOpKind::Sub = op
                                     && left.borrow().r#type.borrow().is_integer()
                                 {
-                                    return Err(Diagnostic {
-                                        span: left.borrow().span,
-                                        kind: DiagnosticKind::Error,
-                                        message: format!(
+                                    return Err(Diagnostic::error().with_message( format!(
                                             "the left operand of {op} cannot be an when the right operand is a pointer"
-                                        ),
-                                        notes: vec![],
-                                    });
+                                        )).with_label(Label::primary(left.borrow().file_id,left.borrow().span)));
                                 }
 
                                 let r#type = if left.borrow().r#type.borrow().is_pointer() {
@@ -1547,19 +1519,10 @@ impl<'a> TypeChecker<'a> {
                                 };
                                 node.r#type = r#type;
                             } else {
-                                return Err(Diagnostic {
-                                    span: left.borrow().span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!(
+                                return Err(Diagnostic::error().with_message( format!(
                                         "the operator of '{op}' must have an arithmetic type or is a pointer"
-                                    ),
-                                    notes: vec![Diagnostic {
-                                        span: right.borrow().span,
-                                        kind: DiagnosticKind::Note,
-                                        message: format!("right operand"),
-                                        notes: vec![],
-                                    }],
-                                });
+                                    )).with_label(Label::primary(left.borrow().file_id,left.borrow().span)).with_message("the left operand")
+                                .with_label(Label::primary(right.borrow().file_id,right.borrow().span).with_message("the right operand")));
                             }
                         }
                         BinOpKind::Mul | BinOpKind::Div | BinOpKind::Mod => {
@@ -1593,19 +1556,19 @@ impl<'a> TypeChecker<'a> {
                                 }
                                 node.r#type = arith_result_type(a, b);
                             } else {
-                                return Err(Diagnostic {
-                                    span: left.borrow().span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!(
+                                return Err(Diagnostic::error()
+                                    .with_message(format!(
                                         "the operator of '{op}' must have an arithmetic type"
-                                    ),
-                                    notes: vec![Diagnostic {
-                                        span: right.borrow().span,
-                                        kind: DiagnosticKind::Note,
-                                        message: format!("right operand"),
-                                        notes: vec![],
-                                    }],
-                                });
+                                    ))
+                                    .with_label(Label::primary(
+                                        left.borrow().file_id,
+                                        left.borrow().span,
+                                    ))
+                                    .with_message("the left operand")
+                                    .with_label(
+                                        Label::primary(right.borrow().file_id, right.borrow().span)
+                                            .with_message("the right operand"),
+                                    ));
                             }
                         }
                         BinOpKind::BitAnd | BinOpKind::BitOr | BinOpKind::BitXOr => {
@@ -1638,19 +1601,19 @@ impl<'a> TypeChecker<'a> {
                                 }
                                 node.r#type = arith_result_type(a, b);
                             } else {
-                                return Err(Diagnostic {
-                                    span: left.borrow().span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!(
+                                return Err(Diagnostic::error()
+                                    .with_message(format!(
                                         "the operator of '{op}' must have an integer type"
-                                    ),
-                                    notes: vec![Diagnostic {
-                                        span: right.borrow().span,
-                                        kind: DiagnosticKind::Note,
-                                        message: format!("right operand"),
-                                        notes: vec![],
-                                    }],
-                                });
+                                    ))
+                                    .with_label(Label::primary(
+                                        left.borrow().file_id,
+                                        left.borrow().span,
+                                    ))
+                                    .with_message("the left operand")
+                                    .with_label(
+                                        Label::primary(right.borrow().file_id, right.borrow().span)
+                                            .with_message("the right operand"),
+                                    ));
                             }
                         }
                         BinOpKind::LShift | BinOpKind::RShift => {
@@ -1680,19 +1643,19 @@ impl<'a> TypeChecker<'a> {
                                 }
                                 node.r#type = a;
                             } else {
-                                return Err(Diagnostic {
-                                    span: left.borrow().span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!(
+                                return Err(Diagnostic::error()
+                                    .with_message(format!(
                                         "the operator of '{op}' must have an integer type"
-                                    ),
-                                    notes: vec![Diagnostic {
-                                        span: right.borrow().span,
-                                        kind: DiagnosticKind::Note,
-                                        message: format!("right operand"),
-                                        notes: vec![],
-                                    }],
-                                });
+                                    ))
+                                    .with_label(Label::primary(
+                                        left.borrow().file_id,
+                                        left.borrow().span,
+                                    ))
+                                    .with_message("the left operand")
+                                    .with_label(
+                                        Label::primary(right.borrow().file_id, right.borrow().span)
+                                            .with_message("the right operand"),
+                                    ));
                             }
                         }
                         BinOpKind::Assign => {
@@ -1714,24 +1677,20 @@ impl<'a> TypeChecker<'a> {
                                 node.value = value;
                                 node.r#type = r#type;
                             } else if !left.borrow().r#type.borrow().is_complete() {
-                                return Err(Diagnostic {
-                                    span: left.borrow().span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!(
+                                return Err(Diagnostic::error()
+                                    .with_message(format!(
                                         "'{}' is not complete",
                                         left.borrow().r#type.borrow().to_string()
-                                    ),
-                                    notes: vec![],
-                                });
+                                    ))
+                                    .with_label(Label::primary(
+                                        left.borrow().file_id,
+                                        left.borrow().span,
+                                    )));
                             } else {
-                                return Err(Diagnostic {
-                                    span: left.borrow().span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!(
+                                return Err(Diagnostic::error().with_message(format!(
                                         "the operator of '{op}' must be a lvalue and can be modified"
-                                    ),
-                                    notes: vec![],
-                                });
+                                    )).with_label(Label::primary(left.borrow().file_id,left.borrow().span)).with_message("the left operand")
+                                .with_label(Label::primary(right.borrow().file_id,right.borrow().span).with_message("the right operand")));
                             }
                         }
                         BinOpKind::MulAssign
@@ -1763,7 +1722,7 @@ impl<'a> TypeChecker<'a> {
                                     left: Rc::clone(left),
                                     right: Rc::clone(right),
                                 },
-                                ..Expr::new(node.span)
+                                ..Expr::new(node.file_id, node.span)
                             }));
                             let r#type = remove_qualifier(Rc::clone(&left.borrow().r#type));
 
@@ -1836,6 +1795,7 @@ impl<'a> TypeChecker<'a> {
                         && false_expr.borrow().r#type.borrow().is_void()
                     {
                         node.r#type = Rc::new(RefCell::new(Type {
+                            file_id: node.file_id,
                             span: node.span,
                             attributes: vec![],
                             kind: TypeKind::Void,
@@ -1854,9 +1814,11 @@ impl<'a> TypeChecker<'a> {
                                 let new_true_expr = self.try_implicit_cast(
                                     Rc::clone(true_expr),
                                     Rc::new(RefCell::new(Type {
+                                        file_id: true_expr.borrow().file_id,
                                         span: true_expr.borrow().span,
                                         attributes: vec![],
                                         kind: TypeKind::Pointer(Rc::new(RefCell::new(Type {
+                                            file_id: true_expr.borrow().file_id,
                                             span: true_expr.borrow().span,
                                             attributes: vec![],
                                             kind: TypeKind::Void,
@@ -1866,9 +1828,11 @@ impl<'a> TypeChecker<'a> {
                                 let new_false_expr = self.try_implicit_cast(
                                     Rc::clone(false_expr),
                                     Rc::new(RefCell::new(Type {
+                                        file_id: false_expr.borrow().file_id,
                                         span: false_expr.borrow().span,
                                         attributes: vec![],
                                         kind: TypeKind::Pointer(Rc::new(RefCell::new(Type {
+                                            file_id: false_expr.borrow().file_id,
                                             span: false_expr.borrow().span,
                                             attributes: vec![],
                                             kind: TypeKind::Void,
@@ -1881,28 +1845,20 @@ impl<'a> TypeChecker<'a> {
                             _ => unreachable!(),
                         }
                         node.r#type = Rc::new(RefCell::new(Type {
+                            file_id: node.file_id,
                             span: node.span,
                             attributes: vec![],
                             kind: TypeKind::Pointer(Rc::new(RefCell::new(Type {
+                                file_id: node.file_id,
                                 span: node.span,
                                 attributes: vec![],
                                 kind: TypeKind::Void,
                             }))),
                         }));
                     } else {
-                        return Err(Diagnostic {
-                            span: true_expr.borrow().span,
-                            kind: DiagnosticKind::Error,
-                            message: format!(
+                        return Err(Diagnostic::error().with_message(format!(
                                 "the operand of conditional expression must have an arithmetic or void type or is a pointer"
-                            ),
-                            notes: vec![Diagnostic {
-                                span: false_expr.borrow().span,
-                                kind: DiagnosticKind::Note,
-                                message: format!("false expression"),
-                                notes: vec![],
-                            }],
-                        });
+                            )).with_label(Label::primary(true_expr.borrow().file_id,true_expr.borrow().span).with_message("the true-expression")).with_label(Label::primary(false_expr.borrow().file_id,false_expr.borrow().span).with_message("the false-expression")));
                     }
                 }
                 ExprKind::SizeOf {
@@ -1910,12 +1866,9 @@ impl<'a> TypeChecker<'a> {
                     expr: Some(_),
                     ..
                 } => {
-                    return Err(Diagnostic {
-                        span: node.span,
-                        kind: DiagnosticKind::Error,
-                        message: format!("cannot disambiguate sizeof"),
-                        notes: vec![],
-                    });
+                    return Err(Diagnostic::error()
+                        .with_message(format!("cannot disambiguate sizeof"))
+                        .with_label(Label::primary(node.file_id, node.span)));
                 }
                 ExprKind::SizeOf {
                     r#type: Some(r#type),
@@ -1926,16 +1879,20 @@ impl<'a> TypeChecker<'a> {
                     match r#type.borrow().size() {
                         Some(t) => value = Variant::Int(BigInt::from(t)),
                         None => {
-                            return Err(Diagnostic {
-                                span: r#type.borrow().span,
-                                kind: DiagnosticKind::Error,
-                                message: format!("'{}' is incomplete", r#type.borrow().to_string()),
-                                notes: vec![],
-                            });
+                            return Err(Diagnostic::error()
+                                .with_message(format!(
+                                    "'{}' is incomplete",
+                                    r#type.borrow().to_string()
+                                ))
+                                .with_label(Label::primary(
+                                    r#type.borrow().file_id,
+                                    r#type.borrow().span,
+                                )));
                         }
                     }
                     node.value = value;
                     node.r#type = Rc::new(RefCell::new(Type {
+                        file_id: node.file_id,
                         span: node.span,
                         attributes: vec![],
                         kind: TypeKind::ULongLong,
@@ -1952,19 +1909,20 @@ impl<'a> TypeChecker<'a> {
                     match expr.borrow().r#type.borrow().size() {
                         Some(t) => value = Variant::Int(BigInt::from(t)),
                         None => {
-                            return Err(Diagnostic {
-                                span: expr.borrow().span,
-                                kind: DiagnosticKind::Error,
-                                message: format!(
+                            return Err(Diagnostic::error()
+                                .with_message(format!(
                                     "'{}' is incomplete",
                                     expr.borrow().r#type.borrow().to_string()
-                                ),
-                                notes: vec![],
-                            });
+                                ))
+                                .with_label(Label::primary(
+                                    expr.borrow().file_id,
+                                    expr.borrow().span,
+                                )));
                         }
                     }
                     node.value = value;
                     node.r#type = Rc::new(RefCell::new(Type {
+                        file_id: node.file_id,
                         span: node.span,
                         attributes: vec![],
                         kind: TypeKind::ULongLong,
@@ -1975,29 +1933,40 @@ impl<'a> TypeChecker<'a> {
                     expr: None,
                     ..
                 } => {
-                    return Err(Diagnostic {
-                        span: node.span,
-                        kind: DiagnosticKind::Error,
-                        message: format!("errors occurred during disambiguation"),
-                        notes: errs,
-                    });
+                    return Err(Diagnostic::error()
+                        .with_message(format!("errors occurred during disambiguation"))
+                        .with_label(
+                            Label::primary(node.file_id, node.span)
+                                .with_message("the location where ambiguity occurs"),
+                        )
+                        .with_labels({
+                            let mut labels = Vec::new();
+
+                            for err in errs {
+                                for label in err.labels {
+                                    if let LabelStyle::Primary = label.style {
+                                        labels.push(
+                                            Label::primary(label.file_id, label.range)
+                                                .with_message(err.message.clone()),
+                                        );
+                                        break;
+                                    }
+                                }
+                            }
+
+                            labels
+                        }));
                 }
                 ExprKind::Alignof { r#type, .. } => {
                     if r#type.borrow().is_function() {
-                        return Err(Diagnostic {
-                            span: node.span,
-                            kind: DiagnosticKind::Error,
-                            message: format!("the operand of alignof cannot be a function"),
-                            notes: vec![],
-                        });
+                        return Err(Diagnostic::error()
+                            .with_message(format!("the operand of alignof cannot be a function"))
+                            .with_label(Label::primary(node.file_id, node.span)));
                     }
                     if !r#type.borrow().is_complete() {
-                        return Err(Diagnostic {
-                            span: node.span,
-                            kind: DiagnosticKind::Error,
-                            message: format!("the operand of alignof is not complete"),
-                            notes: vec![],
-                        });
+                        return Err(Diagnostic::error()
+                            .with_message(format!("the operand of alignof is not complete"))
+                            .with_label(Label::primary(node.file_id, node.span)));
                     }
 
                     match if r#type.borrow().is_array() {
@@ -2007,19 +1976,17 @@ impl<'a> TypeChecker<'a> {
                     } {
                         Some(t) => node.value = Variant::Int(BigInt::from(t)),
                         None => {
-                            return Err(Diagnostic {
-                                span: node.span,
-                                kind: DiagnosticKind::Error,
-                                message: format!(
+                            return Err(Diagnostic::error()
+                                .with_message(format!(
                                     "cannot get alignof '{}'",
                                     r#type.borrow().to_string()
-                                ),
-                                notes: vec![],
-                            });
+                                ))
+                                .with_label(Label::primary(node.file_id, node.span)));
                         }
                     }
 
                     node.r#type = Rc::new(RefCell::new(Type {
+                        file_id: node.file_id,
                         span: node.span,
                         attributes: vec![],
                         kind: TypeKind::ULongLong,
@@ -2037,14 +2004,9 @@ impl<'a> TypeChecker<'a> {
                             | StorageClassKind::Register
                             | StorageClassKind::ThreadLocal => {}
                             _ => {
-                                return Err(Diagnostic {
-                                    span: storage_class.span,
-                                    kind: DiagnosticKind::Error,
-                                    message: format!(
+                                return Err(Diagnostic::error().with_message(format!(
                                         "only constexpr, static, register, thread_local are allowed in compound literal"
-                                    ),
-                                    notes: vec![],
-                                });
+                                    )).with_label(Label::primary(storage_class.file_id,storage_class.span)));
                             }
                         }
                     }

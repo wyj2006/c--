@@ -5,7 +5,7 @@ use crate::{
 };
 use num::ToPrimitive;
 
-impl<'a> Type<'a> {
+impl Type {
     pub fn has_alignas(&self) -> bool {
         for attribute in &self.attributes {
             match &attribute.borrow().kind {
@@ -51,7 +51,7 @@ impl<'a> Type<'a> {
     }
 }
 
-impl<'a> TypeKind<'a> {
+impl TypeKind {
     pub fn align(&self) -> Option<usize> {
         match self {
             //TODO 根据平台设置

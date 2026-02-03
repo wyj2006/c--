@@ -1,7 +1,8 @@
+use codespan_reporting::diagnostic::{Diagnostic, Label};
+
 use crate::{
     ast::{Attribute, AttributeKind},
     ctype::{Type, TypeKind, is_compatible},
-    diagnostic::{Diagnostic, DiagnosticKind},
 };
 use std::{cell::RefCell, rc::Rc};
 
@@ -22,10 +23,10 @@ pub fn remove_atomic(a: Rc<RefCell<Type>>) -> Rc<RefCell<Type>> {
 pub fn array_to_ptr(a: Rc<RefCell<Type>>) -> Rc<RefCell<Type>> {
     match &a.borrow().kind {
         TypeKind::Array { element_type, .. } => Rc::new(RefCell::new(Type {
-            span: a.borrow().span,
             attributes: {
                 let mut attributes = a.borrow().attributes.clone();
                 attributes.push(Rc::new(RefCell::new(Attribute {
+                    file_id: a.borrow().file_id,
                     span: a.borrow().span,
                     prefix_name: None,
                     name: "ptr_from_array".to_string(),
@@ -36,6 +37,7 @@ pub fn array_to_ptr(a: Rc<RefCell<Type>>) -> Rc<RefCell<Type>> {
                 attributes
             },
             kind: TypeKind::Pointer(Rc::clone(&element_type)),
+            ..a.borrow().clone()
         })),
         _ => Rc::clone(&a),
     }
@@ -44,9 +46,8 @@ pub fn array_to_ptr(a: Rc<RefCell<Type>>) -> Rc<RefCell<Type>> {
 pub fn func_to_ptr(a: Rc<RefCell<Type>>) -> Rc<RefCell<Type>> {
     match &a.borrow().kind {
         TypeKind::Function { .. } => Rc::new(RefCell::new(Type {
-            span: a.borrow().span,
-            attributes: a.borrow().attributes.clone(),
             kind: TypeKind::Pointer(Rc::clone(&a)),
+            ..a.borrow().clone()
         })),
         _ => Rc::clone(&a),
     }
@@ -59,9 +60,8 @@ pub fn lvalue_cast(a: Rc<RefCell<Type>>) -> Rc<RefCell<Type>> {
 pub fn integer_promote(a: Rc<RefCell<Type>>) -> Rc<RefCell<Type>> {
     match &a.borrow().kind {
         TypeKind::Bool => Rc::new(RefCell::new(Type {
-            span: a.borrow().span,
-            attributes: a.borrow().attributes.clone(),
             kind: TypeKind::Int,
+            ..a.borrow().clone()
         })),
         TypeKind::Char
         | TypeKind::SignedChar
@@ -71,23 +71,22 @@ pub fn integer_promote(a: Rc<RefCell<Type>>) -> Rc<RefCell<Type>> {
             let (min, max) = a.borrow().kind.range().unwrap();
             let (int_min, int_max) = TypeKind::Int.range().unwrap();
             Rc::new(RefCell::new(Type {
-                span: a.borrow().span,
-                attributes: a.borrow().attributes.clone(),
                 kind: if int_min <= min && max <= int_max {
                     TypeKind::Int
                 } else {
                     TypeKind::UInt
                 },
+                ..a.borrow().clone()
             }))
         }
         _ => Rc::clone(&a),
     }
 }
 
-pub fn usual_arith_cast<'a>(
-    a: Rc<RefCell<Type<'a>>>,
-    b: Rc<RefCell<Type<'a>>>,
-) -> Result<(Rc<RefCell<Type<'a>>>, Rc<RefCell<Type<'a>>>), Diagnostic<'a>> {
+pub fn usual_arith_cast(
+    a: Rc<RefCell<Type>>,
+    b: Rc<RefCell<Type>>,
+) -> Result<(Rc<RefCell<Type>>, Rc<RefCell<Type>>), Diagnostic<usize>> {
     let decimal_rank = |x: &TypeKind| match x {
         TypeKind::Decimal128 => 3,
         TypeKind::Decimal64 => 2,
@@ -98,38 +97,34 @@ pub fn usual_arith_cast<'a>(
         (
             TypeKind::Decimal128 | TypeKind::Decimal64 | TypeKind::Decimal32,
             TypeKind::Float | TypeKind::Double | TypeKind::LongDouble | TypeKind::Complex(..),
-        ) => Err(Diagnostic {
-            span: a.borrow().span,
-            kind: DiagnosticKind::Error,
-            message: format!("cannot mix operands of decimal floating and other floating types"),
-            notes: vec![],
-        }),
+        ) => Err(Diagnostic::error()
+            .with_message(format!(
+                "cannot mix operands of decimal floating and other floating types"
+            ))
+            .with_label(Label::primary(a.borrow().file_id, a.borrow().span))),
         (
             TypeKind::Float | TypeKind::Double | TypeKind::LongDouble | TypeKind::Complex(..),
             TypeKind::Decimal128 | TypeKind::Decimal64 | TypeKind::Decimal32,
-        ) => Err(Diagnostic {
-            span: b.borrow().span,
-            kind: DiagnosticKind::Error,
-            message: format!("cannot mix operands of decimal floating and other floating types"),
-            notes: vec![],
-        }),
+        ) => Err(Diagnostic::error()
+            .with_message(format!(
+                "cannot mix operands of decimal floating and other floating types"
+            ))
+            .with_label(Label::primary(b.borrow().file_id, b.borrow().span))),
         (x @ (TypeKind::Decimal128 | TypeKind::Decimal64 | TypeKind::Decimal32), y)
         | (x, y @ (TypeKind::Decimal128 | TypeKind::Decimal64 | TypeKind::Decimal32)) => {
             if decimal_rank(x) > decimal_rank(y) {
                 Ok((
                     Rc::clone(&a),
                     Rc::new(RefCell::new(Type {
-                        span: b.borrow().span,
-                        attributes: b.borrow().attributes.clone(),
                         kind: x.clone(),
+                        ..b.borrow().clone()
                     })),
                 ))
             } else {
                 Ok((
                     Rc::new(RefCell::new(Type {
-                        span: a.borrow().span,
-                        attributes: a.borrow().attributes.clone(),
                         kind: y.clone(),
+                        ..a.borrow().clone()
                     })),
                     Rc::clone(&b),
                 ))
@@ -138,30 +133,26 @@ pub fn usual_arith_cast<'a>(
         (x @ (TypeKind::LongDouble | TypeKind::Double | TypeKind::Float), y) => Ok((
             Rc::clone(&a),
             Rc::new(RefCell::new(Type {
-                span: b.borrow().span,
-                attributes: b.borrow().attributes.clone(),
                 kind: match y {
                     TypeKind::Complex(..) => TypeKind::Complex(Some(Rc::new(RefCell::new(Type {
-                        span: b.borrow().span,
-                        attributes: b.borrow().attributes.clone(),
                         kind: x.clone(),
+                        ..b.borrow().clone()
                     })))),
                     _ => x.clone(),
                 },
+                ..b.borrow().clone()
             })),
         )),
         (x, y @ (TypeKind::LongDouble | TypeKind::Double | TypeKind::Float)) => Ok((
             Rc::new(RefCell::new(Type {
-                span: a.borrow().span,
-                attributes: a.borrow().attributes.clone(),
                 kind: match x {
                     TypeKind::Complex(..) => TypeKind::Complex(Some(Rc::new(RefCell::new(Type {
-                        span: a.borrow().span,
-                        attributes: a.borrow().attributes.clone(),
                         kind: y.clone(),
+                        ..a.borrow().clone()
                     })))),
                     _ => y.clone(),
                 },
+                ..a.borrow().clone()
             })),
             Rc::clone(&b),
         )),
@@ -176,9 +167,8 @@ pub fn usual_arith_cast<'a>(
                 if y_min <= x_min && x_max <= y_max {
                     Ok((
                         Rc::new(RefCell::new(Type {
-                            span: x.borrow().span,
-                            attributes: x.borrow().attributes.clone(),
                             kind: y.clone().borrow().kind.clone(),
+                            ..x.borrow().clone()
                         })),
                         y,
                     ))
@@ -186,9 +176,8 @@ pub fn usual_arith_cast<'a>(
                     Ok((
                         x.clone(),
                         Rc::new(RefCell::new(Type {
-                            span: y.borrow().span,
-                            attributes: y.borrow().attributes.clone(),
                             kind: x.borrow().kind.clone(),
+                            ..y.borrow().clone()
                         })),
                     ))
                 }
@@ -196,27 +185,23 @@ pub fn usual_arith_cast<'a>(
                 else if let Some(false) = x.borrow().is_unsigned() {
                     Ok((
                         Rc::new(RefCell::new(Type {
-                            span: x.borrow().span,
-                            attributes: x.borrow().attributes.clone(),
                             kind: x.borrow().kind.to_unsigned().unwrap(),
+                            ..x.borrow().clone()
                         })),
                         Rc::new(RefCell::new(Type {
-                            span: y.borrow().span,
-                            attributes: y.borrow().attributes.clone(),
                             kind: x.borrow().kind.to_unsigned().unwrap(),
+                            ..y.borrow().clone()
                         })),
                     ))
                 } else if let Some(false) = y.borrow().is_unsigned() {
                     Ok((
                         Rc::new(RefCell::new(Type {
-                            span: x.borrow().span,
-                            attributes: x.borrow().attributes.clone(),
                             kind: y.borrow().kind.to_unsigned().unwrap(),
+                            ..x.borrow().clone()
                         })),
                         Rc::new(RefCell::new(Type {
-                            span: y.borrow().span,
-                            attributes: y.borrow().attributes.clone(),
                             kind: y.borrow().kind.to_unsigned().unwrap(),
+                            ..y.borrow().clone()
                         })),
                     ))
                 } else {

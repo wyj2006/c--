@@ -4,7 +4,7 @@ use crate::ctype::{Type, TypeKind};
 use num::BigInt;
 use num::pow::Pow;
 
-impl Type<'_> {
+impl Type {
     pub fn is_integer(&self) -> bool {
         self.kind.is_integer()
     }
@@ -18,7 +18,7 @@ impl Type<'_> {
     }
 }
 
-impl<'a> TypeKind<'a> {
+impl TypeKind {
     pub fn is_integer(&self) -> bool {
         match self {
             TypeKind::Char
@@ -94,7 +94,7 @@ impl<'a> TypeKind<'a> {
         }
     }
 
-    pub fn to_unsigned(&self) -> Option<TypeKind<'a>> {
+    pub fn to_unsigned(&self) -> Option<TypeKind> {
         match self {
             TypeKind::Unsigned
             | TypeKind::UShort

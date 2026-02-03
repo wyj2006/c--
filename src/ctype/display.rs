@@ -11,7 +11,7 @@ struct TypeString {
 }
 
 impl Display for TypeString {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         if self.prefix.len() > 0 {
             write!(f, "{}", self.prefix.join(" "))?;
         }
@@ -23,7 +23,7 @@ impl Display for TypeString {
     }
 }
 
-impl Type<'_> {
+impl Type {
     fn to_typestring(&self, mut parent: TypeString) -> TypeString {
         match &self.kind {
             TypeKind::Void => parent.prefix.push("void".to_string()),
@@ -259,8 +259,8 @@ impl Type<'_> {
     }
 }
 
-impl Display for Type<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.to_typestring(TypeString::default()))
     }
 }

@@ -1,3 +1,5 @@
+use codespan_reporting::diagnostic::{Diagnostic, Label};
+
 use super::TypeChecker;
 use crate::{
     ast::{
@@ -8,14 +10,13 @@ use crate::{
         Type, TypeKind,
         cast::{integer_promote, remove_qualifier},
     },
-    diagnostic::{Diagnostic, DiagnosticKind},
     symtab::{Namespace, Symbol, SymbolKind},
     typechecker::Context,
 };
 use std::{cell::RefCell, rc::Rc};
 
-impl<'a> TypeChecker<'a> {
-    pub fn visit_stmt(&mut self, node: Rc<RefCell<Stmt<'a>>>) -> Result<(), Diagnostic<'a>> {
+impl TypeChecker {
+    pub fn visit_stmt(&mut self, node: Rc<RefCell<Stmt>>) -> Result<(), Diagnostic<usize>> {
         self.contexts
             .push(Context::Stmt(node.borrow().kind.clone()));
 
@@ -57,12 +58,9 @@ impl<'a> TypeChecker<'a> {
                     .borrow()
                     .lookup(Namespace::Label, name)
                 {
-                    return Err(Diagnostic {
-                        span: node.span,
-                        kind: DiagnosticKind::Error,
-                        message: format!("label '{name}' is undefined"),
-                        notes: vec![],
-                    });
+                    return Err(Diagnostic::error()
+                        .with_message(format!("label '{name}' is undefined"))
+                        .with_label(Label::primary(node.file_id, node.span)));
                 }
             }
             StmtKind::If {
@@ -73,12 +71,12 @@ impl<'a> TypeChecker<'a> {
                 self.enter_scope();
                 self.visit_expr(Rc::clone(condition))?;
                 if !condition.borrow().r#type.borrow().is_scale() {
-                    return Err(Diagnostic {
-                        span: condition.borrow().span,
-                        kind: DiagnosticKind::Error,
-                        message: format!("if condition must have a scale type"),
-                        notes: vec![],
-                    });
+                    return Err(Diagnostic::error()
+                        .with_message(format!("if condition must have a scale type"))
+                        .with_label(Label::primary(
+                            condition.borrow().file_id,
+                            condition.borrow().span,
+                        )));
                 }
                 self.visit_stmt(Rc::clone(body))?;
                 if let Some(t) = else_body {
@@ -91,11 +89,12 @@ impl<'a> TypeChecker<'a> {
                     Some(t) => t.borrow_mut().add(
                         Namespace::Label,
                         Rc::new(RefCell::new(Symbol {
-                            define_span: Some(node.span),
-                            declare_spans: vec![node.span],
+                            define_loc: Some((node.file_id, node.span)),
+                            declare_locs: vec![(node.file_id, node.span)],
                             name: name.clone(),
                             kind: SymbolKind::Label,
                             r#type: Rc::new(RefCell::new(Type {
+                                file_id: node.file_id,
                                 span: node.span,
                                 attributes: vec![],
                                 kind: TypeKind::Void,
@@ -104,12 +103,9 @@ impl<'a> TypeChecker<'a> {
                         })),
                     )?,
                     None => {
-                        return Err(Diagnostic {
-                            span: node.span,
-                            kind: DiagnosticKind::Error,
-                            message: format!("'label' must in a function"),
-                            notes: vec![],
-                        });
+                        return Err(Diagnostic::error()
+                            .with_message(format!("label must in a function"))
+                            .with_label(Label::primary(node.file_id, node.span)));
                     }
                 }
 
@@ -123,12 +119,9 @@ impl<'a> TypeChecker<'a> {
                     Context::Decl(DeclarationKind::Function { .. }) => true,
                     _ => false,
                 }) {
-                    return Err(Diagnostic {
-                        span: node.span,
-                        kind: DiagnosticKind::Error,
-                        message: format!("'return' statement must in a function"),
-                        notes: vec![],
-                    });
+                    return Err(Diagnostic::error()
+                        .with_message(format!("return statement must in a function"))
+                        .with_label(Label::primary(node.file_id, node.span)));
                 }
                 if let Some(t) = expr {
                     self.visit_expr(Rc::clone(t))?;
@@ -152,12 +145,12 @@ impl<'a> TypeChecker<'a> {
                 self.enter_scope();
                 self.visit_expr(Rc::clone(condition))?;
                 if !condition.borrow().r#type.borrow().is_integer() {
-                    return Err(Diagnostic {
-                        span: condition.borrow().span,
-                        kind: DiagnosticKind::Error,
-                        message: format!("switch condition must have an integer"),
-                        notes: vec![],
-                    });
+                    return Err(Diagnostic::error()
+                        .with_message(format!("switch condition must have an integer"))
+                        .with_label(Label::primary(
+                            condition.borrow().file_id,
+                            condition.borrow().span,
+                        )));
                 }
                 self.visit_stmt(Rc::clone(body))?;
                 self.leave_scope();
@@ -175,12 +168,9 @@ impl<'a> TypeChecker<'a> {
                 }
 
                 if let None = condition_type {
-                    return Err(Diagnostic {
-                        span: node.span,
-                        kind: DiagnosticKind::Error,
-                        message: format!("'case' statement must in a switch statement"),
-                        notes: vec![],
-                    });
+                    return Err(Diagnostic::error()
+                        .with_message(format!("case statement must in a switch statement"))
+                        .with_label(Label::primary(node.file_id, node.span)));
                 }
 
                 self.visit_expr(Rc::clone(expr))?;
@@ -203,12 +193,9 @@ impl<'a> TypeChecker<'a> {
                     Context::Stmt(StmtKind::Switch { .. }) => true,
                     _ => false,
                 }) {
-                    return Err(Diagnostic {
-                        span: node.span,
-                        kind: DiagnosticKind::Error,
-                        message: format!("'default' statement must in a switch statement"),
-                        notes: vec![],
-                    });
+                    return Err(Diagnostic::error()
+                        .with_message(format!("default statement must in a switch statement"))
+                        .with_label(Label::primary(node.file_id, node.span)));
                 }
                 if let Some(t) = stmt {
                     self.visit_stmt(Rc::clone(t))?;
@@ -218,12 +205,12 @@ impl<'a> TypeChecker<'a> {
                 self.enter_scope();
                 self.visit_expr(Rc::clone(condition))?;
                 if !condition.borrow().r#type.borrow().is_scale() {
-                    return Err(Diagnostic {
-                        span: condition.borrow().span,
-                        kind: DiagnosticKind::Error,
-                        message: format!("while condition must have a scale type"),
-                        notes: vec![],
-                    });
+                    return Err(Diagnostic::error()
+                        .with_message(format!("switch condition must have a scale type"))
+                        .with_label(Label::primary(
+                            condition.borrow().file_id,
+                            condition.borrow().span,
+                        )));
                 }
                 self.visit_stmt(Rc::clone(body))?;
                 self.leave_scope();
@@ -232,12 +219,12 @@ impl<'a> TypeChecker<'a> {
                 self.enter_scope();
                 self.visit_expr(Rc::clone(condition))?;
                 if !condition.borrow().r#type.borrow().is_scale() {
-                    return Err(Diagnostic {
-                        span: condition.borrow().span,
-                        kind: DiagnosticKind::Error,
-                        message: format!("do-while condition must have a scale type"),
-                        notes: vec![],
-                    });
+                    return Err(Diagnostic::error()
+                        .with_message(format!("do-while condition must have a scale type"))
+                        .with_label(Label::primary(
+                            condition.borrow().file_id,
+                            condition.borrow().span,
+                        )));
                 }
                 self.visit_stmt(Rc::clone(body))?;
                 self.leave_scope();
@@ -252,12 +239,11 @@ impl<'a> TypeChecker<'a> {
                     ) => true,
                     _ => false,
                 }) {
-                    return Err(Diagnostic {
-                        span: node.span,
-                        kind: DiagnosticKind::Error,
-                        message: format!("'break' statement must in a loop or a switch statement"),
-                        notes: vec![],
-                    });
+                    return Err(Diagnostic::error()
+                        .with_message(format!(
+                            "break statement must in a loop or a switch statement"
+                        ))
+                        .with_label(Label::primary(node.file_id, node.span)));
                 }
             }
             StmtKind::Continue => {
@@ -267,12 +253,9 @@ impl<'a> TypeChecker<'a> {
                     ) => true,
                     _ => false,
                 }) {
-                    return Err(Diagnostic {
-                        span: node.span,
-                        kind: DiagnosticKind::Error,
-                        message: format!("'continue' statement must in a loop"),
-                        notes: vec![],
-                    });
+                    return Err(Diagnostic::error()
+                        .with_message(format!("continue statement must in a loop"))
+                        .with_label(Label::primary(node.file_id, node.span)));
                 }
             }
             StmtKind::For {
@@ -292,12 +275,9 @@ impl<'a> TypeChecker<'a> {
                 if let Some(t) = condition {
                     self.visit_expr(Rc::clone(t))?;
                     if !t.borrow().r#type.borrow().is_scale() {
-                        return Err(Diagnostic {
-                            span: t.borrow().span,
-                            kind: DiagnosticKind::Error,
-                            message: format!("for condition must have a scale type"),
-                            notes: vec![],
-                        });
+                        return Err(Diagnostic::error()
+                            .with_message(format!("for condition must have a scale type"))
+                            .with_label(Label::primary(t.borrow().file_id, t.borrow().span)));
                     }
                 }
                 if let Some(t) = iter_expr {

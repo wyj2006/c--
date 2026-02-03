@@ -1,14 +1,16 @@
 use super::{CParser, Rule};
 use crate::ast::stmt::{Stmt, StmtKind};
-use pest::{error::Error, iterators::Pair};
+use crate::diagnostic::from_pest_span;
+use codespan_reporting::diagnostic::Diagnostic;
+use pest::iterators::Pair;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-impl<'a> CParser<'a> {
+impl CParser {
     pub fn parse_compound_statement(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Stmt<'a>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<Stmt>>, Diagnostic<usize>> {
         let mut stmts = Vec::new();
         let span = rule.as_span();
 
@@ -17,7 +19,8 @@ impl<'a> CParser<'a> {
                 Rule::declaration => {
                     let span = rule.as_span();
                     stmts.push(Rc::new(RefCell::new(Stmt {
-                        span,
+                        file_id: self.file_id,
+                        span: from_pest_span(span),
                         attributes: vec![],
                         kind: StmtKind::Decl(self.parse_declaration(rule)?),
                     })));
@@ -29,7 +32,8 @@ impl<'a> CParser<'a> {
         }
 
         Ok(Rc::new(RefCell::new(Stmt {
-            span,
+            file_id: self.file_id,
+            span: from_pest_span(span),
             attributes: Vec::new(),
             kind: StmtKind::Compound(stmts),
         })))
@@ -37,8 +41,8 @@ impl<'a> CParser<'a> {
 
     pub fn parse_unlabeled_statement(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Stmt<'a>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<Stmt>>, Diagnostic<usize>> {
         let span = rule.as_span();
         let mut attributes = Vec::new();
         let mut stmt = None;
@@ -52,8 +56,10 @@ impl<'a> CParser<'a> {
                 Rule::iteration_statement => stmt = Some(self.parse_iteration_statement(rule)?),
                 Rule::jump_statement => stmt = Some(self.parse_jump_statement(rule)?),
                 Rule::expression => {
+                    let span = rule.as_span();
                     stmt = Some(Rc::new(RefCell::new(Stmt {
-                        span: rule.as_span(),
+                        file_id: self.file_id,
+                        span: from_pest_span(span),
                         attributes: Vec::new(), //在之后会添加
                         kind: StmtKind::Expr(self.parse_expression(rule)?),
                     })))
@@ -62,7 +68,8 @@ impl<'a> CParser<'a> {
             }
         }
         let stmt = stmt.unwrap_or(Rc::new(RefCell::new(Stmt {
-            span,
+            file_id: self.file_id,
+            span: from_pest_span(span),
             attributes: Vec::new(), //在之后会添加
             kind: StmtKind::Null,
         })));
@@ -70,7 +77,7 @@ impl<'a> CParser<'a> {
         Ok(stmt)
     }
 
-    pub fn parse_label(&self, rule: Pair<'a, Rule>) -> Result<Rc<RefCell<Stmt<'a>>>, Error<Rule>> {
+    pub fn parse_label(&self, rule: Pair<Rule>) -> Result<Rc<RefCell<Stmt>>, Diagnostic<usize>> {
         let str = rule.as_str();
         let span = rule.as_span();
         let mut attributes = Vec::new();
@@ -99,7 +106,8 @@ impl<'a> CParser<'a> {
             StmtKind::Label { name, stmt: None }
         };
         Ok(Rc::new(RefCell::new(Stmt {
-            span,
+            file_id: self.file_id,
+            span: from_pest_span(span),
             attributes,
             kind,
         })))
@@ -107,8 +115,8 @@ impl<'a> CParser<'a> {
 
     pub fn parse_selection_statement(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Stmt<'a>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<Stmt>>, Diagnostic<usize>> {
         let span = rule.as_span();
         let is_if = rule.as_str().starts_with("if");
         let mut condition = None;
@@ -131,7 +139,8 @@ impl<'a> CParser<'a> {
         let condition = condition.unwrap();
         let body = body.unwrap();
         Ok(Rc::new(RefCell::new(Stmt {
-            span,
+            file_id: self.file_id,
+            span: from_pest_span(span),
             attributes: Vec::new(),
             kind: if is_if {
                 StmtKind::If {
@@ -147,8 +156,8 @@ impl<'a> CParser<'a> {
 
     pub fn parse_iteration_statement(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Stmt<'a>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<Stmt>>, Diagnostic<usize>> {
         let span = rule.as_span();
         let str = rule.as_str();
         let mut stmts = Vec::new();
@@ -169,7 +178,8 @@ impl<'a> CParser<'a> {
         stmts.reverse();
 
         Ok(Rc::new(RefCell::new(Stmt {
-            span,
+            file_id: self.file_id,
+            span: from_pest_span(span),
             attributes: Vec::new(),
             kind: if str.starts_with("while") {
                 StmtKind::While {
@@ -195,8 +205,8 @@ impl<'a> CParser<'a> {
 
     pub fn parse_jump_statement(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Stmt<'a>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<Stmt>>, Diagnostic<usize>> {
         let span = rule.as_span();
         let str = rule.as_str();
         let mut name = String::new();
@@ -210,7 +220,8 @@ impl<'a> CParser<'a> {
             }
         }
         Ok(Rc::new(RefCell::new(Stmt {
-            span,
+            file_id: self.file_id,
+            span: from_pest_span(span),
             attributes: Vec::new(),
             kind: if str.starts_with("goto") {
                 StmtKind::Goto(name)
@@ -226,8 +237,8 @@ impl<'a> CParser<'a> {
 
     pub fn parse_labeled_statement(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Stmt<'a>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<Stmt>>, Diagnostic<usize>> {
         let mut label = None;
         let mut stmt = None;
         for rule in rule.into_inner() {
@@ -250,8 +261,8 @@ impl<'a> CParser<'a> {
 
     pub fn parse_statement(
         &self,
-        rule: Pair<'a, Rule>,
-    ) -> Result<Rc<RefCell<Stmt<'a>>>, Error<Rule>> {
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<Stmt>>, Diagnostic<usize>> {
         for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::labeled_statement => return Ok(self.parse_labeled_statement(rule)?),

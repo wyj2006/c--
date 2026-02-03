@@ -1,60 +1,61 @@
 use super::Attribute;
 use super::decl::Declaration;
 use super::expr::Expr;
-use pest::Span;
+use codespan::Span;
 use std::cell::RefCell;
 use std::rc::Rc;
 
 #[derive(Debug)]
-pub struct Stmt<'a> {
-    pub span: Span<'a>,
-    pub attributes: Vec<Rc<RefCell<Attribute<'a>>>>,
-    pub kind: StmtKind<'a>,
+pub struct Stmt {
+    pub file_id: usize,
+    pub span: Span,
+    pub attributes: Vec<Rc<RefCell<Attribute>>>,
+    pub kind: StmtKind,
 }
 
 #[derive(Debug, Clone)]
-pub enum StmtKind<'a> {
-    Compound(Vec<Rc<RefCell<Stmt<'a>>>>),
+pub enum StmtKind {
+    Compound(Vec<Rc<RefCell<Stmt>>>),
     If {
-        condition: Rc<RefCell<Expr<'a>>>,
-        body: Rc<RefCell<Stmt<'a>>>,
-        else_body: Option<Rc<RefCell<Stmt<'a>>>>,
+        condition: Rc<RefCell<Expr>>,
+        body: Rc<RefCell<Stmt>>,
+        else_body: Option<Rc<RefCell<Stmt>>>,
     },
     Switch {
-        condition: Rc<RefCell<Expr<'a>>>,
-        body: Rc<RefCell<Stmt<'a>>>,
+        condition: Rc<RefCell<Expr>>,
+        body: Rc<RefCell<Stmt>>,
     },
     While {
-        condition: Rc<RefCell<Expr<'a>>>,
-        body: Rc<RefCell<Stmt<'a>>>,
+        condition: Rc<RefCell<Expr>>,
+        body: Rc<RefCell<Stmt>>,
     },
     DoWhile {
-        condition: Rc<RefCell<Expr<'a>>>,
-        body: Rc<RefCell<Stmt<'a>>>,
+        condition: Rc<RefCell<Expr>>,
+        body: Rc<RefCell<Stmt>>,
     },
     For {
-        init_expr: Option<Rc<RefCell<Expr<'a>>>>,
-        init_decl: Option<Rc<RefCell<Declaration<'a>>>>,
-        condition: Option<Rc<RefCell<Expr<'a>>>>,
-        iter_expr: Option<Rc<RefCell<Expr<'a>>>>,
-        body: Rc<RefCell<Stmt<'a>>>,
+        init_expr: Option<Rc<RefCell<Expr>>>,
+        init_decl: Option<Rc<RefCell<Declaration>>>,
+        condition: Option<Rc<RefCell<Expr>>>,
+        iter_expr: Option<Rc<RefCell<Expr>>>,
+        body: Rc<RefCell<Stmt>>,
     },
     Goto(String),
     Continue,
     Break,
     Return {
-        expr: Option<Rc<RefCell<Expr<'a>>>>,
+        expr: Option<Rc<RefCell<Expr>>>,
     },
-    Expr(Rc<RefCell<Expr<'a>>>),
+    Expr(Rc<RefCell<Expr>>),
     Label {
         name: String,
-        stmt: Option<Rc<RefCell<Stmt<'a>>>>,
+        stmt: Option<Rc<RefCell<Stmt>>>,
     },
     Case {
-        expr: Rc<RefCell<Expr<'a>>>,
-        stmt: Option<Rc<RefCell<Stmt<'a>>>>,
+        expr: Rc<RefCell<Expr>>,
+        stmt: Option<Rc<RefCell<Stmt>>>,
     },
-    Default(Option<Rc<RefCell<Stmt<'a>>>>),
-    Decl(Vec<Rc<RefCell<Declaration<'a>>>>),
+    Default(Option<Rc<RefCell<Stmt>>>),
+    Decl(Vec<Rc<RefCell<Declaration>>>),
     Null,
 }
