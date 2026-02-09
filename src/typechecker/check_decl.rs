@@ -3,10 +3,10 @@ use crate::{
     ast::{
         AttributeKind,
         decl::{Declaration, DeclarationKind, StorageClassKind},
-        has_c_attribute,
     },
     ctype::{RecordKind, Type, TypeKind, TypeQual, as_parameter_type, cast::remove_qualifier},
     diagnostic::warning,
+    preprocessor::expressions::has_c_attribute,
     symtab::{Namespace, Symbol, SymbolKind, SymbolTable},
     typechecker::Context,
     variant::Variant,

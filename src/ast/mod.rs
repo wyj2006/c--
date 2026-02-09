@@ -5,6 +5,7 @@ pub mod stmt;
 
 use crate::ast::decl::Declaration;
 use crate::ctype::Type;
+use crate::file_map::source_lookup;
 use codespan::Span;
 use expr::Expr;
 use std::cell::RefCell;
@@ -19,6 +20,7 @@ pub struct TranslationUnit {
 
 impl TranslationUnit {
     pub fn new(file_id: usize, span: Span) -> TranslationUnit {
+        let (file_id, span) = source_lookup(file_id, span);
         TranslationUnit {
             file_id,
             span,
@@ -38,6 +40,7 @@ pub struct Attribute {
 
 impl Attribute {
     pub fn new(file_id: usize, span: Span) -> Attribute {
+        let (file_id, span) = source_lookup(file_id, span);
         Attribute {
             file_id,
             span,
@@ -85,6 +88,7 @@ pub struct Initializer {
 
 impl Initializer {
     pub fn new(file_id: usize, span: Span, kind: InitializerKind) -> Initializer {
+        let (file_id, span) = source_lookup(file_id, span);
         Initializer {
             file_id,
             span,
@@ -104,6 +108,7 @@ pub struct Designation {
 
 impl Designation {
     pub fn new(file_id: usize, span: Span, kind: DesignationKind) -> Designation {
+        let (file_id, span) = source_lookup(file_id, span);
         Designation {
             file_id,
             span,
@@ -153,18 +158,5 @@ impl Initializer {
                 }),
             }
         )
-    }
-}
-
-pub fn has_c_attribute(prefix_name: Option<String>, name: String) -> isize {
-    match (prefix_name.as_deref(), name.as_str()) {
-        (None, "deprecated") => 201904,
-        (None, "fallthrough") => 201904,
-        (None, "maybe_unused") => 201904,
-        (None, "nodiscard") => 202003,
-        (None, "noreturn") => 202202,
-        (None, "unsequenced") => 202207,
-        (None, "reproducible") => 202207,
-        _ => 0,
     }
 }

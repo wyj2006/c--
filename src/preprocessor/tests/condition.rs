@@ -1,4 +1,7 @@
-use crate::preprocessor::tests::{quick_new_preprocessor, quick_new_preprocessor_with_name};
+use crate::preprocessor::{
+    tests::{quick_new_preprocessor, quick_new_preprocessor_with_name},
+    token::to_string,
+};
 
 #[test]
 pub fn condition_without_if() {
@@ -12,8 +15,8 @@ pub fn condition_without_if() {
 #endif
 ",
     );
-    let result = preprocessor.process().unwrap();
-    assert_eq!(result, "\n3\n");
+    let result = to_string(&preprocessor.process().unwrap());
+    assert_eq!(result, "\n\n\n3\n");
 }
 
 #[test]
@@ -28,8 +31,8 @@ pub fn condition_with_if() {
 #endif
 ",
     );
-    let result = preprocessor.process().unwrap();
-    assert_eq!(result, "\n2\n");
+    let result = to_string(&preprocessor.process().unwrap());
+    assert_eq!(result, "\n\n2\n");
 }
 
 #[test]
@@ -46,7 +49,7 @@ pub fn nested_condition() {
 "#
         .to_string(),
     );
-    let result = preprocessor.process().unwrap();
+    let result = to_string(&preprocessor.process().unwrap());
     assert_eq!(result, "\n\n2\n");
 }
 
@@ -62,6 +65,6 @@ pub fn has_c_attribute() {
 #endif
 ",
     );
-    let result = preprocessor.process().unwrap();
-    assert_eq!(result, "\n2\n");
+    let result = to_string(&preprocessor.process().unwrap());
+    assert_eq!(result, "\n\n2\n");
 }

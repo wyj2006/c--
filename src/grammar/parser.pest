@@ -1,5 +1,5 @@
 WHITESPACE = _{ " " | "\t" | NEWLINE }
-identifier = @{ !(keyword ~ !identifier_continue) ~ identifier_start ~ identifier_continue* }
+identifier = ${ !(keyword ~ !identifier_continue) ~ identifier_start ~ identifier_continue* }
 COMMENT    = _{ "//" ~ (!(NEWLINE | EOI) ~ ANY)* ~ NEWLINE? | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 
 prefix      = _{ positve | negative | bit_not | not | dereference | addressof | prefix_increment | prefix_decrement | cast | sizeof }

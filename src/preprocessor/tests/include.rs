@@ -1,4 +1,4 @@
-use crate::preprocessor::tests::quick_new_preprocessor_with_name;
+use crate::preprocessor::{tests::quick_new_preprocessor_with_name, token::to_string};
 
 #[test]
 pub fn include_direct() {
@@ -6,7 +6,7 @@ pub fn include_direct() {
         "src/preprocessor/tests/include.string".to_string(),
         "#include \"include.txt\"\n",
     );
-    let result = preprocessor.process().unwrap();
+    let result = to_string(&preprocessor.process().unwrap());
     assert_eq!(result, "\n\n\n\nchar p[] = \"x ## y\";\n\n");
 }
 
@@ -18,7 +18,7 @@ pub fn include_after_replace() {
 #include A
 ",
     );
-    let result = preprocessor.process().unwrap();
+    let result = to_string(&preprocessor.process().unwrap());
     assert_eq!(result, "\n\n\n\n\nchar p[] = \"x ## y\";\n\n");
 }
 
@@ -28,7 +28,7 @@ pub fn include_use_macro() {
         "src/preprocessor/tests/include.string".to_string(),
         "#include \"include.txt\"\nchar p[] = join(x, y);\n",
     );
-    let result = preprocessor.process().unwrap();
+    let result = to_string(&preprocessor.process().unwrap());
     assert_eq!(
         result,
         "\n\n\n\nchar p[] = \"x ## y\";\n\nchar p[] = \"x ## y\";\n"

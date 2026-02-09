@@ -1,17 +1,20 @@
 pub mod cmacro;
 pub mod expressions;
-pub mod macro_replace;
 pub mod pragma;
 #[cfg(test)]
 pub mod tests;
+pub mod token;
 
 use crate::diagnostic::{from_pest_span, map_pest_err, warning};
+use crate::file_map::source_map;
 use crate::files;
-use cmacro::{Macro, PlaceMarker};
+use crate::preprocessor::cmacro::MacroKind;
+use crate::preprocessor::token::{Token, TokenKind, to_string};
+use cmacro::Macro;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::files::Files;
-use pest::Parser;
-use pest::iterators::Pair;
+use pest::iterators::{Pair, Pairs};
+use pest::{Parser, Span};
 use pest_derive::Parser;
 use std::cmp::min;
 use std::collections::HashMap;
@@ -46,18 +49,21 @@ impl Preprocessor {
         files.lock().unwrap().name(self.file_id).unwrap()
     }
 
-    pub fn process(&mut self) -> Result<String, Diagnostic<usize>> {
+    pub fn process(&mut self) -> Result<Vec<Token>, Diagnostic<usize>> {
         let source = files.lock().unwrap().source(self.file_id).unwrap();
         let rules = map_pest_err(
             self.file_id,
             Preprocessor::parse(Rule::preprocessing_file, source.as_str()),
         )?;
-        let mut result = String::new();
+        let mut result = Vec::new();
         for rule in rules {
             if let Rule::preprocessing_file = rule.as_rule() {
                 for rule in rule.into_inner() {
-                    if let Rule::group_part = rule.as_rule() {
-                        result += &self.process_group(rule)?;
+                    match rule.as_rule() {
+                        Rule::group_part => result.extend(self.process_group(rule)?),
+                        Rule::WHITESPACE => result.extend(self.to_tokens(rule, false)),
+                        Rule::EOI => {}
+                        _ => unreachable!(),
                     }
                 }
             }
@@ -65,40 +71,38 @@ impl Preprocessor {
         Ok(result)
     }
 
-    fn process_group(&mut self, rule: Pair<Rule>) -> Result<String, Diagnostic<usize>> {
-        let mut result = String::new();
+    fn process_group(&mut self, rule: Pair<Rule>) -> Result<Vec<Token>, Diagnostic<usize>> {
+        let mut result = Vec::new();
         for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::up_directives => {
-                    result += &self.process_directive(rule)?;
+                    result.extend(self.process_up_directive(rule)?);
                 }
                 Rule::text_line => {
-                    result += &PlaceMarker::vec_tostring(
-                        self.replace_macro(PlaceMarker::vec_from(rule, false), &mut Vec::new())?,
-                    );
-                    //每个text_line后面都有一个换行符, 只是不在rule中
-                    result += "\n";
+                    result
+                        .extend(self.replace_macro(self.to_tokens(rule, false), &mut Vec::new())?);
                 }
                 Rule::non_directive_line => {
                     warning(
-                        format!("Unkown preprocessing directive: {}", rule.as_str()),
+                        format!("unkown preprocessing directive: {}", rule.as_str()),
                         self.file_id,
                         from_pest_span(rule.as_span()),
                         vec![],
                     );
                 }
-                _ => {}
+                Rule::WHITESPACE => result.extend(self.to_tokens(rule, false)),
+                _ => unreachable!(),
             }
         }
         Ok(result)
     }
 
-    fn process_directive(&mut self, rule: Pair<Rule>) -> Result<String, Diagnostic<usize>> {
+    fn process_up_directive(&mut self, rule: Pair<Rule>) -> Result<Vec<Token>, Diagnostic<usize>> {
         let mut input = String::new();
         if let Rule::up_directives = rule.as_rule() {
             for pair in rule.clone().into_inner() {
-                //不允许替换后再处理的指令
                 if let Rule::directive_keyword = pair.as_rule()
+                    //不允许替换后再处理的指令
                     && !(vec!["include", "embed", "line"].contains(&pair.as_str()))
                 {
                     input = rule.as_str().to_string();
@@ -110,47 +114,87 @@ impl Preprocessor {
             }
         }
         if input == "" {
+            use codespan::Span;
+            // '#'的位置
+            let hash_start = rule.as_span().start();
+            let hash_end = rule.as_span().start() + 1;
+            //最后换行的位置
+            let newline_start = rule.as_span().end();
+            let newline_end = rule.as_span().end() + 1;
+            let mut input_tokens = vec![Token::new(
+                self.file_id,
+                Span::new(hash_start as u32, hash_end as u32),
+                TokenKind::Text {
+                    is_whitespace: false,
+                    content: "#".to_string(),
+                },
+            )];
+            input_tokens.extend(self.replace_macro(self.to_tokens(rule, false), &mut Vec::new())?);
+            input_tokens.push(Token::new(
+                self.file_id,
+                Span::new(newline_start as u32, newline_end as u32),
+                TokenKind::Newline,
+            ));
             //替换后再处理
-            input = "#".to_string()//'#'不是一个Rule
-                + &PlaceMarker::vec_tostring(
-                    self.replace_macro(PlaceMarker::vec_from(rule, false), &mut Vec::new())?,
-                )
-                + "\n";
+            input = to_string(&input_tokens);
+
+            let part_id = source_map(self.file_path(), &input_tokens);
+            let mut child = Preprocessor::new(part_id);
+            //传递宏
+            child.user_macro.extend(self.user_macro.clone());
+            let result = child.process_directive(map_pest_err(
+                self.file_id,
+                Preprocessor::parse(Rule::directives, &input),
+            )?)?;
+            self.user_macro.extend(child.user_macro);
+            self.line_offset = child.line_offset;
+            self.file_name = child.file_name;
+
+            Ok(result)
+        } else {
+            self.process_directive(map_pest_err(
+                self.file_id,
+                Preprocessor::parse(Rule::directives, &input),
+            )?)
         }
-        let rules = map_pest_err(self.file_id, Preprocessor::parse(Rule::directives, &input))?;
-        let mut result = String::new();
+    }
+
+    fn process_directive(&mut self, rules: Pairs<Rule>) -> Result<Vec<Token>, Diagnostic<usize>> {
+        let mut result = Vec::new();
         for rule in rules {
             if let Rule::directives = rule.as_rule() {
                 for rule in rule.into_inner() {
                     match rule.as_rule() {
                         Rule::macro_define => {
-                            result += &self.process_macro_define(rule)?;
+                            result.extend(self.process_macro_define(rule)?);
                         }
                         Rule::macro_undef => {
-                            result += &self.process_macro_undef(rule)?;
+                            result.extend(self.process_macro_undef(rule)?);
                         }
                         Rule::warning_directive => {
-                            result += &self.process_warning(rule)?;
+                            result.extend(self.process_warning(rule)?);
                         }
                         Rule::error_directive => {
-                            result += &self.process_error(rule)?;
+                            result.extend(self.process_error(rule)?);
                         }
                         Rule::line_control => {
-                            result += &self.process_line_control(rule)?;
+                            result.extend(self.process_line_control(rule)?);
                         }
                         Rule::source_file_inclusion => {
-                            result += &self.process_source_file_inclusion(rule)?;
+                            result.extend(self.process_source_file_inclusion(rule)?);
                         }
                         Rule::binary_resource_inclusion => {
-                            result += &self.process_binary_resource_inclusion(rule)?;
+                            result.extend(self.process_binary_resource_inclusion(rule)?);
                         }
                         Rule::if_section => {
-                            result += &self.process_if_section(rule)?;
+                            result.extend(self.process_if_section(rule)?);
                         }
                         Rule::pragma_directive => {
-                            result += &self.process_pragma(rule)?;
+                            result.extend(self.process_pragma(rule)?);
                         }
-                        _ => {}
+                        Rule::newline => result.extend(self.to_tokens(rule, false)),
+                        Rule::WHITESPACE => {}
+                        _ => unreachable!(),
                     }
                 }
             }
@@ -158,7 +202,11 @@ impl Preprocessor {
         Ok(result)
     }
 
-    pub fn process_macro_define(&mut self, rule: Pair<Rule>) -> Result<String, Diagnostic<usize>> {
+    pub fn process_macro_define(
+        &mut self,
+        rule: Pair<Rule>,
+    ) -> Result<Vec<Token>, Diagnostic<usize>> {
+        let mut result = Vec::new();
         let mut object_like = true;
         let mut name = String::new();
         let mut name_span = rule.as_span();
@@ -174,7 +222,8 @@ impl Preprocessor {
                 }
                 Rule::function_identifier => {
                     object_like = false;
-                    name = rule.as_str().to_string();
+                    //去掉紧跟在后面的'('
+                    name = rule.as_str()[0..rule.as_str().len() - 1].to_string();
                 }
                 Rule::identifier_list => {
                     for rule in rule.into_inner() {
@@ -183,30 +232,25 @@ impl Preprocessor {
                         }
                     }
                 }
-                Rule::replacement_list => {
-                    replace_list = PlaceMarker::vec_from(rule, false);
-                }
-                Rule::varparam_symbol => {
-                    has_varparam = true;
-                }
-                _ => {}
+                Rule::replacement_list => replace_list = self.to_tokens(rule, false),
+                Rule::varparam_symbol => has_varparam = true,
+                Rule::newline => result.extend(self.to_tokens(rule, false)),
+                Rule::WHITESPACE => {}
+                _ => unreachable!(),
             }
         }
-        let cmacro;
-        if object_like {
-            cmacro = Macro::Object {
-                name: name.clone(),
-                replace_list,
-            };
-        } else {
-            name = name[..name.len() - 1].to_string(); //去除'('
-            cmacro = Macro::Function {
-                name: name.clone(),
-                parameters,
-                has_varparam,
-                replace_list,
-            };
-        }
+        let cmacro = Macro {
+            replace_list,
+            kind: if object_like {
+                MacroKind::Object
+            } else {
+                MacroKind::Function {
+                    parameters,
+                    has_varparam,
+                }
+            },
+            ..Macro::new(self.file_id, from_pest_span(span), name.clone())
+        };
         if let Some(pre_macro) = self.find_macro(&name, from_pest_span(name_span)) {
             if pre_macro != cmacro {
                 return Err(Diagnostic::error()
@@ -216,41 +260,51 @@ impl Preprocessor {
         } else {
             self.user_macro.insert(name, cmacro);
         }
-        Ok("\n".to_string())
+        Ok(result)
     }
 
-    pub fn process_macro_undef(&mut self, rule: Pair<Rule>) -> Result<String, Diagnostic<usize>> {
+    pub fn process_macro_undef(
+        &mut self,
+        rule: Pair<Rule>,
+    ) -> Result<Vec<Token>, Diagnostic<usize>> {
+        let mut result = Vec::new();
         let mut name = String::new();
         for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::identifier => name = rule.as_str().to_string(),
-                _ => {}
+                Rule::newline => result.extend(self.to_tokens(rule, false)),
+                Rule::WHITESPACE => {}
+                _ => unreachable!(),
             }
         }
         self.user_macro.remove(&name);
-        Ok("\n".to_string())
+        Ok(result)
     }
 
-    pub fn process_warning(&mut self, rule: Pair<Rule>) -> Result<String, Diagnostic<usize>> {
+    pub fn process_warning(&mut self, rule: Pair<Rule>) -> Result<Vec<Token>, Diagnostic<usize>> {
+        let mut result = Vec::new();
         let mut message = String::new();
         let span = rule.as_span();
         for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::pp_tokens => message = rule.as_str().to_string(),
-                _ => {}
+                Rule::newline => result.extend(self.to_tokens(rule, false)),
+                Rule::WHITESPACE => {}
+                _ => unreachable!(),
             }
         }
         warning(message, self.file_id, from_pest_span(span), vec![]);
-        Ok("\n".to_string())
+        Ok(result)
     }
 
-    pub fn process_error(&mut self, rule: Pair<Rule>) -> Result<String, Diagnostic<usize>> {
+    pub fn process_error(&mut self, rule: Pair<Rule>) -> Result<Vec<Token>, Diagnostic<usize>> {
         let mut message = String::new();
         let span = rule.as_span();
         for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::pp_tokens => message = rule.as_str().to_string(),
-                _ => {}
+                Rule::newline => {}
+                _ => unreachable!(),
             }
         }
         Err(Diagnostic::error()
@@ -258,7 +312,11 @@ impl Preprocessor {
             .with_label(Label::primary(self.file_id, from_pest_span(span))))
     }
 
-    pub fn process_line_control(&mut self, rule: Pair<Rule>) -> Result<String, Diagnostic<usize>> {
+    pub fn process_line_control(
+        &mut self,
+        rule: Pair<Rule>,
+    ) -> Result<Vec<Token>, Diagnostic<usize>> {
+        let mut result = Vec::new();
         for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::digit_sequence => {
@@ -269,10 +327,12 @@ impl Preprocessor {
                 Rule::string_literal => {
                     self.file_name = self.process_string_literal(rule)?;
                 }
-                _ => {}
+                Rule::newline => result.extend(self.to_tokens(rule, false)),
+                Rule::WHITESPACE => {}
+                _ => unreachable!(),
             }
         }
-        Ok("\n".to_string())
+        Ok(result)
     }
 
     pub fn get_possible_filepath(&self, header_name: &str) -> Vec<PathBuf> {
@@ -300,36 +360,30 @@ impl Preprocessor {
     pub fn process_source_file_inclusion(
         &mut self,
         rule: Pair<Rule>,
-    ) -> Result<String, Diagnostic<usize>> {
+    ) -> Result<Vec<Token>, Diagnostic<usize>> {
+        let mut result = Vec::new();
         for rule in rule.into_inner() {
             match rule.as_rule() {
-                Rule::header_name => {
+                Rule::header_name => 'outer: loop {
                     for file_path in self.get_possible_filepath(rule.as_str()) {
-                        let file_content = match fs::read_to_string(&file_path) {
-                            Ok(t) => t,
-                            Err(e) => {
-                                return Err(Diagnostic::error()
-                                    .with_message(e.to_string())
-                                    .with_label(
-                                        Label::primary(
-                                            self.file_id,
-                                            from_pest_span(rule.as_span()),
-                                        )
-                                        .with_message("error occured when opening or reading"),
-                                    ));
-                            }
-                        };
+                        let file_content = fs::read_to_string(&file_path).or_else(|e| {
+                            Err(Diagnostic::error().with_message(e.to_string()).with_label(
+                                Label::primary(self.file_id, from_pest_span(rule.as_span()))
+                                    .with_message("error occured when opening or reading"),
+                            ))
+                        })?;
                         let include_id = files
                             .lock()
                             .unwrap()
                             .add(file_path.to_string_lossy().to_string(), file_content);
-                        let mut preprocessor = Preprocessor::new(include_id);
-                        //让preprocessor可以用自己的macro
-                        preprocessor.user_macro.extend(self.user_macro.clone());
-                        let result = preprocessor.process()?;
-                        //补充新定义的macro
-                        self.user_macro.extend(preprocessor.user_macro);
-                        return Ok(result + "\n");
+                        let mut child = Preprocessor::new(include_id);
+                        //传递宏
+                        child.user_macro.extend(self.user_macro.clone());
+                        result.extend(child.process()?);
+                        self.user_macro.extend(child.user_macro);
+                        self.line_offset = child.line_offset;
+                        self.file_name = child.file_name;
+                        break 'outer;
                     }
                     return Err(Diagnostic::error()
                         .with_message(format!(
@@ -337,22 +391,25 @@ impl Preprocessor {
                             rule.as_str()[1..rule.as_str().len() - 1].to_string()
                         ))
                         .with_label(Label::primary(self.file_id, from_pest_span(rule.as_span()))));
-                }
-                _ => {}
+                },
+                Rule::newline => result.extend(self.to_tokens(rule, false)),
+                Rule::WHITESPACE => {}
+                _ => unreachable!(),
             }
         }
-        Ok("\n".to_string())
+        Ok(result)
     }
 
     pub fn process_binary_resource_inclusion(
         &mut self,
         rule: Pair<Rule>,
-    ) -> Result<String, Diagnostic<usize>> {
+    ) -> Result<Vec<Token>, Diagnostic<usize>> {
+        let mut result = Vec::new();
         let mut header_name = "";
         let mut limit = usize::MAX;
-        let mut prefix = String::new();
-        let mut suffix = String::new();
-        let mut if_empty = String::new();
+        let mut prefix = Vec::new();
+        let mut suffix = Vec::new();
+        let mut if_empty = Vec::new();
         let span = rule.as_span();
 
         for rule in rule.into_inner() {
@@ -363,33 +420,29 @@ impl Preprocessor {
                 Rule::embed_parameter_sequence => {
                     (limit, prefix, suffix, if_empty) = self.process_embed_parameters(rule)?;
                 }
-                _ => {}
+                Rule::newline => result.extend(self.to_tokens(rule, false)),
+                Rule::WHITESPACE => {}
+                _ => unreachable!(),
             }
         }
 
         for file_path in self.get_possible_filepath(header_name) {
             let mut buf = [0; 1024];
-            let file = match File::open(file_path) {
-                Ok(t) => t,
-                Err(e) => {
-                    return Err(Diagnostic::error().with_message(e.to_string()).with_label(
-                        Label::primary(self.file_id, from_pest_span(span))
-                            .with_message("error occurred when opening"),
-                    ));
-                }
-            };
+            let file = File::open(file_path).or_else(|e| {
+                Err(Diagnostic::error().with_message(e.to_string()).with_label(
+                    Label::primary(self.file_id, from_pest_span(span))
+                        .with_message("error occurred when opening"),
+                ))
+            })?;
             let mut reader = BufReader::new(file);
             let mut data: Vec<u8> = Vec::new();
             loop {
-                let n = match reader.read(&mut buf) {
-                    Ok(t) => t,
-                    Err(e) => {
-                        return Err(Diagnostic::error().with_message(e.to_string()).with_label(
-                            Label::primary(self.file_id, from_pest_span(span))
-                                .with_message("error occurred when reading"),
-                        ));
-                    }
-                };
+                let n = reader.read(&mut buf).or_else(|e| {
+                    Err(Diagnostic::error().with_message(e.to_string()).with_label(
+                        Label::primary(self.file_id, from_pest_span(span))
+                            .with_message("error occurred when reading"),
+                    ))
+                })?;
                 if n == 0 {
                     break;
                 }
@@ -398,18 +451,30 @@ impl Preprocessor {
                     break;
                 }
             }
-            if data.len() > 0 {
-                return Ok(prefix
-                    + &data[0..min(data.len(), limit)]
-                        .iter()
-                        .map(|x| x.to_string())
-                        .collect::<Vec<String>>()
-                        .join(",")
-                    + &suffix
-                    + "\n");
-            } else {
-                return Ok(if_empty.to_string());
-            }
+            result.splice(
+                0..0,
+                if data.len() > 0 {
+                    let mut t = Vec::new();
+                    t.extend(prefix);
+                    t.push(Token::new(
+                        self.file_id,
+                        from_pest_span(span),
+                        TokenKind::Text {
+                            is_whitespace: false,
+                            content: data[0..min(data.len(), limit)]
+                                .iter()
+                                .map(|x| x.to_string())
+                                .collect::<Vec<String>>()
+                                .join(", "),
+                        },
+                    ));
+                    t.extend(suffix);
+                    t
+                } else {
+                    if_empty
+                },
+            );
+            return Ok(result);
         }
         Err(Diagnostic::error()
             .with_message(format!(
@@ -422,17 +487,19 @@ impl Preprocessor {
     pub fn process_embed_parameters(
         &mut self,
         rule: Pair<Rule>,
-    ) -> Result<(usize, String, String, String), Diagnostic<usize>> {
+    ) -> Result<(usize, Vec<Token>, Vec<Token>, Vec<Token>), Diagnostic<usize>> {
         let mut limit = usize::MAX;
-        let mut prefix = "";
-        let mut suffix = "";
-        let mut if_empty = "";
+        let mut prefix = Vec::new();
+        let mut suffix = Vec::new();
+        let mut if_empty = Vec::new();
 
         for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::pp_parameter => {
                     let mut param_name = "";
-                    let mut param_clause = "";
+                    let mut param_clause_str = "";
+                    let mut param_clause_tks = Vec::new();
+                    let mut param_clause_span = None;
                     let span = rule.as_span();
                     for rule in rule.into_inner() {
                         match rule.as_rule() {
@@ -440,18 +507,38 @@ impl Preprocessor {
                                 param_name = rule.as_str();
                             }
                             Rule::pp_parameter_clause => {
-                                param_clause = rule.as_str();
-                                param_clause = &param_clause[1..param_clause.len() - 1]; //去掉'(' ')'
+                                let span = rule.as_span();
+                                //排除两边的括号
+                                param_clause_span =
+                                    Span::new(span.get_input(), span.start() + 1, span.end() - 1);
+                                param_clause_str = rule.as_str();
+                                param_clause_str = &param_clause_str[1..param_clause_str.len() - 1]; //去掉'(' ')'
+                                param_clause_tks = self.to_tokens(rule, false);
                             }
-                            _ => {}
+                            Rule::WHITESPACE => {}
+                            _ => unreachable!(),
                         }
                     }
                     match param_name {
                         "limit" | "__limit__" => {
-                            limit = self.process_constant_expression(
-                                map_pest_err(
+                            let part_id = source_map(
+                                self.file_path(),
+                                &vec![Token::new(
                                     self.file_id,
-                                    Preprocessor::parse(Rule::constant_expression, param_clause),
+                                    from_pest_span(param_clause_span.unwrap_or(span)),
+                                    TokenKind::Text {
+                                        is_whitespace: false,
+                                        content: param_clause_str.to_string(),
+                                    },
+                                )],
+                            );
+                            limit = Preprocessor::new(part_id).process_constant_expression(
+                                map_pest_err(
+                                    part_id,
+                                    Preprocessor::parse(
+                                        Rule::constant_expression,
+                                        param_clause_str,
+                                    ),
                                 )?
                                 .into_iter()
                                 .next()
@@ -459,13 +546,13 @@ impl Preprocessor {
                             )? as usize;
                         }
                         "prefix" | "__prefix__" => {
-                            prefix = param_clause;
+                            prefix = param_clause_tks;
                         }
                         "suffix" | "__suffix__" => {
-                            suffix = param_clause;
+                            suffix = param_clause_tks;
                         }
                         "if_empty" | "__if_empty__" => {
-                            if_empty = param_clause;
+                            if_empty = param_clause_tks;
                         }
                         _ => {
                             warning(
@@ -477,29 +564,29 @@ impl Preprocessor {
                         }
                     }
                 }
-                _ => {}
+                Rule::WHITESPACE => {}
+                _ => unreachable!(),
             }
         }
 
-        Ok((
-            limit,
-            prefix.to_string(),
-            suffix.to_string(),
-            if_empty.to_string(),
-        ))
+        Ok((limit, prefix, suffix, if_empty))
     }
 
-    pub fn process_if_section(&mut self, rule: Pair<Rule>) -> Result<String, Diagnostic<usize>> {
+    pub fn process_if_section(
+        &mut self,
+        rule: Pair<Rule>,
+    ) -> Result<Vec<Token>, Diagnostic<usize>> {
+        let mut result = Vec::new();
         for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::if_group | Rule::elif_group => {
                     let mut tag = "";
                     let mut is_true = false;
-
                     let mut condition = 0;
                     let mut macro_name = String::new();
                     let mut macro_span = rule.as_span();
                     let mut groups = Vec::new();
+                    let mut after_newline = false;
                     for rule in rule.into_inner() {
                         match rule.as_rule() {
                             Rule::constant_expression => {
@@ -513,10 +600,19 @@ impl Preprocessor {
                                 match rule.as_node_tag().unwrap_or("") {
                                     "ifdef" => tag = "ifdef",
                                     "ifndef" => tag = "ifndef",
-                                    _ => {}
+                                    _ => unreachable!(),
                                 }
                             }
-                            _ => {}
+                            Rule::newline => {
+                                result.extend(self.to_tokens(rule, false));
+                                after_newline = true;
+                            }
+                            Rule::WHITESPACE => {
+                                if after_newline {
+                                    result.extend(self.to_tokens(rule, false));
+                                }
+                            }
+                            _ => unreachable!(),
                         }
                     }
                     match tag {
@@ -533,34 +629,45 @@ impl Preprocessor {
                                 is_true = true;
                             }
                         }
-                        _ => {}
+                        _ => unreachable!(),
                     }
 
                     if is_true {
-                        let mut result = "\n".to_string();
                         for group in groups {
-                            result += &self.process_group(group)?;
+                            result.extend(self.process_group(group)?);
                         }
                         return Ok(result);
                     }
                 }
                 Rule::else_group => {
                     let mut groups = Vec::new();
+                    let mut after_newline = false;
                     for rule in rule.into_inner() {
                         match rule.as_rule() {
                             Rule::group_part => groups.push(rule),
-                            _ => {}
+                            Rule::newline => {
+                                result.extend(self.to_tokens(rule, false));
+                                after_newline = true;
+                            }
+                            Rule::WHITESPACE => {
+                                if after_newline {
+                                    result.extend(self.to_tokens(rule, false));
+                                }
+                            }
+                            _ => unreachable!(),
                         }
                     }
-                    let mut result = "\n".to_string();
                     for group in groups {
-                        result += &self.process_group(group)?;
+                        result.extend(self.process_group(group)?);
                     }
                     return Ok(result);
                 }
-                _ => {}
+                Rule::endif_line => {}
+                Rule::newline => result.extend(self.to_tokens(rule, false)),
+                Rule::WHITESPACE => {}
+                _ => unreachable!(),
             }
         }
-        Ok("\n".to_string())
+        Ok(result)
     }
 }

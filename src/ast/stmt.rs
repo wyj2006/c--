@@ -1,6 +1,7 @@
 use super::Attribute;
 use super::decl::Declaration;
 use super::expr::Expr;
+use crate::file_map::source_lookup;
 use codespan::Span;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -15,6 +16,7 @@ pub struct Stmt {
 
 impl Stmt {
     pub fn new(file_id: usize, span: Span) -> Stmt {
+        let (file_id, span) = source_lookup(file_id, span);
         Stmt {
             file_id,
             span,

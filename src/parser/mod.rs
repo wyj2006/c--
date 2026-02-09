@@ -14,10 +14,14 @@ use crate::ast::TranslationUnit;
 use crate::ast::expr::ExprKind;
 use crate::diagnostic::from_pest_span;
 use crate::diagnostic::map_pest_err;
+use crate::file_map::source_map;
 use crate::files;
+use crate::preprocessor::token::Token;
+use crate::preprocessor::token::TokenKind;
 use codespan_reporting::diagnostic::Diagnostic;
 use codespan_reporting::diagnostic::Label;
 use codespan_reporting::files::Files;
+use pest::Span;
 use pest::{Parser, iterators::Pair};
 use pest_derive::Parser;
 use std::cell::RefCell;
@@ -33,6 +37,10 @@ pub struct CParser {
 impl CParser {
     pub fn new(file_id: usize) -> CParser {
         CParser { file_id }
+    }
+
+    pub fn file_path(&self) -> String {
+        files.lock().unwrap().name(self.file_id).unwrap()
     }
 
     pub fn parse_to_ast(&self) -> Result<Rc<RefCell<TranslationUnit>>, Diagnostic<usize>> {
@@ -94,7 +102,7 @@ impl CParser {
         for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::attribute_prefix => prefix_name = Some(rule.as_str().to_string()),
-                Rule::identifier => name = rule.as_str().to_string(),
+                Rule::identifier => name = parse_identifier(rule.as_str())?,
                 _ => unreachable!(),
             }
         }
@@ -110,12 +118,18 @@ impl CParser {
         let mut prefix_name = None;
         let mut name = String::new();
         let mut arguments = None;
+        let mut arg_span = None;
         for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::attribute_token => (prefix_name, name) = self.parse_attribute_token(rule)?,
                 Rule::attribute_argument_clause => {
                     //去除两侧括号
-                    arguments = Some(rule.as_str()[1..rule.as_str().len() - 1].to_string())
+                    arguments = Some(rule.as_str()[1..rule.as_str().len() - 1].to_string());
+                    arg_span = Span::new(
+                        rule.as_span().get_input(),
+                        rule.as_span().start() + 1,
+                        rule.as_span().end() - 1,
+                    );
                 }
                 _ => unreachable!(),
             }
@@ -134,8 +148,19 @@ impl CParser {
                 if let Some(t) = arguments {
                     match CParser::parse(Rule::string_literal, t.as_str()) {
                         Ok(rules) => {
+                            let part_id = source_map(
+                                self.file_path(),
+                                &vec![Token::new(
+                                    self.file_id,
+                                    from_pest_span(arg_span.unwrap_or(span)),
+                                    TokenKind::Text {
+                                        is_whitespace: false,
+                                        content: t.to_string(),
+                                    },
+                                )],
+                            );
                             for rule in rules {
-                                let expr = self.parse_string_literal(rule)?;
+                                let expr = CParser::new(part_id).parse_string_literal(rule)?;
                                 match &expr.borrow().kind {
                                     ExprKind::String { text, .. } => {
                                         reason = Some(text.to_string())
@@ -250,7 +275,7 @@ impl CParser {
                     designations.push(Designation::new(
                         self.file_id,
                         from_pest_span(span),
-                        DesignationKind::MemberAccess(rule.as_str().to_string()),
+                        DesignationKind::MemberAccess(parse_identifier(rule.as_str())?),
                     ));
                 }
                 _ => unreachable!(),
@@ -258,4 +283,52 @@ impl CParser {
         }
         Ok(designations)
     }
+}
+
+pub fn parse_identifier(str: &str) -> Result<String, Diagnostic<usize>> {
+    let chars = str.chars().collect::<Vec<char>>();
+    let mut name = Vec::new();
+    let mut i = 0;
+
+    while i < chars.len() {
+        let ch = chars[i];
+        match ch {
+            '\\' => match chars[i + 1] {
+                'u' => {
+                    unsafe {
+                        name.push(char::from_u32_unchecked(
+                            u32::from_str_radix(
+                                &chars[i + 2..i + 6].iter().collect::<String>(),
+                                16,
+                            )
+                            .unwrap(),
+                        ));
+                    }
+                    i += 6;
+                }
+                'U' => {
+                    unsafe {
+                        name.push(char::from_u32_unchecked(
+                            u32::from_str_radix(
+                                &chars[i + 2..i + 10].iter().collect::<String>(),
+                                16,
+                            )
+                            .unwrap(),
+                        ));
+                    }
+                    i += 10;
+                }
+                _ => {
+                    name.push(ch);
+                    i += 1;
+                }
+            },
+            _ => {
+                name.push(ch);
+                i += 1;
+            }
+        }
+    }
+
+    Ok(name.iter().collect::<String>())
 }

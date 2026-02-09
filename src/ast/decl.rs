@@ -2,6 +2,7 @@ use super::{Attribute, Initializer};
 use crate::ast::expr::Expr;
 use crate::ast::stmt::Stmt;
 use crate::ctype::Type;
+use crate::file_map::source_lookup;
 use codespan::Span;
 use std::cell::RefCell;
 use std::fmt::Display;
@@ -28,6 +29,7 @@ pub struct StorageClass {
 
 impl StorageClass {
     pub fn new(file_id: usize, span: Span, kind: StorageClassKind) -> StorageClass {
+        let (file_id, span) = source_lookup(file_id, span);
         StorageClass {
             file_id,
             span,
@@ -56,6 +58,7 @@ pub struct FunctionSpec {
 
 impl FunctionSpec {
     pub fn new(file_id: usize, span: Span, kind: FunctionSpecKind) -> FunctionSpec {
+        let (file_id, span) = source_lookup(file_id, span);
         FunctionSpec {
             file_id,
             span,
@@ -71,6 +74,7 @@ pub enum FunctionSpecKind {
 
 impl Declaration {
     pub fn new(file_id: usize, span: Span, kind: DeclarationKind) -> Declaration {
+        let (file_id, span) = source_lookup(file_id, span);
         Declaration {
             file_id,
             span,

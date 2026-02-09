@@ -1,6 +1,7 @@
 use super::Initializer;
 use crate::ast::decl::{Declaration, StorageClass};
 use crate::ctype::Type;
+use crate::file_map::source_lookup;
 use crate::symtab::Symbol;
 use crate::variant::Variant;
 use codespan::Span;
@@ -110,6 +111,7 @@ pub struct GenericAssoc {
 
 impl GenericAssoc {
     pub fn new(file_id: usize, span: Span, expr: Rc<RefCell<Expr>>) -> GenericAssoc {
+        let (file_id, span) = source_lookup(file_id, span);
         GenericAssoc {
             file_id,
             span,
@@ -192,6 +194,7 @@ macro_rules! unparse_with_priority {
 
 impl Expr {
     pub fn new(file_id: usize, span: Span, kind: ExprKind) -> Self {
+        let (file_id, span) = source_lookup(file_id, span);
         Expr {
             file_id,
             span,

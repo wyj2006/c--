@@ -7,6 +7,7 @@ pub mod size;
 
 use crate::ast::{Attribute, expr::Expr};
 use crate::ctype::cast::{array_to_ptr, func_to_ptr};
+use crate::file_map::source_lookup;
 use crate::symtab::{Symbol, SymbolKind};
 use codespan::Span;
 use indexmap::IndexMap;
@@ -109,6 +110,7 @@ pub enum RecordKind {
 
 impl Type {
     pub fn new(file_id: usize, span: Span) -> Type {
+        let (file_id, span) = source_lookup(file_id, span);
         Type {
             file_id,
             span,

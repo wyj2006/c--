@@ -1,34 +1,33 @@
-// 尽量保留源文件的字符, 包括空白字符
-WHITESPACE =  { " " | "\t" | "\\\n" }
-identifier = @{ identifier_start ~ identifier_continue* }
-// 不匹配NEWLINE, 避免其它规则无法匹配行末换行
-COMMENT = @{ "//" ~ (!(NEWLINE | EOI) ~ ANY)* | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+// 空白字符+注释
+WHITESPACE =  { " " | "\t" | "\\\n" | "//" ~ (!(newline | EOI) ~ ANY)* | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+identifier = ${ identifier_start ~ identifier_continue* }
+newline    =  { "\n" | "\r\n" }
+
+pp_token  = _{ !newline ~ (preprocessing_token | WHITESPACE | ANY) }
+pp_tokens =  { pp_token+ }
 
 preprocessing_file = ${ SOI ~ group_part* ~ EOI }
 // 等需要解析的时候再解析
 directive_keyword = { "if" | "ifdef" | "ifndef" | "include" | "embed" | "define" | "undef" | "line" | "error" | "warning" | "pragma" }
 // 防止text_line开头的空白字符被提前匹配
 group_part         = ${ WHITESPACE* ~ up_directives | WHITESPACE* ~ non_directive_line | WHITESPACE* ~ !"#" ~ WHITESPACE* ~ text_line }
-non_directive_line = !{ "#" ~ !("elif" | "elifdef" | "elifndef" | "else" | "endif") ~ pp_tokens ~ NEWLINE }
-text_line          = !{ pp_tokens? ~ NEWLINE }
+non_directive_line = !{ "#" ~ !("elif" | "elifdef" | "elifndef" | "else" | "endif") ~ pp_tokens ~ newline }
+text_line          = !{ pp_tokens? ~ newline }
 // up代表未处理(unprocess)
-up_directives = !{ up_if_section | "#" ~ directive_keyword ~ pp_tokens? ~ NEWLINE | "#" ~ NEWLINE }
+up_directives = !{ up_if_section | "#" ~ directive_keyword ~ pp_tokens? ~ newline | "#" ~ newline }
 up_if_section =  { up_if_group ~ up_elif_group* ~ up_else_group? ~ up_endif_line }
 up_if_group   =  {
-    "#" ~ "if" ~ pp_tokens? ~ NEWLINE ~ group_part*
-  | "#" ~ "ifdef" ~ pp_tokens? ~ NEWLINE ~ group_part*
-  | "#" ~ "ifndef" ~ pp_tokens? ~ NEWLINE ~ group_part*
+    "#" ~ "if" ~ pp_tokens? ~ newline ~ group_part*
+  | "#" ~ "ifdef" ~ pp_tokens? ~ newline ~ group_part*
+  | "#" ~ "ifndef" ~ pp_tokens? ~ newline ~ group_part*
 }
 up_elif_group =  {
-    "#" ~ "elif" ~ pp_tokens? ~ NEWLINE ~ group_part*
-  | "#" ~ "elifdef" ~ pp_tokens? ~ NEWLINE ~ group_part*
-  | "#" ~ "elifndef" ~ pp_tokens? ~ NEWLINE ~ group_part*
+    "#" ~ "elif" ~ pp_tokens? ~ newline ~ group_part*
+  | "#" ~ "elifdef" ~ pp_tokens? ~ newline ~ group_part*
+  | "#" ~ "elifndef" ~ pp_tokens? ~ newline ~ group_part*
 }
-up_else_group =  { "#" ~ "else" ~ NEWLINE ~ group_part* }
-up_endif_line =  { "#" ~ "endif" ~ NEWLINE }
-
-pp_token  = _{ !NEWLINE ~ (preprocessing_token | WHITESPACE | ANY) }
-pp_tokens =  { pp_token+ }
+up_else_group =  { "#" ~ "else" ~ newline ~ group_part* }
+up_endif_line =  { "#" ~ "endif" ~ newline }
 
 pp_parameter               = { pp_parameter_name ~ pp_parameter_clause? }
 pp_parameter_name          = { pp_prefixed_parameter | pp_standard_parameter }
@@ -53,48 +52,48 @@ directives = {
   | error_directive
   | warning_directive
   | pragma_directive
-  | "#" ~ NEWLINE
+  | "#" ~ newline
 }
 
 if_section = { if_group ~ elif_group* ~ else_group? ~ endif_line }
 if_group   = {
-    "#" ~ "if" ~ constant_expression ~ NEWLINE ~ group_part*
-  | "#" ~ "ifdef" ~ #ifdef = identifier ~ NEWLINE ~ group_part*
-  | "#" ~ "ifndef" ~ #ifndef = identifier ~ NEWLINE ~ group_part*
+    "#" ~ "if" ~ constant_expression ~ newline ~ group_part*
+  | "#" ~ "ifdef" ~ #ifdef = identifier ~ newline ~ group_part*
+  | "#" ~ "ifndef" ~ #ifndef = identifier ~ newline ~ group_part*
 }
 elif_group = {
-    "#" ~ "elif" ~ constant_expression ~ NEWLINE ~ group_part*
-  | "#" ~ "elifdef" ~ #ifdef = identifier ~ NEWLINE ~ group_part*
-  | "#" ~ "elifndef" ~ #ifndef = identifier ~ NEWLINE ~ group_part*
+    "#" ~ "elif" ~ constant_expression ~ newline ~ group_part*
+  | "#" ~ "elifdef" ~ #ifdef = identifier ~ newline ~ group_part*
+  | "#" ~ "elifndef" ~ #ifndef = identifier ~ newline ~ group_part*
 }
-else_group = { "#" ~ "else" ~ NEWLINE ~ group_part* }
-endif_line = { "#" ~ "endif" ~ NEWLINE }
+else_group = { "#" ~ "else" ~ newline ~ group_part* }
+endif_line = { "#" ~ "endif" ~ newline }
 
-source_file_inclusion = { "#" ~ "include" ~ header_name ~ NEWLINE }
+source_file_inclusion = { "#" ~ "include" ~ header_name ~ newline }
 
-binary_resource_inclusion = { "#" ~ "embed" ~ header_name ~ embed_parameter_sequence? ~ NEWLINE }
+binary_resource_inclusion = { "#" ~ "embed" ~ header_name ~ embed_parameter_sequence? ~ newline }
 
 macro_define        =  {
-    "#" ~ "define" ~ function_identifier ~ identifier_list ~ "," ~ varparam_symbol ~ ")" ~ replacement_list ~ NEWLINE
-  | "#" ~ "define" ~ function_identifier ~ varparam_symbol ~ ")" ~ replacement_list ~ NEWLINE
-  | "#" ~ "define" ~ function_identifier ~ identifier_list? ~ ")" ~ replacement_list ~ NEWLINE
-  | "#" ~ "define" ~ identifier ~ replacement_list ~ NEWLINE
+    "#" ~ "define" ~ function_identifier ~ identifier_list ~ "," ~ varparam_symbol ~ ")" ~ replacement_list ~ newline
+  | "#" ~ "define" ~ function_identifier ~ varparam_symbol ~ ")" ~ replacement_list ~ newline
+  | "#" ~ "define" ~ function_identifier ~ identifier_list? ~ ")" ~ replacement_list ~ newline
+  | "#" ~ "define" ~ identifier ~ replacement_list ~ newline
 }
 varparam_symbol     =  { "..." }
 function_identifier = @{ identifier ~ "(" }
 identifier_list     =  { identifier ~ ("," ~ identifier)* }
 replacement_list    =  { pp_tokens? }
-macro_undef         =  { "#" ~ "undef" ~ identifier ~ NEWLINE }
+macro_undef         =  { "#" ~ "undef" ~ identifier ~ newline }
 
 line_control = {
-    "#" ~ "line" ~ digit_sequence ~ !encoding_prefix ~ string_literal ~ NEWLINE
-  | "#" ~ "line" ~ digit_sequence ~ NEWLINE
+    "#" ~ "line" ~ digit_sequence ~ !encoding_prefix ~ string_literal ~ newline
+  | "#" ~ "line" ~ digit_sequence ~ newline
 }
 
-error_directive   = { "#" ~ "error" ~ pp_tokens? ~ NEWLINE }
-warning_directive = { "#" ~ "warning" ~ pp_tokens? ~ NEWLINE }
+error_directive   = { "#" ~ "error" ~ pp_tokens? ~ newline }
+warning_directive = { "#" ~ "warning" ~ pp_tokens? ~ newline }
 
-pragma_directive = { "#" ~ "pragma" ~ pp_tokens? ~ NEWLINE }
+pragma_directive = { "#" ~ "pragma" ~ pp_tokens? ~ newline }
 
 defined_macro_expression = { "defined" ~ identifier | "defined" ~ "(" ~ identifier ~ ")" }
 // 预处理器处理时先进行宏替换再匹配

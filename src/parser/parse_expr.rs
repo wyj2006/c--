@@ -3,6 +3,9 @@ use crate::{
     ast::expr::{BinOpKind, EncodePrefix, Expr, ExprKind, GenericAssoc, UnaryOpKind},
     ctype::Type,
     diagnostic::{from_pest_span, map_pest_err},
+    file_map::source_map,
+    parser::parse_identifier,
+    preprocessor::token::{Token, TokenKind},
 };
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use pest::{
@@ -186,16 +189,25 @@ impl CParser {
                             Rule::type_name => {
                                 //可能会产生歧义的地方
                                 let span = rule.as_span();
+                                let part_id = source_map(
+                                    self.file_path(),
+                                    &vec![Token::new(
+                                        self.file_id,
+                                        from_pest_span(span),
+                                        TokenKind::Text {
+                                            is_whitespace: false,
+                                            content: rule.as_str().to_string(),
+                                        },
+                                    )],
+                                );
                                 match map_pest_err(
-                                    self.file_id,
+                                    part_id,
                                     CParser::parse(Rule::expression, rule.as_str()),
                                 ) {
                                     Ok(rules) => {
                                         for rule in rules {
-                                            match self.parse_expression(rule) {
+                                            match CParser::new(part_id).parse_expression(rule) {
                                                 Ok(t) => {
-                                                    //纠正位置
-                                                    t.borrow_mut().span = from_pest_span(span);
                                                     expr = Some(t);
                                                 }
                                                 Err(e) => errs.push(e),
@@ -362,7 +374,7 @@ impl CParser {
                             let mut name = String::new();
                             for rule in rule.into_inner() {
                                 match rule.as_rule() {
-                                    Rule::identifier => name = rule.as_str().to_string(),
+                                    Rule::identifier => name = parse_identifier(rule.as_str())?,
                                     _ => unreachable!(),
                                 }
                             }
@@ -440,7 +452,7 @@ impl CParser {
                     return Ok(Rc::new(RefCell::new(Expr::new(
                         self.file_id,
                         from_pest_span(span),
-                        ExprKind::Name(rule.as_str().to_string()),
+                        ExprKind::Name(parse_identifier(rule.as_str())?),
                     ))));
                 }
                 Rule::constant => return self.parse_constant(rule),

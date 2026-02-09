@@ -1,6 +1,7 @@
 use super::{CParser, Rule};
 use crate::ast::stmt::{Stmt, StmtKind};
 use crate::diagnostic::from_pest_span;
+use crate::parser::parse_identifier;
 use codespan_reporting::diagnostic::Diagnostic;
 use pest::iterators::Pair;
 use std::cell::RefCell;
@@ -81,7 +82,7 @@ impl CParser {
                 Rule::attribute_specifier_sequence => {
                     attributes.extend(self.parse_attribute_specifier_sequence(rule)?)
                 }
-                Rule::identifier => name = rule.as_str().to_string(),
+                Rule::identifier => name = parse_identifier(rule.as_str())?,
                 Rule::constant_expression => expr = Some(self.parse_constant_expression(rule)?),
                 _ => unreachable!(),
             }
@@ -201,7 +202,7 @@ impl CParser {
 
         for rule in rule.into_inner() {
             match rule.as_rule() {
-                Rule::identifier => name = rule.as_str().to_string(),
+                Rule::identifier => name = parse_identifier(rule.as_str())?,
                 Rule::expression => expr = Some(self.parse_expression(rule)?),
                 _ => unreachable!(),
             }

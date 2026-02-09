@@ -7,6 +7,7 @@ use crate::ast::{Attribute, AttributeKind};
 use crate::ctype::TypeQual;
 use crate::ctype::{RecordKind, Type, TypeKind};
 use crate::diagnostic::from_pest_span;
+use crate::parser::parse_identifier;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use pest::iterators::Pair;
 use std::cell::RefCell;
@@ -355,7 +356,7 @@ impl CParser {
                         if let Rule::identifier = rule.as_rule() {
                             types.push(Type {
                                 kind: TypeKind::Typedef {
-                                    name: rule.as_str().to_string(),
+                                    name: parse_identifier(rule.as_str())?,
                                     r#type: None,
                                 },
                                 ..Type::new(self.file_id, from_pest_span(span))
@@ -707,7 +708,7 @@ impl CParser {
         let mut attributes = Vec::new();
         for rule in rule.into_inner() {
             match rule.as_rule() {
-                Rule::identifier => name = rule.as_str().to_string(),
+                Rule::identifier => name = parse_identifier(rule.as_str())?,
                 Rule::attribute_specifier_sequence => {
                     attributes.extend(self.parse_attribute_specifier_sequence(rule)?);
                 }
@@ -757,7 +758,7 @@ impl CParser {
         let mut enumerators = Vec::new();
         for rule in rule.into_inner() {
             match rule.as_rule() {
-                Rule::identifier => name = rule.as_str().to_string(),
+                Rule::identifier => name = parse_identifier(rule.as_str())?,
                 Rule::attribute_specifier_sequence => {
                     attributes.extend(self.parse_attribute_specifier_sequence(rule)?);
                 }
@@ -827,7 +828,7 @@ impl CParser {
                             Rule::name_declarator => {
                                 for rule in rule.into_inner() {
                                     match rule.as_rule() {
-                                        Rule::identifier => name = rule.as_str().to_string(),
+                                        Rule::identifier => name = parse_identifier(rule.as_str())?,
                                         Rule::attribute_specifier_sequence => {
                                             attributes.extend(
                                                 self.parse_attribute_specifier_sequence(rule)?,
@@ -1132,7 +1133,7 @@ impl CParser {
         let mut attributes = Vec::new();
         for rule in rule.into_inner() {
             match rule.as_rule() {
-                Rule::identifier => name = rule.as_str().to_string(),
+                Rule::identifier => name = parse_identifier(rule.as_str())?,
                 Rule::attribute_specifier_sequence => {
                     attributes.extend(self.parse_attribute_specifier_sequence(rule)?)
                 }

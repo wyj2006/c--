@@ -1,16 +1,14 @@
 ///包括了与表达式有关的方法
 use super::{Preprocessor, Rule};
 use crate::ast::expr::ExprKind;
-use crate::ast::has_c_attribute;
 use crate::diagnostic::{from_pest_span, map_pest_err};
+use crate::file_map::source_map;
+use crate::parser;
 use crate::parser::CParser;
-use crate::preprocessor::macro_replace::{
-    STDC_EMBED_EMPTY, STDC_EMBED_FOUND, STDC_EMBED_NOT_FOUND,
-};
+use crate::preprocessor::cmacro::{STDC_EMBED_EMPTY, STDC_EMBED_FOUND, STDC_EMBED_NOT_FOUND};
 use crate::symtab::SymbolTable;
 use crate::typechecker::TypeChecker;
 use crate::variant::Variant;
-use crate::{files, parser};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use num::ToPrimitive;
 use pest::Parser;
@@ -93,10 +91,8 @@ impl Preprocessor {
                         ))),
                 },
                 Rule::character_constant => {
-                    let part_id = files
-                        .lock()
-                        .unwrap()
-                        .add(format!("<part>"), primary.as_str().to_string());
+                    let part_id =
+                        source_map(self.file_path(), &self.to_tokens(primary.clone(), false));
                     let expr = CParser::new(part_id)
                         .parse_character_constant(
                             map_pest_err(
@@ -257,10 +253,7 @@ impl Preprocessor {
     }
 
     pub fn process_string_literal(&self, rule: Pair<Rule>) -> Result<String, Diagnostic<usize>> {
-        let part_id = files
-            .lock()
-            .unwrap()
-            .add(format!("<part>"), rule.as_str().to_string());
+        let part_id = source_map(self.file_path(), &self.to_tokens(rule.clone(), false));
         let expr = CParser::new(part_id)
             .parse_string_literal(
                 map_pest_err(
@@ -275,5 +268,18 @@ impl Preprocessor {
             ExprKind::String { text, .. } => text.clone(),
             _ => unreachable!(),
         })
+    }
+}
+
+pub fn has_c_attribute(prefix_name: Option<String>, name: String) -> isize {
+    match (prefix_name.as_deref(), name.as_str()) {
+        (None, "deprecated") => 201904,
+        (None, "fallthrough") => 201904,
+        (None, "maybe_unused") => 201904,
+        (None, "nodiscard") => 202003,
+        (None, "noreturn") => 202202,
+        (None, "unsequenced") => 202207,
+        (None, "reproducible") => 202207,
+        _ => 0,
     }
 }

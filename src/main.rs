@@ -8,7 +8,10 @@ pub mod symtab;
 pub mod typechecker;
 pub mod variant;
 
-use crate::{diagnostic::print_diag, file_map::FileMap};
+use crate::{
+    diagnostic::print_diag,
+    file_map::{FileMap, source_map},
+};
 use ast::printer::Print;
 use lazy_static::lazy_static;
 use parser::CParser;
@@ -31,18 +34,15 @@ fn main() {
         .add(file_path.to_string(), file_content.to_string());
 
     let mut preprocessor = Preprocessor::new(source_id);
-    let result = match preprocessor.process() {
+    let tokens = match preprocessor.process() {
         Ok(t) => t,
         Err(e) => {
             print_diag(e);
             return;
         }
     };
-    println!("{result}");
 
-    let pp_id = files.lock().unwrap().add(file_path.to_string(), result);
-
-    let parser = CParser::new(pp_id);
+    let parser = CParser::new(source_map(file_path.to_string(), &tokens));
     let ast = match parser.parse_to_ast() {
         Ok(t) => t,
         Err(e) => {

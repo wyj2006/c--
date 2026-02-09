@@ -1,4 +1,4 @@
-use crate::preprocessor::tests::quick_new_preprocessor;
+use crate::preprocessor::{tests::quick_new_preprocessor, token::to_string};
 
 #[test]
 pub fn macro_example_6_10_5_1_1() {
@@ -9,8 +9,8 @@ pub fn macro_example_6_10_5_1_1() {
 int x = F(LPAREN(), 0, <:-);
 ",
     );
-    let result = preprocessor.process().unwrap();
-    assert_eq!(result, "\n\n\nint x = 42 ;\n");
+    let result = to_string(&preprocessor.process().unwrap());
+    assert_eq!(result, " \n\n\nint x = 42 ;\n");
 }
 
 #[test]
@@ -30,7 +30,7 @@ SDEF(foo);
 SDEF(bar, 1, 2);
 ",
     );
-    let result = preprocessor.process().unwrap();
+    let result = to_string(&preprocessor.process().unwrap());
     assert_eq!(
         result,
         "
@@ -57,7 +57,7 @@ pub fn macro_example_6_10_5_1_2_2() {
 H2(a, b, c, d)
 ",
     );
-    let result = preprocessor.process().unwrap();
+    let result = to_string(&preprocessor.process().unwrap());
     assert_eq!(
         result,
         "
@@ -76,14 +76,14 @@ H3(, 0)
 H4(, 1)
 ",
     );
-    let result = preprocessor.process().unwrap();
+    let result = to_string(&preprocessor.process().unwrap());
     assert_eq!(
         result,
-        "
-\"\"
+        r#"
+""
 
 a b
-"
+"#
     );
 }
 
@@ -96,13 +96,13 @@ pub fn macro_example_6_10_5_1_2_4() {
 H5C(H5A())
 ",
     );
-    let result = preprocessor.process().unwrap();
+    let result = to_string(&preprocessor.process().unwrap());
     assert_eq!(
         result,
         "
 
 
-a/**/b
+ab
 "
     );
 }
@@ -117,6 +117,6 @@ pub fn macro_example_6_10_5_3() {
 char p[] = join(x, y);
 ",
     );
-    let result = preprocessor.process().unwrap();
+    let result = to_string(&preprocessor.process().unwrap());
     assert_eq!(result, "\n\n\n\nchar p[] = \"x ## y\";\n");
 }
