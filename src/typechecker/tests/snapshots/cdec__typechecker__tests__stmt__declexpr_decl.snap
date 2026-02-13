@@ -1,0 +1,11 @@
+---
+source: src/typechecker/tests/stmt.rs
+expression: "ast.print_line(0).join(\"\\n\")"
+---
+TranslationUnit <(1, 1), (6, 1)>
+  FunctionDecl  <(1, 5), (2, 1)> main int() 
+    Compound <(2, 1), (5, 2)>
+      DeclStmt <(3, 5), (3, 19)>
+        TypeDecl <(3, 17), (3, 18)> a int typedef
+      DeclStmt <(4, 5), (4, 7)>
+        VarDecl <(4, 5), (4, 7)>  a:int

@@ -1,0 +1,12 @@
+---
+source: src/typechecker/tests/stmt.rs
+expression: "ast.print_line(0).join(\"\\n\")"
+---
+TranslationUnit <(1, 1), (6, 1)>
+  FunctionDecl  <(1, 5), (2, 1)> main int() 
+    Compound <(2, 1), (5, 2)>
+      DeclStmt <(3, 5), (3, 11)>
+        VarDecl <(3, 9), (3, 10)> a int 
+      ExprStmt <(4, 5), (4, 7)>
+        ImplicitCast <LToRValue> <(4, 5), (4, 6)> int  
+          Name a <(4, 5), (4, 6)> int  lvalue

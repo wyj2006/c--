@@ -6,6 +6,7 @@ pub mod stmt;
 use crate::ast::decl::Declaration;
 use crate::ctype::Type;
 use crate::file_map::source_lookup;
+use crate::symtab::SymbolTable;
 use codespan::Span;
 use expr::Expr;
 use std::cell::RefCell;
@@ -16,6 +17,7 @@ pub struct TranslationUnit {
     pub file_id: usize,
     pub span: Span,
     pub decls: Vec<Rc<RefCell<Declaration>>>,
+    pub symtab: Option<Rc<RefCell<SymbolTable>>>,
 }
 
 impl TranslationUnit {
@@ -25,6 +27,7 @@ impl TranslationUnit {
             file_id,
             span,
             decls: vec![],
+            symtab: None,
         }
     }
 }

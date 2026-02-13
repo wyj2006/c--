@@ -22,6 +22,18 @@ impl Variant {
         }
     }
 
+    ///返回None说明无法进行bool运算
+    pub fn bool(&self) -> Option<bool> {
+        match self {
+            Variant::Int(value) => Some(*value != BigInt::ZERO),
+            Variant::Array(array) => Some(array.len() > 0),
+            Variant::Bool(value) => Some(*value),
+            Variant::Nullptr => Some(false),
+            Variant::Rational(value) => Some(*value.numer() != BigInt::ZERO),
+            Variant::Unknown => None,
+        }
+    }
+
     pub fn and(&self, rhs: &Variant) -> Variant {
         match (self, rhs) {
             (Variant::Int(a), Variant::Int(b)) => {

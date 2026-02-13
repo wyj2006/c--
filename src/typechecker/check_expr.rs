@@ -3,7 +3,7 @@ use crate::{
     ast::{
         AttributeKind, InitializerKind,
         decl::StorageClassKind,
-        expr::{BinOpKind, EncodePrefix, Expr, ExprKind, UnaryOpKind},
+        expr::{BinOpKind, CastMethod, EncodePrefix, Expr, ExprKind, UnaryOpKind},
     },
     ctype::{
         Type, TypeKind, TypeQual, arith_result_type, array_element,
@@ -24,7 +24,12 @@ use num::{BigInt, BigRational, FromPrimitive, Num};
 use std::{cell::RefCell, rc::Rc, str::FromStr};
 
 impl TypeChecker {
-    pub fn wrap_implicit_cast(&self, expr: Rc<RefCell<Expr>>, r#type: Rc<RefCell<Type>>) -> Expr {
+    pub fn wrap_implicit_cast(
+        &self,
+        expr: Rc<RefCell<Expr>>,
+        r#type: Rc<RefCell<Type>>,
+        method: CastMethod,
+    ) -> Expr {
         Expr {
             r#type,
             value: expr.borrow().value.clone(),
@@ -35,6 +40,7 @@ impl TypeChecker {
                     is_implicit: true,
                     target: Rc::clone(&expr),
                     decls: Vec::new(),
+                    method,
                 },
             )
         }
@@ -46,33 +52,103 @@ impl TypeChecker {
         source: Rc<RefCell<Expr>>,
         target_type: Rc<RefCell<Type>>,
     ) -> Result<Rc<RefCell<Expr>>, Diagnostic<usize>> {
-        let t = &source.borrow().r#type;
-        if is_compatible(Rc::clone(&target_type), Rc::clone(t)) {
+        let source_type = &source.borrow().r#type;
+        if is_compatible(Rc::clone(&target_type), Rc::clone(source_type)) {
             Ok(Rc::clone(&source))
         }
         //尝试所有可能的转换方式
-        else if target_type.borrow().is_integer() && t.borrow().is_integer()
-            || target_type.borrow().is_integer() && t.borrow().is_real_float()
-            || target_type.borrow().is_real_float() && t.borrow().is_real_float()
-            || target_type.borrow().is_complex() && t.borrow().is_complex()
-            || (target_type.borrow().is_void_ptr() || target_type.borrow().is_pointer())
-                && (target_type.borrow().is_void_ptr()
-                    || t.borrow().is_pointer()
-                    || t.borrow().is_nullptr())
-            || target_type.borrow().is_nullptr() && t.borrow().is_nullptr()
-            || is_compatible(Rc::clone(&target_type), lvalue_cast(Rc::clone(t)))
-            || is_compatible(Rc::clone(&target_type), integer_promote(Rc::clone(t)))
-            || is_compatible(Rc::clone(&target_type), func_to_ptr(Rc::clone(t)))
-            || is_compatible(Rc::clone(&target_type), array_to_ptr(Rc::clone(t)))
+        //TODO 复数
+        else if target_type.borrow().is_complex() && source_type.borrow().is_complex() {
+            Ok(Rc::new(RefCell::new(self.wrap_implicit_cast(
+                Rc::clone(&source),
+                target_type,
+                CastMethod::Nothing,
+            ))))
+        } else if is_compatible(
+            Rc::clone(&target_type),
+            array_to_ptr(Rc::clone(source_type)),
+        ) {
+            Ok(Rc::new(RefCell::new(self.wrap_implicit_cast(
+                Rc::clone(&source),
+                target_type,
+                CastMethod::ArrayToPtr,
+            ))))
+        } else if is_compatible(Rc::clone(&target_type), func_to_ptr(Rc::clone(source_type))) {
+            Ok(Rc::new(RefCell::new(self.wrap_implicit_cast(
+                Rc::clone(&source),
+                target_type,
+                CastMethod::FuncToPtr,
+            ))))
+        } else if is_compatible(Rc::clone(&target_type), lvalue_cast(Rc::clone(source_type))) {
+            Ok(Rc::new(RefCell::new(self.wrap_implicit_cast(
+                Rc::clone(&source),
+                target_type,
+                CastMethod::LToRValue,
+            ))))
+        } else if (target_type.borrow().is_void_ptr() || target_type.borrow().is_pointer())
+            && (target_type.borrow().is_void_ptr()
+                || source_type.borrow().is_pointer()
+                || source_type.borrow().is_nullptr())
+            || (target_type.borrow().is_nullptr() && source_type.borrow().is_nullptr())
         {
-            Ok(Rc::new(RefCell::new(
-                self.wrap_implicit_cast(Rc::clone(&source), target_type),
-            )))
+            Ok(Rc::new(RefCell::new(self.wrap_implicit_cast(
+                Rc::clone(&source),
+                target_type,
+                CastMethod::PtrToPtr,
+            ))))
+        } else if target_type.borrow().is_real_float() && source_type.borrow().is_real_float() {
+            Ok(Rc::new(RefCell::new(self.wrap_implicit_cast(
+                Rc::clone(&source),
+                target_type.clone(),
+                if source_type.borrow().size().unwrap() > target_type.borrow().size().unwrap() {
+                    CastMethod::FloatTrunc
+                } else {
+                    CastMethod::FloatExtand
+                },
+            ))))
+        } else if target_type.borrow().is_integer() && source_type.borrow().is_real_float() {
+            Ok(Rc::new(RefCell::new(self.wrap_implicit_cast(
+                Rc::clone(&source),
+                target_type.clone(),
+                if target_type.borrow().is_unsigned().unwrap() {
+                    CastMethod::FloatToUInt
+                } else {
+                    CastMethod::FloatToSInt
+                },
+            ))))
+        } else if target_type.borrow().is_real_float() && source_type.borrow().is_integer() {
+            Ok(Rc::new(RefCell::new(self.wrap_implicit_cast(
+                Rc::clone(&source),
+                target_type.clone(),
+                if source_type.borrow().is_unsigned().unwrap() {
+                    CastMethod::UIntToFloat
+                } else {
+                    CastMethod::SIntToFloat
+                },
+            ))))
+        } else if target_type.borrow().is_integer() && source_type.borrow().is_integer() {
+            if source_type.borrow().size().unwrap() < target_type.borrow().size().unwrap() {
+                Ok(Rc::new(RefCell::new(self.wrap_implicit_cast(
+                    Rc::clone(&source),
+                    target_type.clone(),
+                    if source_type.borrow().is_unsigned().unwrap() {
+                        CastMethod::ZeroExtand
+                    } else {
+                        CastMethod::SignedExtand
+                    },
+                ))))
+            } else {
+                Ok(Rc::new(RefCell::new(self.wrap_implicit_cast(
+                    Rc::clone(&source),
+                    target_type,
+                    CastMethod::IntTrunc,
+                ))))
+            }
         } else {
             Err(Diagnostic::error()
                 .with_message(format!(
                     "cannot convert '{}' to '{}'",
-                    t.borrow().to_string(),
+                    source_type.borrow().to_string(),
                     target_type.borrow().to_string()
                 ))
                 .with_label(Label::primary(
@@ -217,6 +293,16 @@ impl TypeChecker {
             } => {
                 *expr = new_expr;
                 *r#type = new_type;
+
+                match (expr, r#type) {
+                    //在消歧义的时候就已经完成了检查
+                    (Some(_), None) | (None, Some(_)) => {
+                        // sizeof不是左值, 函数, 数组, 肯定不需要函数末的转换
+                        self.contexts.pop();
+                        return Ok(());
+                    }
+                    _ => {}
+                }
             }
             _ => {}
         }
@@ -675,6 +761,9 @@ impl TypeChecker {
                 }
                 ExprKind::Cast { target, .. } => {
                     self.visit_expr(Rc::clone(target))?;
+                    let target_type = Rc::clone(&node.r#type);
+                    let value = target.borrow().value.clone();
+                    let symbol = target.borrow().symbol.clone();
 
                     if !(match node.r#type.borrow().kind {
                         TypeKind::Void => true,
@@ -683,19 +772,37 @@ impl TypeChecker {
                         Rc::clone(&node.r#type),
                         Rc::clone(&target.borrow().r#type),
                     )) {
-                        let a = node.r#type.borrow();
-                        let target_ref = target.borrow();
-                        let b = target_ref.r#type.borrow();
-                        if !(a.is_integer() && b.is_pointer()
-                            || a.is_pointer() && b.is_integer()
-                            || a.is_pointer() && b.is_pointer())
+                        let source_type = Rc::clone(&target.borrow().r#type);
+                        let method = if target_type.borrow().is_integer()
+                            && (source_type.borrow().is_pointer()
+                                || source_type.borrow().is_nullptr())
                         {
-                            self.try_implicit_cast(Rc::clone(target), Rc::clone(&node.r#type))?;
+                            CastMethod::PtrToInt
+                        } else if source_type.borrow().is_integer()
+                            && (target_type.borrow().is_pointer()
+                                || target_type.borrow().is_nullptr())
+                        {
+                            CastMethod::IntToPtr
+                        } else {
+                            match &self
+                                .try_implicit_cast(Rc::clone(target), target_type)?
+                                .borrow()
+                                .kind
+                            {
+                                ExprKind::Cast { method, .. } => *method,
+                                _ => unreachable!(),
+                            }
+                        };
+                        match &mut node.kind {
+                            ExprKind::Cast {
+                                method: method_mut, ..
+                            } => {
+                                *method_mut = method;
+                            }
+                            _ => unreachable!(),
                         }
                     }
 
-                    let value = target.borrow().value.clone();
-                    let symbol = target.borrow().symbol.clone();
                     node.value = value;
                     node.symbol = symbol;
                 }
@@ -1168,7 +1275,9 @@ impl TypeChecker {
                                                 )));
                                         }
                                         SymbolKind::Object { storage_classes }
-                                        | SymbolKind::Parameter { storage_classes } => {
+                                        | SymbolKind::Parameter {
+                                            storage_classes, ..
+                                        } => {
                                             for storage_class in storage_classes {
                                                 match &storage_class.kind {
                                                     StorageClassKind::Register => {
@@ -1259,7 +1368,7 @@ impl TypeChecker {
 
                                 node.value = value;
                                 node.r#type = Rc::new(RefCell::new(Type {
-                                    kind: TypeKind::Int,
+                                    kind: TypeKind::Bool, //标准里说的是int类型
                                     ..Type::new(node.file_id, node.span)
                                 }));
                             }
@@ -1316,7 +1425,7 @@ impl TypeChecker {
                                 .with_label(Label::primary(right.borrow().file_id,right.borrow().span).with_message("the right operand")));
                             }
                             node.r#type = Rc::new(RefCell::new(Type {
-                                kind: TypeKind::Int,
+                                kind: TypeKind::Bool, //标准里说的是int类型
                                 ..Type::new(node.file_id, node.span)
                             }));
                         }
@@ -1345,10 +1454,10 @@ impl TypeChecker {
                                     }
                                     _ => unreachable!(),
                                 }
-                            } else if left.borrow().r#type.borrow().is_pointer()
-                                || left.borrow().r#type.borrow().is_nullptr()
-                                    && right.borrow().r#type.borrow().is_pointer()
-                                || right.borrow().r#type.borrow().is_nullptr()
+                            } else if (left.borrow().r#type.borrow().is_pointer()
+                                || left.borrow().r#type.borrow().is_nullptr())
+                                && (right.borrow().r#type.borrow().is_pointer()
+                                    || right.borrow().r#type.borrow().is_nullptr())
                             {
                                 match &mut node.kind {
                                     ExprKind::BinOp { left, right, .. } => {
@@ -1393,13 +1502,6 @@ impl TypeChecker {
                                     }
                                     _ => unreachable!(),
                                 }
-                                node.r#type = Rc::new(RefCell::new(Type {
-                                    kind: TypeKind::Pointer(Rc::new(RefCell::new(Type {
-                                        kind: TypeKind::Void,
-                                        ..Type::new(node.file_id, node.span)
-                                    }))),
-                                    ..Type::new(node.file_id, node.span)
-                                }));
                             } else {
                                 return Err(Diagnostic::error().with_message(format!(
                                         "the operator of '{op}' must have an arithmetic type or is a pointer"
@@ -1407,7 +1509,7 @@ impl TypeChecker {
                                 .with_label(Label::primary(right.borrow().file_id,right.borrow().span).with_message("the right operand")));
                             }
                             node.r#type = Rc::new(RefCell::new(Type {
-                                kind: TypeKind::Int,
+                                kind: TypeKind::Bool, //标准里说的是int类型
                                 ..Type::new(node.file_id, node.span)
                             }));
                         }
@@ -1468,7 +1570,24 @@ impl TypeChecker {
                             }
                         }
                         BinOpKind::Mul | BinOpKind::Div | BinOpKind::Mod => {
-                            //对于取余运算只能是整数, 但这里并没有判断
+                            if let BinOpKind::Mod = op
+                                && !(left.borrow().r#type.borrow().is_integer()
+                                    && right.borrow().r#type.borrow().is_integer())
+                            {
+                                return Err(Diagnostic::error()
+                                    .with_message(format!(
+                                        "the operator of '{op}' must have an integer type"
+                                    ))
+                                    .with_label(Label::primary(
+                                        left.borrow().file_id,
+                                        left.borrow().span,
+                                    ))
+                                    .with_message("the left operand")
+                                    .with_label(
+                                        Label::primary(right.borrow().file_id, right.borrow().span)
+                                            .with_message("the right operand"),
+                                    ));
+                            }
                             if left.borrow().r#type.borrow().is_arithmetic()
                                 && right.borrow().r#type.borrow().is_arithmetic()
                             {
@@ -1663,7 +1782,8 @@ impl TypeChecker {
                                         BinOpKind::BitXOrAssign => BinOpKind::BitXOr,
                                         _ => unreachable!(),
                                     },
-                                    left: Rc::clone(left),
+                                    //在检查这个表达式的时候left可能会进行左值转换, 但实际上不需要
+                                    left: Rc::new(RefCell::new(left.borrow().clone())),
                                     right: Rc::clone(right),
                                 },
                             )));
@@ -1686,11 +1806,8 @@ impl TypeChecker {
                             node.r#type = r#type;
                         }
                         BinOpKind::Comma => {
-                            self.visit_expr(Rc::clone(left))?;
-                            self.visit_expr(Rc::clone(right))?;
-
-                            let r#type = Rc::clone(&left.borrow().r#type);
-                            let value = left.borrow().value.clone();
+                            let r#type = Rc::clone(&right.borrow().r#type);
+                            let value = right.borrow().value.clone();
 
                             node.value = value;
                             node.r#type = r#type;
@@ -1705,6 +1822,16 @@ impl TypeChecker {
                     self.visit_expr(Rc::clone(condition))?;
                     self.visit_expr(Rc::clone(true_expr))?;
                     self.visit_expr(Rc::clone(false_expr))?;
+
+                    let value = if let Some(t) = condition.borrow().value.bool() {
+                        if t {
+                            true_expr.borrow().value.clone()
+                        } else {
+                            false_expr.borrow().value.clone()
+                        }
+                    } else {
+                        Variant::Unknown
+                    };
 
                     if true_expr.borrow().r#type.borrow().is_arithmetic()
                         && false_expr.borrow().r#type.borrow().is_arithmetic()
@@ -1801,6 +1928,7 @@ impl TypeChecker {
                                 "the operand of conditional expression must have an arithmetic or void type or is a pointer"
                             )).with_label(Label::primary(true_expr.borrow().file_id,true_expr.borrow().span).with_message("the true-expression")).with_label(Label::primary(false_expr.borrow().file_id,false_expr.borrow().span).with_message("the false-expression")));
                     }
+                    node.value = value;
                 }
                 ExprKind::SizeOf {
                     r#type: Some(_),
@@ -1957,6 +2085,7 @@ impl TypeChecker {
                 let expr = self.wrap_implicit_cast(
                     Rc::new(RefCell::new(node.borrow().clone())),
                     array_to_ptr(Rc::clone(&node.borrow().r#type)),
+                    CastMethod::ArrayToPtr,
                 );
                 node.replace(expr);
             }
@@ -1964,6 +2093,7 @@ impl TypeChecker {
             let expr = self.wrap_implicit_cast(
                 Rc::new(RefCell::new(node.borrow().clone())),
                 lvalue_cast(Rc::clone(&node.borrow().r#type)),
+                CastMethod::LToRValue,
             );
             node.replace(expr);
         }
@@ -1972,6 +2102,7 @@ impl TypeChecker {
             let expr = self.wrap_implicit_cast(
                 Rc::new(RefCell::new(node.borrow().clone())),
                 func_to_ptr(Rc::clone(&node.borrow().r#type)),
+                CastMethod::FuncToPtr,
             );
             node.replace(expr);
         }

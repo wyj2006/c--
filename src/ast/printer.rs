@@ -100,11 +100,7 @@ impl Print for Declaration {
             "{} {} {} {} {}",
             match &self.kind {
                 DeclarationKind::Var { initializer: _ } => "VarDecl",
-                DeclarationKind::Function {
-                    parameter_decls: _,
-                    function_specs,
-                    body: _,
-                } => &format!(
+                DeclarationKind::Function { function_specs, .. } => &format!(
                     "FunctionDecl {}",
                     function_specs
                         .iter()
@@ -113,13 +109,13 @@ impl Print for Declaration {
                         .join(" ")
                 ),
                 DeclarationKind::Type => "TypeDecl",
-                DeclarationKind::Record { members_decl: _ } => "RecordDecl",
-                DeclarationKind::Enum { enumerators: _ } => "EnumDecl",
-                DeclarationKind::StaticAssert { expr: _ } => "StaticAssert",
+                DeclarationKind::Record { .. } => "RecordDecl",
+                DeclarationKind::Enum { .. } => "EnumDecl",
+                DeclarationKind::StaticAssert { .. } => "StaticAssert",
                 DeclarationKind::Attribute => "AttributeDecl",
-                DeclarationKind::Enumerator { value: _ } => "Enumerator",
+                DeclarationKind::Enumerator { .. } => "Enumerator",
                 DeclarationKind::Parameter => "ParamDecl",
-                DeclarationKind::Member { bit_field: _ } => "MemberDecl",
+                DeclarationKind::Member { .. } => "MemberDecl",
             },
             format_location(self.file_id, self.span),
             self.name,
@@ -150,8 +146,8 @@ impl Print for Declaration {
             }
             DeclarationKind::Function {
                 parameter_decls,
-                function_specs: _,
                 body,
+                ..
             } => {
                 lines.extend(parameter_decls.print_line(indent));
                 lines.extend(body.print_line(indent));
@@ -212,13 +208,20 @@ impl Print for Stmt {
                 StmtKind::Case { .. } => "Case",
                 StmtKind::Compound(_) => "Compound",
                 StmtKind::Continue => "Continue",
-                StmtKind::Decl(_) => "DeclStmt",
                 StmtKind::Default(_) => "Default",
                 StmtKind::DoWhile {
                     condition: _,
                     body: _,
                 } => "DoWhile",
-                StmtKind::Expr(_) => "ExprStmt",
+                StmtKind::DeclExpr {
+                    decls: Some(_),
+                    expr: None,
+                } => "DeclStmt",
+                StmtKind::DeclExpr {
+                    decls: None,
+                    expr: Some(_),
+                } => "ExprStmt",
+                StmtKind::DeclExpr { .. } => "DeclExprStmt",
                 StmtKind::For { .. } => "For",
                 StmtKind::Goto(name) => &format!("Goto {}", name),
                 StmtKind::If { .. } => "If",
@@ -243,12 +246,14 @@ impl Print for Stmt {
                 lines.extend(stmt.print_line(indent));
             }
             StmtKind::Compound(t) => lines.extend(t.print_line(indent)),
-            StmtKind::Decl(t) => lines.extend(t.print_line(indent)),
             StmtKind::DoWhile { condition, body } => {
                 lines.extend(condition.print_line(indent));
                 lines.extend(body.print_line(indent));
             }
-            StmtKind::Expr(t) => lines.extend(t.print_line(indent)),
+            StmtKind::DeclExpr { decls, expr } => {
+                lines.extend(decls.print_line(indent));
+                lines.extend(expr.print_line(indent));
+            }
             StmtKind::For {
                 init_expr,
                 init_decl,
@@ -301,11 +306,15 @@ impl Print for Expr {
                 ExprKind::Alignof { r#type, .. } => &format!("Alignof {}", r#type.borrow()),
                 ExprKind::BinOp { op, .. } => &format!("BinOp {:?}", op),
                 ExprKind::Cast {
-                    is_implicit: false, ..
-                } => &format!("Cast"),
+                    is_implicit: false,
+                    method,
+                    ..
+                } => &format!("Cast <{method}>"),
                 ExprKind::Cast {
-                    is_implicit: true, ..
-                } => &format!("ImplicitCast"),
+                    is_implicit: true,
+                    method,
+                    ..
+                } => &format!("ImplicitCast <{method}>"),
                 ExprKind::Char { prefix, text } => &format!("Char {prefix:?} {text:?}"),
                 ExprKind::CompoundLiteral {
                     storage_classes, ..

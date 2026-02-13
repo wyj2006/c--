@@ -39,13 +39,27 @@ pub struct Symbol {
 #[derive(Debug, Clone)]
 pub enum SymbolKind {
     Label,
-    Record { kind: RecordKind },
+    Record {
+        kind: RecordKind,
+    },
     Enum,
-    Object { storage_classes: Vec<StorageClass> },
-    Member { bit_field: Option<BigInt> },
-    Function { function_specs: Vec<FunctionSpec> },
-    Parameter { storage_classes: Vec<StorageClass> },
-    EnumConst { value: BigInt },
+    Object {
+        storage_classes: Vec<StorageClass>,
+    },
+    Member {
+        bit_field: Option<BigInt>,
+    },
+    Function {
+        function_specs: Vec<FunctionSpec>,
+    },
+    Parameter {
+        storage_classes: Vec<StorageClass>,
+        //参数位置, 从0开始计
+        index: u32,
+    },
+    EnumConst {
+        value: BigInt,
+    },
     Type,
 }
 
@@ -79,7 +93,9 @@ impl SymbolTable {
                     symbol.r#type.as_ptr(),
                     match &symbol.kind {
                         SymbolKind::Object { storage_classes }
-                        | SymbolKind::Parameter { storage_classes } => storage_classes
+                        | SymbolKind::Parameter {
+                            storage_classes, ..
+                        } => storage_classes
                             .iter()
                             .map(|x| x.kind.to_string())
                             .collect::<Vec<String>>()
@@ -110,7 +126,8 @@ impl SymbolTable {
                     TypeKind::Record { members, .. } => {
                         if let Some(t) = members {
                             for (name, member) in t {
-                                let SymbolKind::Member { bit_field } = &member.borrow().kind else {
+                                let SymbolKind::Member { bit_field, .. } = &member.borrow().kind
+                                else {
                                     unreachable!();
                                 };
                                 println!(

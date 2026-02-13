@@ -21,7 +21,7 @@ pub struct TypeChecker {
     //作用域所位于的函数作用域
     pub func_symtabs: Vec<Rc<RefCell<SymbolTable>>>,
     //正在处理的函数类型
-    pub funcs: Vec<Rc<RefCell<Type>>>,
+    pub func_types: Vec<Rc<RefCell<Type>>>,
     //正在处理的record类型的成员
     pub member_symtabs: Vec<Rc<RefCell<SymbolTable>>>,
     //正在处理的enum类型
@@ -44,7 +44,7 @@ impl TypeChecker {
         TypeChecker {
             cur_symtab,
             func_symtabs: vec![],
-            funcs: vec![],
+            func_types: vec![],
             member_symtabs: vec![],
             enums: vec![],
             contexts: vec![],
@@ -61,7 +61,8 @@ impl TypeChecker {
         self.cur_symtab = new_symtab;
     }
 
-    pub fn leave_scope(&mut self) {
+    pub fn leave_scope(&mut self) -> Rc<RefCell<SymbolTable>> {
+        let cur_symtab = Rc::clone(&self.cur_symtab);
         let parent_symtab;
         {
             let cur_symtab = self.cur_symtab.borrow();
@@ -70,10 +71,10 @@ impl TypeChecker {
                 None => parent_symtab = None,
             };
         }
-        let Some(parent_symtab) = parent_symtab else {
-            return;
+        if let Some(parent_symtab) = &parent_symtab {
+            self.cur_symtab = Rc::clone(parent_symtab);
         };
-        self.cur_symtab = Rc::clone(&parent_symtab);
+        cur_symtab
     }
 
     pub fn check(&mut self, ast: Rc<RefCell<TranslationUnit>>) -> Result<(), Diagnostic<usize>> {

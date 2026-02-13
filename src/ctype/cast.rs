@@ -132,10 +132,12 @@ pub fn usual_arith_cast(
             Rc::clone(&a),
             Rc::new(RefCell::new(Type {
                 kind: match y {
-                    TypeKind::Complex(..) => TypeKind::Complex(Some(Rc::new(RefCell::new(Type {
-                        kind: x.clone(),
-                        ..b.borrow().clone()
-                    })))),
+                    TypeKind::Complex(Some(t)) => {
+                        TypeKind::Complex(Some(Rc::new(RefCell::new(Type {
+                            kind: x.clone(),
+                            ..t.borrow().clone()
+                        }))))
+                    }
                     _ => x.clone(),
                 },
                 ..b.borrow().clone()
@@ -144,10 +146,12 @@ pub fn usual_arith_cast(
         (x, y @ (TypeKind::LongDouble | TypeKind::Double | TypeKind::Float)) => Ok((
             Rc::new(RefCell::new(Type {
                 kind: match x {
-                    TypeKind::Complex(..) => TypeKind::Complex(Some(Rc::new(RefCell::new(Type {
-                        kind: y.clone(),
-                        ..a.borrow().clone()
-                    })))),
+                    TypeKind::Complex(Some(t)) => {
+                        TypeKind::Complex(Some(Rc::new(RefCell::new(Type {
+                            kind: y.clone(),
+                            ..t.borrow().clone()
+                        }))))
+                    }
                     _ => y.clone(),
                 },
                 ..a.borrow().clone()

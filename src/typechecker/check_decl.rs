@@ -14,7 +14,7 @@ use crate::{
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use indexmap::IndexMap;
 use num::{BigInt, ToPrimitive};
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, ptr::addr_of, rc::Rc};
 
 impl TypeChecker {
     pub fn check_type(&mut self, r#type: &mut Rc<RefCell<Type>>) -> Result<(), Diagnostic<usize>> {
@@ -146,7 +146,10 @@ impl TypeChecker {
                             return_type: remove_qualifier(Rc::clone(return_type)),
                             parameters_type: {
                                 let mut t = Vec::new();
-                                for p in parameters_type {
+                                for (i, p) in parameters_type.iter_mut().enumerate() {
+                                    if p.borrow().is_void() && i > 0 {
+                                        return Err(Diagnostic::error().with_message("void' must be the first and only parameter if specified").with_label(Label::primary(p.borrow().file_id, p.borrow().span)));
+                                    }
                                     self.check_type(p)?;
                                     t.push(as_parameter_type(Rc::clone(p)));
                                 }
@@ -167,7 +170,7 @@ impl TypeChecker {
                     if let Some(len_expr) = len_expr {
                         self.visit_expr(Rc::clone(&len_expr))?;
                         match &len_expr.borrow().value {
-                            Variant::Int(value) => match value.to_usize() {
+                            Variant::Int(value) => match value.to_u32() {
                                 Some(_) => {}
                                 None => {
                                     return Err(Diagnostic::error()
@@ -178,6 +181,8 @@ impl TypeChecker {
                                         )));
                                 }
                             },
+                            //VLA的情况
+                            Variant::Unknown => {}
                             _ => {
                                 return Err(Diagnostic::error()
                                     .with_message(format!(
@@ -318,7 +323,7 @@ impl TypeChecker {
             }
         }
 
-        let node = node.borrow();
+        let mut node = node.borrow_mut();
 
         if node.storage_classes.len() > 1 {
             return Err(Diagnostic::error()
@@ -379,12 +384,13 @@ impl TypeChecker {
                 parameter_decls,
                 function_specs,
                 body,
+                ..
             } => {
                 let parent_symtab = Rc::clone(&self.cur_symtab);
 
                 self.enter_scope();
                 self.func_symtabs.push(Rc::clone(&self.cur_symtab));
-                self.funcs.push(Rc::clone(&node.r#type));
+                self.func_types.push(Rc::clone(&node.r#type));
 
                 for decl in parameter_decls {
                     self.visit_declaration(Rc::clone(decl))?;
@@ -442,9 +448,16 @@ impl TypeChecker {
                     self.visit_stmt(Rc::clone(body))?;
                 }
 
-                self.funcs.pop();
+                self.func_types.pop();
                 self.func_symtabs.pop();
-                self.leave_scope();
+                match &mut node.kind {
+                    DeclarationKind::Function { symtab, .. } => {
+                        *symtab = Some(self.leave_scope());
+                    }
+                    _ => {
+                        self.leave_scope();
+                    }
+                }
             }
             DeclarationKind::Parameter => {
                 if node.r#type.borrow().has_alignas() {
@@ -469,6 +482,24 @@ impl TypeChecker {
                         .with_message(format!("parameter cannot have a void type"))
                         .with_label(Label::primary(node.file_id, node.span)));
                 }
+                let index = match self
+                    .cur_symtab
+                    .borrow()
+                    .namespaces
+                    .get(&Namespace::Ordinary)
+                {
+                    Some(t) => t
+                        .iter()
+                        .map(|(_, symbol)| {
+                            if let SymbolKind::Parameter { .. } = symbol.borrow().kind {
+                                1
+                            } else {
+                                0
+                            }
+                        })
+                        .sum(),
+                    None => 0,
+                };
                 self.cur_symtab.borrow_mut().add(
                     Namespace::Ordinary,
                     Rc::new(RefCell::new(Symbol {
@@ -477,6 +508,7 @@ impl TypeChecker {
                         name: node.name.clone(),
                         kind: SymbolKind::Parameter {
                             storage_classes: node.storage_classes.clone(),
+                            index,
                         },
                         r#type: Rc::clone(&node.r#type),
                         attributes: node.attributes.clone(),
@@ -550,6 +582,7 @@ impl TypeChecker {
                 }
             }
             DeclarationKind::Member { bit_field } => {
+                let bit_field = bit_field.clone();
                 if let Some(_) = bit_field
                     && node.r#type.borrow().has_alignas()
                 {
@@ -580,8 +613,20 @@ impl TypeChecker {
                         .with_label(Label::primary(node.file_id, node.span)));
                 }
 
-                if let Some(t) = bit_field {
+                if let Some(_) = bit_field
+                    && !node.r#type.borrow().is_integer()
+                {
+                    return Err(Diagnostic::error()
+                        .with_message("bit-field must be an integer")
+                        .with_label(Label::primary(node.file_id, node.span)));
+                }
+
+                if let Some(t) = &bit_field {
                     self.visit_expr(Rc::clone(t))?;
+                    if node.name.len() == 0 {
+                        //无名位域会影响内存结构, 但无名非位域不会
+                        node.name = format!("{}", addr_of!(*node) as usize);
+                    }
                 }
 
                 let symbol = Rc::new(RefCell::new(Symbol {
@@ -594,7 +639,9 @@ impl TypeChecker {
                                 Variant::Int(value) => Some(value.clone()),
                                 _ => {
                                     return Err(Diagnostic::error()
-                                        .with_message(format!("bit-field must has an integer type"))
+                                        .with_message(format!(
+                                            "the width of bit-field must has an integer type"
+                                        ))
                                         .with_label(Label::primary(
                                             t.borrow().file_id,
                                             t.borrow().span,

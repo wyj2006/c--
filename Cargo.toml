@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+bigdecimal = "0.4.10"
 chrono = "0.4.42"
 codespan = "0.13.1"
 codespan-reporting = "0.13.1"
@@ -14,5 +15,7 @@ num = "0.4.3"
 pest = { version = "2.8.5", features = ["pretty-print"] }
 pest_derive = { version = "2.8.5", features = ["grammar-extras"] }
 
-[dev-dependencies]
-regex = "1.12.2"
+[dependencies.inkwell]
+version = "0.8.0"
+default-features = false
+features = ["llvm21-1","target-x86"]

@@ -1,7 +1,7 @@
 use codespan::Span;
 use codespan_reporting::files::{Error, Files, SimpleFile};
 use indexmap::IndexMap;
-use std::{cell::RefCell, cmp::min, ops::Range, rc::Rc};
+use std::{cell::RefCell, ops::Range, rc::Rc};
 
 use crate::{
     ast::expr::{Expr, ExprKind},
@@ -117,20 +117,36 @@ pub fn source_map(file_path: String, tokens: &Vec<Token>) -> usize {
     file_id
 }
 
-pub fn source_lookup(file_id: usize, span: Span) -> (usize, Span) {
+pub fn source_lookup(mut file_id: usize, span: Span) -> (usize, Span) {
     let file_map = &files.lock().unwrap();
     let start = span.start().to_usize();
     let end = span.end().to_usize();
+    let mut new_start = None;
+    let mut new_end = None;
     for ((key_file_id, key_span), (val_file_id, val_span)) in &file_map.mappings {
         if *key_file_id != file_id {
             continue;
         }
-        if span.disjoint(*key_span) {
+        if !(key_span.start().to_usize() <= start && start <= key_span.end().to_usize()) {
             continue;
         }
-        let new_start = val_span.start().to_usize() + start - key_span.start().to_usize();
-        let new_end = min(new_start + end - start, val_span.end().to_usize());
-        return (*val_file_id, Span::new(new_start as u32, new_end as u32));
+        if let None = new_start {
+            new_start = Some(val_span.end().to_usize() - (key_span.end().to_usize() - start));
+        }
+        if !(key_span.start().to_usize() <= end && end <= key_span.end().to_usize()) {
+            continue;
+        }
+        if let None = new_end {
+            new_end = Some(val_span.start().to_usize() + end - key_span.start().to_usize());
+            file_id = *val_file_id;
+            break;
+        }
     }
-    (file_id, span)
+    if let Some(start) = new_start
+        && let Some(end) = new_end
+    {
+        (file_id, Span::new(start as u32, end as u32))
+    } else {
+        (file_id, span)
+    }
 }

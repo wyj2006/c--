@@ -1,6 +1,4 @@
-use crate::typechecker::tests::quick_new_parser;
-use crate::{symtab::SymbolTable, typechecker::TypeChecker, typechecker_test_template};
-use std::{cell::RefCell, rc::Rc};
+use crate::typechecker_test_template;
 
 typechecker_test_template!(
     init_scale,

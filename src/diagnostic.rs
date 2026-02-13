@@ -8,6 +8,7 @@ use codespan_reporting::{
         termcolor::{ColorChoice, StandardStream},
     },
 };
+use inkwell::builder::BuilderError;
 use pest::{RuleType, error::Error};
 
 pub fn from_pest_span<'a>(span: pest::Span<'a>) -> Span {
@@ -24,6 +25,19 @@ pub fn map_pest_err<T, R: RuleType>(
             "\n{}",
             e.with_path(&files.lock().unwrap().name(file_id).unwrap())
         ))),
+    }
+}
+
+pub fn map_builder_err<T>(
+    file_id: usize,
+    span: Span,
+    result: Result<T, BuilderError>,
+) -> Result<T, Diagnostic<usize>> {
+    match result {
+        Ok(t) => Ok(t),
+        Err(e) => Err(Diagnostic::error()
+            .with_message(format!("{e}"))
+            .with_label(Label::primary(file_id, span))),
     }
 }
 

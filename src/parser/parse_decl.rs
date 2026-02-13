@@ -886,6 +886,7 @@ impl CParser {
                                             parameter_decls: parameter_decls.clone(),
                                             function_specs: vec![],
                                             body: None,
+                                            symtab: None,
                                         },
                                     )
                                 })));
@@ -984,6 +985,7 @@ impl CParser {
                         parameter_decls,
                         function_specs: Vec::new(),
                         body: None,
+                        symtab: None,
                     }
                 }
                 _ => DeclarationKind::Var { initializer: None },

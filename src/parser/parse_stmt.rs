@@ -1,9 +1,12 @@
 use super::{CParser, Rule};
 use crate::ast::stmt::{Stmt, StmtKind};
-use crate::diagnostic::from_pest_span;
+use crate::diagnostic::{from_pest_span, map_pest_err};
+use crate::file_map::source_map;
 use crate::parser::parse_identifier;
+use crate::preprocessor::token::{Token, TokenKind};
 use codespan_reporting::diagnostic::Diagnostic;
 use pest::iterators::Pair;
+use pest::{Parser, Span};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -18,9 +21,53 @@ impl CParser {
         for rule in rule.into_inner() {
             match rule.as_rule() {
                 Rule::declaration => {
+                    let mut decls = None;
+                    let mut expr = None;
+                    let mut errs = Vec::new();
                     let span = rule.as_span();
+
+                    //去除declaration最后的分号
+                    let content = rule.as_str()[..rule.as_str().len() - 1].to_string();
+                    let part_id = source_map(
+                        self.file_path(),
+                        &vec![Token::new(
+                            self.file_id,
+                            from_pest_span(
+                                Span::new(span.get_input(), span.start(), span.end() - 1).unwrap(),
+                            ),
+                            TokenKind::Text {
+                                is_whitespace: false,
+                                content: content.clone(),
+                            },
+                        )],
+                    );
+                    match map_pest_err(part_id, CParser::parse(Rule::expression, &content)) {
+                        Ok(rules) => {
+                            for rule in rules {
+                                match CParser::new(part_id).parse_expression(rule) {
+                                    Ok(t) => {
+                                        expr = Some(t);
+                                    }
+                                    Err(e) => errs.push(e),
+                                }
+                            }
+                        }
+                        Err(e) => errs.push(e),
+                    }
+
+                    match self.parse_declaration(rule) {
+                        Ok(t) => decls = Some(t),
+                        Err(e) => errs.push(e),
+                    }
+
+                    if let None = decls
+                        && let None = expr
+                    {
+                        return Err(errs[0].clone());
+                    }
+
                     stmts.push(Rc::new(RefCell::new(Stmt {
-                        kind: StmtKind::Decl(self.parse_declaration(rule)?),
+                        kind: StmtKind::DeclExpr { decls, expr },
                         ..Stmt::new(self.file_id, from_pest_span(span))
                     })));
                 }
@@ -53,11 +100,54 @@ impl CParser {
                 Rule::iteration_statement => stmt = Some(self.parse_iteration_statement(rule)?),
                 Rule::jump_statement => stmt = Some(self.parse_jump_statement(rule)?),
                 Rule::expression => {
+                    let mut decls = None;
+                    let mut expr = None;
+                    let mut errs = Vec::new();
                     let span = rule.as_span();
+
+                    let content = rule.as_str().to_string() + ";";
+                    let part_id = source_map(
+                        self.file_path(),
+                        &vec![Token::new(
+                            self.file_id,
+                            from_pest_span(
+                                Span::new(span.get_input(), span.start(), span.end() + 1).unwrap(),
+                            ),
+                            TokenKind::Text {
+                                is_whitespace: false,
+                                content: content.clone(),
+                            },
+                        )],
+                    );
+                    match map_pest_err(part_id, CParser::parse(Rule::declaration, &content)) {
+                        Ok(rules) => {
+                            for rule in rules {
+                                match CParser::new(part_id).parse_declaration(rule) {
+                                    Ok(t) => {
+                                        decls = Some(t);
+                                    }
+                                    Err(e) => errs.push(e),
+                                }
+                            }
+                        }
+                        Err(e) => errs.push(e),
+                    }
+
+                    match self.parse_expression(rule) {
+                        Ok(t) => expr = Some(t),
+                        Err(e) => errs.push(e),
+                    }
+
+                    if let None = decls
+                        && let None = expr
+                    {
+                        return Err(errs[0].clone());
+                    }
+
                     stmt = Some(Rc::new(RefCell::new(Stmt {
-                        kind: StmtKind::Expr(self.parse_expression(rule)?),
+                        kind: StmtKind::DeclExpr { decls, expr },
                         ..Stmt::new(self.file_id, from_pest_span(span))
-                    })))
+                    })));
                 }
                 _ => unreachable!(),
             }

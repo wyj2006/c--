@@ -2,6 +2,7 @@ use super::Attribute;
 use super::decl::Declaration;
 use super::expr::Expr;
 use crate::file_map::source_lookup;
+use crate::symtab::SymbolTable;
 use codespan::Span;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -11,6 +12,7 @@ pub struct Stmt {
     pub file_id: usize,
     pub span: Span,
     pub attributes: Vec<Rc<RefCell<Attribute>>>,
+    pub symtab: Option<Rc<RefCell<SymbolTable>>>,
     pub kind: StmtKind,
 }
 
@@ -21,6 +23,7 @@ impl Stmt {
             file_id,
             span,
             attributes: vec![],
+            symtab: None,
             kind: StmtKind::Null,
         }
     }
@@ -59,7 +62,6 @@ pub enum StmtKind {
     Return {
         expr: Option<Rc<RefCell<Expr>>>,
     },
-    Expr(Rc<RefCell<Expr>>),
     Label {
         name: String,
         stmt: Option<Rc<RefCell<Stmt>>>,
@@ -69,6 +71,10 @@ pub enum StmtKind {
         stmt: Option<Rc<RefCell<Stmt>>>,
     },
     Default(Option<Rc<RefCell<Stmt>>>),
-    Decl(Vec<Rc<RefCell<Declaration>>>),
+    DeclExpr {
+        //类似于sizeof用于消歧义的结构
+        decls: Option<Vec<Rc<RefCell<Declaration>>>>,
+        expr: Option<Rc<RefCell<Expr>>>,
+    },
     Null,
 }

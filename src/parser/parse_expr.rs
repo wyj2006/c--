@@ -1,6 +1,6 @@
 use super::{CParser, Rule};
 use crate::{
-    ast::expr::{BinOpKind, EncodePrefix, Expr, ExprKind, GenericAssoc, UnaryOpKind},
+    ast::expr::{BinOpKind, CastMethod, EncodePrefix, Expr, ExprKind, GenericAssoc, UnaryOpKind},
     ctype::Type,
     diagnostic::{from_pest_span, map_pest_err},
     file_map::source_map,
@@ -189,6 +189,7 @@ impl CParser {
                             Rule::type_name => {
                                 //可能会产生歧义的地方
                                 let span = rule.as_span();
+
                                 let part_id = source_map(
                                     self.file_path(),
                                     &vec![Token::new(
@@ -302,6 +303,7 @@ impl CParser {
                                     is_implicit: false,
                                     target: operand?,
                                     decls,
+                                    method: CastMethod::Nothing,
                                 },
                             )
                         })))

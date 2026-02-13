@@ -1,4 +1,4 @@
-use codespan_reporting::diagnostic::{Diagnostic, Label};
+use codespan_reporting::diagnostic::{Diagnostic, Label, LabelStyle};
 
 use super::TypeChecker;
 use crate::{
@@ -12,6 +12,7 @@ use crate::{
     },
     symtab::{Namespace, Symbol, SymbolKind},
     typechecker::Context,
+    variant::Variant,
 };
 use std::{cell::RefCell, rc::Rc};
 
@@ -20,36 +21,138 @@ impl TypeChecker {
         self.contexts
             .push(Context::Stmt(node.borrow().kind.clone()));
 
+        let mut errs = Vec::new(); //消歧义时产生的错误
+        //消歧义
+        let mut new_expr = None;
+        let mut new_decls = None;
+        match &mut *node.borrow_mut() {
+            Stmt {
+                kind:
+                    StmtKind::DeclExpr {
+                        decls: Some(decls),
+                        expr: Some(expr),
+                        ..
+                    },
+                ..
+            } => {
+                //消歧义
+                match self.visit_expr(Rc::clone(expr)) {
+                    Ok(_) => new_expr = Some(Rc::clone(expr)),
+                    Err(e) => {
+                        errs.push(e);
+                    }
+                }
+                'outer: loop {
+                    for decl in decls.iter() {
+                        match self.visit_declaration(Rc::clone(decl)) {
+                            Ok(_) => {}
+                            Err(e) => {
+                                errs.push(e);
+                                break 'outer;
+                            }
+                        }
+                    }
+                    new_decls = Some(decls.clone());
+                    break;
+                }
+            }
+            _ => {}
+        }
+        match &mut node.borrow_mut().kind {
+            StmtKind::DeclExpr {
+                expr: expr @ Some(_),
+                decls: decls @ Some(_),
+            } => {
+                *expr = new_expr;
+                *decls = new_decls;
+
+                match (decls, expr) {
+                    //在消歧义的时候就已经完成了检查
+                    (Some(_), None) | (None, Some(_)) => {
+                        self.contexts.pop();
+                        return Ok(());
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
+
         //给复合语句使用
         let rc_node = Rc::clone(&node);
 
         let mut node = node.borrow_mut();
         match &node.kind {
             StmtKind::Compound(stmts) => {
-                if self.contexts.iter().any(|context| match context {
+                let need_new_scope = !self.contexts.iter().any(|context| match context {
+                    //属于函数定义的复合语句不用单独创建作用域
                     Context::Decl(DeclarationKind::Function {
                         body: Some(body), ..
                     }) => Rc::ptr_eq(&rc_node, body),
                     _ => false,
-                }) {
-                    //属于函数定义的复合语句不用单独创建作用域
-                    for stmt in stmts {
-                        self.visit_stmt(Rc::clone(stmt))?;
-                    }
-                } else {
+                });
+                if need_new_scope {
                     self.enter_scope();
-                    for stmt in stmts {
-                        self.visit_stmt(Rc::clone(stmt))?;
-                    }
-                    self.leave_scope();
+                }
+
+                for stmt in stmts {
+                    self.visit_stmt(Rc::clone(stmt))?;
+                }
+
+                if need_new_scope {
+                    node.symtab = Some(self.leave_scope());
                 }
             }
-            StmtKind::Decl(decls) => {
+            StmtKind::DeclExpr {
+                decls: Some(_),
+                expr: Some(_),
+            } => {
+                return Err(Diagnostic::error()
+                    .with_message(format!("cannot disambiguate declaration and expression"))
+                    .with_label(Label::primary(node.file_id, node.span)));
+            }
+            StmtKind::DeclExpr {
+                decls: Some(decls),
+                expr: None,
+            } => {
                 for decl in decls {
                     self.visit_declaration(Rc::clone(decl))?;
                 }
             }
-            StmtKind::Expr(expr) => self.visit_expr(Rc::clone(expr))?,
+            StmtKind::DeclExpr {
+                decls: None,
+                expr: Some(expr),
+            } => {
+                self.visit_expr(Rc::clone(expr))?;
+            }
+            StmtKind::DeclExpr {
+                decls: None,
+                expr: None,
+            } => {
+                return Err(Diagnostic::error()
+                    .with_message(format!("errors occurred during disambiguation"))
+                    .with_label(
+                        Label::primary(node.file_id, node.span)
+                            .with_message("the location where ambiguity occurs"),
+                    )
+                    .with_labels({
+                        let mut labels = Vec::new();
+
+                        for err in errs {
+                            for label in err.labels {
+                                if let LabelStyle::Primary = label.style {
+                                    labels.push(
+                                        Label::primary(label.file_id, label.range)
+                                            .with_message(err.message.clone()),
+                                    );
+                                    break;
+                                }
+                            }
+                        }
+
+                        labels
+                    }));
+            }
             StmtKind::Goto(name) => {
                 if let None = self
                     .func_symtabs
@@ -69,6 +172,7 @@ impl TypeChecker {
                 else_body,
             } => {
                 self.enter_scope();
+
                 self.visit_expr(Rc::clone(condition))?;
                 if !condition.borrow().r#type.borrow().is_scale() {
                     return Err(Diagnostic::error()
@@ -78,11 +182,13 @@ impl TypeChecker {
                             condition.borrow().span,
                         )));
                 }
+
                 self.visit_stmt(Rc::clone(body))?;
                 if let Some(t) = else_body {
                     self.visit_stmt(Rc::clone(t))?;
                 }
-                self.leave_scope();
+
+                node.symtab = Some(self.leave_scope());
             }
             StmtKind::Label { name, stmt } => {
                 match self.func_symtabs.last_mut() {
@@ -127,7 +233,7 @@ impl TypeChecker {
                 match &mut node.kind {
                     StmtKind::Return { expr: Some(expr) } => {
                         let TypeKind::Function { return_type, .. } =
-                            &self.funcs.last().unwrap().borrow().kind
+                            &self.func_types.last().unwrap().borrow().kind
                         else {
                             unreachable!();
                         };
@@ -141,17 +247,20 @@ impl TypeChecker {
             }
             StmtKind::Switch { condition, body } => {
                 self.enter_scope();
+
                 self.visit_expr(Rc::clone(condition))?;
                 if !condition.borrow().r#type.borrow().is_integer() {
                     return Err(Diagnostic::error()
-                        .with_message(format!("switch condition must have an integer"))
+                        .with_message(format!("switch condition must be an integer"))
                         .with_label(Label::primary(
                             condition.borrow().file_id,
                             condition.borrow().span,
                         )));
                 }
+
                 self.visit_stmt(Rc::clone(body))?;
-                self.leave_scope();
+
+                node.symtab = Some(self.leave_scope());
             }
             StmtKind::Case { expr, stmt } => {
                 let mut condition_type = None;
@@ -172,6 +281,14 @@ impl TypeChecker {
                 }
 
                 self.visit_expr(Rc::clone(expr))?;
+                match &expr.borrow().value {
+                    Variant::Int(_) => {}
+                    _ => {
+                        return Err(Diagnostic::error().with_message(
+                            "expression in 'case' must be an integer constant expression",
+                        ));
+                    }
+                }
                 if let Some(t) = stmt {
                     self.visit_stmt(Rc::clone(t))?;
                 }
@@ -201,6 +318,7 @@ impl TypeChecker {
             }
             StmtKind::While { condition, body } => {
                 self.enter_scope();
+
                 self.visit_expr(Rc::clone(condition))?;
                 if !condition.borrow().r#type.borrow().is_scale() {
                     return Err(Diagnostic::error()
@@ -210,11 +328,14 @@ impl TypeChecker {
                             condition.borrow().span,
                         )));
                 }
+
                 self.visit_stmt(Rc::clone(body))?;
-                self.leave_scope();
+
+                node.symtab = Some(self.leave_scope());
             }
             StmtKind::DoWhile { condition, body } => {
                 self.enter_scope();
+
                 self.visit_expr(Rc::clone(condition))?;
                 if !condition.borrow().r#type.borrow().is_scale() {
                     return Err(Diagnostic::error()
@@ -224,8 +345,10 @@ impl TypeChecker {
                             condition.borrow().span,
                         )));
                 }
+
                 self.visit_stmt(Rc::clone(body))?;
-                self.leave_scope();
+
+                node.symtab = Some(self.leave_scope());
             }
             StmtKind::Break => {
                 if !self.contexts.iter().any(|context| match context {
@@ -270,6 +393,7 @@ impl TypeChecker {
                 if let Some(t) = init_decl {
                     self.visit_declaration(Rc::clone(t))?;
                 }
+
                 if let Some(t) = condition {
                     self.visit_expr(Rc::clone(t))?;
                     if !t.borrow().r#type.borrow().is_scale() {
@@ -278,11 +402,14 @@ impl TypeChecker {
                             .with_label(Label::primary(t.borrow().file_id, t.borrow().span)));
                     }
                 }
+
                 if let Some(t) = iter_expr {
                     self.visit_expr(Rc::clone(t))?;
                 }
+
                 self.visit_stmt(Rc::clone(body))?;
-                self.leave_scope();
+
+                node.symtab = Some(self.leave_scope());
             }
         }
 

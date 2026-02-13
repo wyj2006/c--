@@ -3,6 +3,7 @@ use crate::ast::expr::Expr;
 use crate::ast::stmt::Stmt;
 use crate::ctype::Type;
 use crate::file_map::source_lookup;
+use crate::symtab::SymbolTable;
 use codespan::Span;
 use std::cell::RefCell;
 use std::fmt::Display;
@@ -98,6 +99,7 @@ pub enum DeclarationKind {
         parameter_decls: Vec<Rc<RefCell<Declaration>>>,
         function_specs: Vec<FunctionSpec>,
         body: Option<Rc<RefCell<Stmt>>>, //为None是声明
+        symtab: Option<Rc<RefCell<SymbolTable>>>,
     },
     Type,
     Record {

@@ -27,7 +27,7 @@ impl Type {
     fn to_typestring(&self, mut parent: TypeString) -> TypeString {
         match &self.kind {
             TypeKind::Void => parent.prefix.push("void".to_string()),
-            TypeKind::Bool => parent.prefix.push("void".to_string()),
+            TypeKind::Bool => parent.prefix.push("bool".to_string()),
             TypeKind::Char => parent.prefix.push("char".to_string()),
             TypeKind::SignedChar => parent.prefix.push("signed char".to_string()),
             TypeKind::UnsignedChar => parent.prefix.push("unsigned char".to_string()),

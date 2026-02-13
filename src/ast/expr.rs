@@ -69,6 +69,7 @@ pub enum ExprKind {
         is_implicit: bool,
         target: Rc<RefCell<Expr>>,
         decls: Vec<Rc<RefCell<Declaration>>>,
+        method: CastMethod,
     },
     Subscript {
         target: Rc<RefCell<Expr>>,
@@ -97,6 +98,53 @@ pub enum ExprKind {
         true_expr: Rc<RefCell<Expr>>,
         false_expr: Rc<RefCell<Expr>>,
     },
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum CastMethod {
+    Nothing,
+    ArrayToPtr,
+    FuncToPtr,
+    LToRValue,
+    PtrToPtr,
+    PtrToInt,
+    IntToPtr,
+    FloatExtand,
+    FloatTrunc,
+    FloatToSInt,
+    FloatToUInt,
+    SIntToFloat,
+    UIntToFloat,
+    SignedExtand,
+    ZeroExtand,
+    IntTrunc,
+}
+
+impl Display for CastMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                CastMethod::Nothing => "Nothing",
+                CastMethod::ArrayToPtr => "ArrayToPtr",
+                CastMethod::FuncToPtr => "FuncToPtr",
+                CastMethod::LToRValue => "LToRValue",
+                CastMethod::PtrToPtr => "PtrToPtr",
+                CastMethod::PtrToInt => "PtrToInt",
+                CastMethod::IntToPtr => "IntToPtr",
+                CastMethod::FloatExtand => "FloatExtand",
+                CastMethod::FloatTrunc => "FloatTrunc",
+                CastMethod::FloatToSInt => "FloatToSInt",
+                CastMethod::FloatToUInt => "FloatToUInt",
+                CastMethod::SIntToFloat => "SIntToFloat",
+                CastMethod::UIntToFloat => "UIntToFloat",
+                CastMethod::SignedExtand => "SignedExtand",
+                CastMethod::ZeroExtand => "ZeroExtand",
+                CastMethod::IntTrunc => "IntTrunc",
+            }
+        )
+    }
 }
 
 #[derive(Debug)]

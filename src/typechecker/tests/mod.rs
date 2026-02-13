@@ -1,6 +1,7 @@
 pub mod decl;
 pub mod expr;
 pub mod init;
+pub mod stmt;
 
 use crate::{files, parser::CParser};
 
@@ -9,8 +10,13 @@ macro_rules! typechecker_test_template {
     ($name:ident,$code:expr) => {
         #[test]
         pub fn $name() {
+            use crate::ast::printer::Print;
+            use crate::{
+                symtab::SymbolTable,
+                typechecker::{TypeChecker, tests::quick_new_parser},
+            };
             use insta::assert_snapshot;
-            use regex::Regex;
+            use std::{cell::RefCell, rc::Rc};
 
             let parser = quick_new_parser($code);
             let ast = parser.parse_to_ast().unwrap();
@@ -19,16 +25,7 @@ macro_rules! typechecker_test_template {
             let mut type_checker = TypeChecker::new(Rc::clone(&symtab));
             type_checker.check(Rc::clone(&ast)).unwrap();
 
-            assert_snapshot!(
-                Regex::new(r#"define_loc[\s\S]*?name"#)
-                    .unwrap()
-                    .replace_all(
-                        &Regex::new(r#"\n.*?file_id[\s\S]*?,"#)
-                            .unwrap()
-                            .replace_all(format!("{ast:#?}").as_str(), ""),
-                        "name"
-                    )
-            );
+            assert_snapshot!(ast.print_line(0).join("\n"));
         }
     };
 }

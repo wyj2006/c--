@@ -21,7 +21,8 @@ impl Type {
 impl TypeKind {
     pub fn is_integer(&self) -> bool {
         match self {
-            TypeKind::Char
+            TypeKind::Bool
+            | TypeKind::Char
             | TypeKind::SignedChar
             | TypeKind::UnsignedChar
             | TypeKind::Unsigned
@@ -49,7 +50,8 @@ impl TypeKind {
             | TypeKind::Int
             | TypeKind::Long
             | TypeKind::LongLong => Some(false),
-            TypeKind::UnsignedChar
+            TypeKind::Bool
+            | TypeKind::UnsignedChar
             | TypeKind::Unsigned
             | TypeKind::UShort
             | TypeKind::UInt
@@ -80,7 +82,8 @@ impl TypeKind {
                 -BigInt::from(2).pow(size - 1),
                 BigInt::from(2).pow(size - 1) - 1,
             )),
-            TypeKind::UnsignedChar
+            TypeKind::Bool
+            | TypeKind::UnsignedChar
             | TypeKind::Unsigned
             | TypeKind::UShort
             | TypeKind::UInt
@@ -96,7 +99,8 @@ impl TypeKind {
 
     pub fn to_unsigned(&self) -> Option<TypeKind> {
         match self {
-            TypeKind::Unsigned
+            TypeKind::Bool
+            | TypeKind::Unsigned
             | TypeKind::UShort
             | TypeKind::UInt
             | TypeKind::ULong
