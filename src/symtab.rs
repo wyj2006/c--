@@ -47,7 +47,7 @@ pub enum SymbolKind {
         storage_classes: Vec<StorageClass>,
     },
     Member {
-        bit_field: Option<BigInt>,
+        bit_field: Option<usize>,
     },
     Function {
         function_specs: Vec<FunctionSpec>,

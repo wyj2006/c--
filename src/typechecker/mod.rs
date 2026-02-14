@@ -2,6 +2,7 @@ pub mod check_decl;
 pub mod check_expr;
 pub mod check_init;
 pub mod check_stmt;
+pub mod check_type;
 #[cfg(test)]
 pub mod tests;
 

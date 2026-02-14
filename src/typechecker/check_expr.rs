@@ -1264,7 +1264,9 @@ impl TypeChecker {
                             } {
                                 match operand.borrow().symbol {
                                     Some(ref symbol) => match &symbol.borrow().kind {
-                                        SymbolKind::Member { bit_field: Some(_) } => {
+                                        SymbolKind::Member {
+                                            bit_field: Some(_), ..
+                                        } => {
                                             return Err(Diagnostic::error()
                                                 .with_message(format!(
                                                     "cannot take address of bit-field"

@@ -2,7 +2,6 @@ pub mod align;
 pub mod cast;
 pub mod display;
 pub mod group;
-pub mod integer;
 pub mod size;
 
 use crate::ast::{Attribute, expr::Expr};
@@ -278,9 +277,11 @@ pub fn is_compatible(a: Rc<RefCell<Type>>, b: Rc<RefCell<Type>>) -> bool {
                             (
                                 SymbolKind::Member {
                                     bit_field: Some(a_bit_field),
+                                    ..
                                 },
                                 SymbolKind::Member {
                                     bit_field: Some(b_bit_field),
+                                    ..
                                 },
                             ) if a_bit_field != b_bit_field => return false,
                             _ => {}

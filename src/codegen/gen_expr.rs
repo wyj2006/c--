@@ -1,7 +1,7 @@
 use crate::{
     ast::expr::{BinOpKind, CastMethod, Expr, ExprKind, UnaryOpKind},
     codegen::{CodeGen, any_to_basic_type, any_to_basic_value},
-    ctype::{TypeKind, pointee},
+    ctype::{RecordKind, TypeKind, pointee},
     diagnostic::map_builder_err,
     symtab::{Namespace, SymbolKind},
     variant::Variant,
@@ -1004,8 +1004,55 @@ impl<'ctx> CodeGen<'ctx> {
                 }
             },
             //如果 is_arrow==true 那么target的值是指针, 如果是false, 因为不会进行左值转换, 所以target的值还是指针
-            ExprKind::MemberAccess { .. } => {
-                todo!()
+            ExprKind::MemberAccess {
+                target,
+                name,
+                is_arrow,
+                ..
+            } => {
+                let target_value = self.visit_expr(Rc::clone(target))?;
+
+                let target_type = if *is_arrow {
+                    pointee(Rc::clone(&target.borrow().r#type)).unwrap()
+                } else {
+                    Rc::clone(&target.borrow().r#type)
+                };
+
+                let record_type = match &target_type.borrow().kind {
+                    TypeKind::Qualified { r#type, .. } => match &r#type.borrow().kind {
+                        TypeKind::Record { .. } => Rc::clone(r#type),
+                        _ => unreachable!(),
+                    },
+                    TypeKind::Record { .. } => Rc::clone(&target.borrow().r#type),
+                    _ => unreachable!(),
+                };
+
+                match &record_type.borrow().kind {
+                    TypeKind::Record {
+                        kind: RecordKind::Struct,
+                        members: Some(members),
+                        ..
+                    } => {
+                        let index = members.get_index_of(name).unwrap();
+                        Ok(map_builder_err(
+                            node.file_id,
+                            node.span,
+                            self.builder.build_struct_gep(
+                                any_to_basic_type(self.to_llvm_type(Rc::clone(&record_type))?)
+                                    .unwrap(),
+                                target_value.into_pointer_value(),
+                                index as u32,
+                                "",
+                            ),
+                        )?
+                        .as_any_value_enum())
+                    }
+                    TypeKind::Record {
+                        kind: RecordKind::Union,
+                        ..
+                    } => Ok(target_value.as_any_value_enum()),
+                    _ => unreachable!(),
+                }
             }
             ExprKind::CompoundLiteral { .. } => {
                 todo!()

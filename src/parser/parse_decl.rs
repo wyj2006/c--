@@ -574,7 +574,13 @@ impl CParser {
             "unsigned" => TypeKind::Unsigned,
             "float" => TypeKind::Float,
             "double" => TypeKind::Double,
-            "_BitInt" => {
+
+            "bool" => TypeKind::Bool,
+            "_Complex" => TypeKind::Complex(None),
+            "_Decimal32" => TypeKind::Decimal32,
+            "_Decimal64" => TypeKind::Decimal64,
+            "_Decimal128" => TypeKind::Decimal128,
+            t if t.starts_with("_BitInt") => {
                 let mut kind = None;
                 for rule in rule.into_inner() {
                     if let Rule::constant_expression = rule.as_rule() {
@@ -586,11 +592,6 @@ impl CParser {
                 }
                 kind.unwrap()
             }
-            "bool" => TypeKind::Bool,
-            "_Complex" => TypeKind::Complex(None),
-            "_Decimal32" => TypeKind::Decimal32,
-            "_Decimal64" => TypeKind::Decimal64,
-            "_Decimal128" => TypeKind::Decimal128,
             _ => {
                 let mut kind = None;
                 for rule in rule.into_inner() {

@@ -285,9 +285,9 @@ impl<'ctx> CodeGen<'ctx> {
                 }
             }
             TypeKind::Record {
-                name: _,
                 kind: RecordKind::Struct,
                 members: Some(members),
+                ..
             } => {
                 let mut field_types = Vec::new();
                 //TODO 位域
@@ -321,12 +321,20 @@ impl<'ctx> CodeGen<'ctx> {
                     .struct_type(&field_types, false)
                     .as_any_type_enum()
             }
-            //TODO union
             TypeKind::Record {
-                name: _,
                 kind: RecordKind::Union,
-                members: _,
-            } => todo!(),
+                members: Some(_),
+                ..
+            } => self
+                .context
+                .struct_type(
+                    &[self
+                        .context
+                        .custom_width_int_type(r#type.size().unwrap().div_ceil(8) as u32)
+                        .as_basic_type_enum()],
+                    false,
+                )
+                .as_any_type_enum(),
             TypeKind::Record { members: None, .. } => {
                 return Err(Diagnostic::error()
                     .with_message("incomplete type")
@@ -340,7 +348,7 @@ impl<'ctx> CodeGen<'ctx> {
                 Some(16) => self.context.i128_type().as_any_type_enum(),
                 Some(t) => self
                     .context
-                    .custom_width_int_type(t as u32)
+                    .custom_width_int_type(t.div_ceil(8) as u32)
                     .as_any_type_enum(),
                 None => {
                     return Err(Diagnostic::error()
