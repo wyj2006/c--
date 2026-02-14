@@ -14,8 +14,8 @@ pub fn include_direct() {
 pub fn include_after_replace() {
     let mut preprocessor = quick_new_preprocessor_with_name(
         "src/preprocessor/tests/include.string".to_string(),
-        "#define A \"include.txt\"
-#include A
+        "#define N \"include.txt\"
+#include N
 ",
     );
     let result = to_string(&preprocessor.process().unwrap());

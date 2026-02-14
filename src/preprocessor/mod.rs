@@ -13,6 +13,7 @@ use crate::preprocessor::token::{Token, TokenKind, to_string};
 use cmacro::Macro;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::files::Files;
+use lazy_static::lazy_static;
 use pest::iterators::{Pair, Pairs};
 use pest::{Parser, Span};
 use pest_derive::Parser;
@@ -21,27 +22,29 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
+use std::sync::RwLock;
 use std::{fs, usize};
+
+lazy_static! {
+    pub static ref user_macro: RwLock<HashMap<String, Macro>> = RwLock::new(HashMap::new());
+    pub static ref include_path: RwLock<Vec<String>> = RwLock::new(Vec::new());
+}
 
 #[derive(Parser)]
 #[grammar = "src/grammar/lexer.pest"]
 #[grammar = "src/grammar/preprocessor.pest"]
 pub struct Preprocessor {
     pub file_id: usize,
-    pub user_macro: HashMap<String, Macro>,
     pub line_offset: isize,
     pub file_name: String,
-    pub include_path: Vec<String>,
 }
 
 impl Preprocessor {
     pub fn new(file_id: usize) -> Preprocessor {
         Preprocessor {
             file_id,
-            user_macro: HashMap::new(),
             line_offset: 0,
             file_name: files.lock().unwrap().name(file_id).unwrap(),
-            include_path: Vec::new(),
         }
     }
 
@@ -140,13 +143,10 @@ impl Preprocessor {
 
             let part_id = source_map(self.file_path(), &input_tokens);
             let mut child = Preprocessor::new(part_id);
-            //传递宏
-            child.user_macro.extend(self.user_macro.clone());
             let result = child.process_directive(map_pest_err(
                 self.file_id,
                 Preprocessor::parse(Rule::directives, &input),
             )?)?;
-            self.user_macro.extend(child.user_macro);
             self.line_offset = child.line_offset;
             self.file_name = child.file_name;
 
@@ -258,7 +258,7 @@ impl Preprocessor {
                     .with_label(Label::primary(self.file_id, from_pest_span(span))));
             }
         } else {
-            self.user_macro.insert(name, cmacro);
+            user_macro.write().unwrap().insert(name, cmacro);
         }
         Ok(result)
     }
@@ -277,7 +277,7 @@ impl Preprocessor {
                 _ => unreachable!(),
             }
         }
-        self.user_macro.remove(&name);
+        user_macro.write().unwrap().remove(&name);
         Ok(result)
     }
 
@@ -336,8 +336,9 @@ impl Preprocessor {
     }
 
     pub fn get_possible_filepath(&self, header_name: &str) -> Vec<PathBuf> {
-        let mut search_path = self
-            .include_path
+        let mut search_path = include_path
+            .read()
+            .unwrap()
             .iter()
             .map(|x| PathBuf::from(x))
             .collect::<Vec<PathBuf>>();
@@ -377,12 +378,7 @@ impl Preprocessor {
                             .unwrap()
                             .add(file_path.to_string_lossy().to_string(), file_content);
                         let mut child = Preprocessor::new(include_id);
-                        //传递宏
-                        child.user_macro.extend(self.user_macro.clone());
                         result.extend(child.process()?);
-                        self.user_macro.extend(child.user_macro);
-                        self.line_offset = child.line_offset;
-                        self.file_name = child.file_name;
                         break 'outer;
                     }
                     return Err(Diagnostic::error()

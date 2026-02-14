@@ -48,6 +48,7 @@ directives = {
   | source_file_inclusion
   | binary_resource_inclusion
   | macro_define
+  | macro_undef
   | line_control
   | error_directive
   | warning_directive

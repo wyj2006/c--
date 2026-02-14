@@ -2,6 +2,7 @@ use super::Preprocessor;
 use crate::file_map::source_lookup;
 use crate::files;
 use crate::preprocessor::token::{Token, TokenKind};
+use crate::preprocessor::user_macro;
 use chrono::{Datelike, Local};
 use codespan::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -183,7 +184,7 @@ impl Preprocessor {
                 ..Macro::new(self.file_id, span, macro_name.to_string())
             }),
             _ => {
-                if let Some(t) = self.user_macro.get(macro_name) {
+                if let Some(t) = user_macro.read().unwrap().get(macro_name) {
                     Some((*t).clone())
                 } else {
                     None

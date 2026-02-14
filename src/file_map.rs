@@ -127,13 +127,13 @@ pub fn source_lookup(mut file_id: usize, span: Span) -> (usize, Span) {
         if *key_file_id != file_id {
             continue;
         }
-        if !(key_span.start().to_usize() <= start && start <= key_span.end().to_usize()) {
+        if !(key_span.start().to_usize() <= start && start < key_span.end().to_usize()) {
             continue;
         }
         if let None = new_start {
             new_start = Some(val_span.end().to_usize() - (key_span.end().to_usize() - start));
         }
-        if !(key_span.start().to_usize() <= end && end <= key_span.end().to_usize()) {
+        if !(key_span.start().to_usize() < end && end <= key_span.end().to_usize()) {
             continue;
         }
         if let None = new_end {
