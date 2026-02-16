@@ -24,9 +24,9 @@ impl<'ctx> CodeGen<'ctx> {
                 let symbol = self.lookup(Namespace::Ordinary, &name).unwrap();
                 let symbol_type = Rc::clone(&symbol.borrow().r#type);
                 match &symbol.borrow().kind {
-                    SymbolKind::EnumConst { value } => Ok(self
-                        .to_llvm_value(Variant::Int(value.clone()), symbol_type)?
-                        .unwrap()),
+                    SymbolKind::EnumConst { value } => {
+                        Ok(self.to_llvm_value(Variant::Int(value.clone()), symbol_type)?)
+                    }
                     _ => Ok(*self.symbol_values.get(&(symbol.as_ptr() as usize)).unwrap()),
                 }
             }
@@ -38,10 +38,7 @@ impl<'ctx> CodeGen<'ctx> {
                     "str",
                 );
                 global_value.set_initializer(&match any_to_basic_value(
-                    match self.to_llvm_value(node.value.clone(), Rc::clone(&node.r#type))? {
-                        Some(t) => t,
-                        None => unreachable!(),
-                    },
+                    self.to_llvm_value(node.value.clone(), Rc::clone(&node.r#type))?,
                 ) {
                     Some(t) => t,
                     None => unreachable!(),
@@ -55,12 +52,9 @@ impl<'ctx> CodeGen<'ctx> {
             | ExprKind::False
             | ExprKind::Nullptr
             | ExprKind::SizeOf { .. }
-            | ExprKind::Alignof { .. } => Ok(
-                match self.to_llvm_value(node.value.clone(), Rc::clone(&node.r#type))? {
-                    Some(t) => t,
-                    None => unreachable!(),
-                },
-            ),
+            | ExprKind::Alignof { .. } => {
+                Ok(self.to_llvm_value(node.value.clone(), Rc::clone(&node.r#type))?)
+            }
             ExprKind::GenericSelection { assocs, .. } => {
                 for assoc in assocs {
                     if assoc.borrow().is_selected {

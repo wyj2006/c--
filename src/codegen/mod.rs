@@ -364,52 +364,67 @@ impl<'ctx> CodeGen<'ctx> {
         &self,
         value: Variant,
         r#type: Rc<RefCell<Type>>,
-    ) -> Result<Option<AnyValueEnum<'ctx>>, Diagnostic<usize>> {
+    ) -> Result<AnyValueEnum<'ctx>, Diagnostic<usize>> {
         match &value {
-            Variant::Bool(value) => Ok(Some(match self.to_llvm_type(r#type)? {
+            Variant::Bool(value) => Ok(match self.to_llvm_type(r#type)? {
                 AnyTypeEnum::IntType(t) => t.const_int(*value as u64, false).as_any_value_enum(),
-                _ => return Ok(None),
-            })),
-            Variant::Rational(value) => Ok(Some(match self.to_llvm_type(r#type)? {
-                AnyTypeEnum::FloatType(t) => unsafe {
-                    t.const_float_from_string(
-                        &(BigDecimal::from(value.numer().clone())
-                            / BigDecimal::from(value.denom().clone()))
-                        .to_string(),
-                    )
-                }
-                .as_any_value_enum(),
-                _ => return Ok(None),
-            })),
-            Variant::Int(value) => Ok(Some(match self.to_llvm_type(r#type)? {
-                AnyTypeEnum::IntType(t) => {
-                    match t.const_int_from_string(&value.to_string(), StringRadix::Decimal) {
-                        Some(t) => t.as_any_value_enum(),
-                        None => return Ok(None),
-                    }
-                }
-                _ => return Ok(None),
-            })),
-            Variant::Nullptr => Ok(Some(
-                self.context
-                    .ptr_type(AddressSpace::default())
-                    .const_null()
+                _ => self
+                    .context
+                    .bool_type()
+                    .const_int(*value as u64, false)
                     .as_any_value_enum(),
-            )),
+            }),
+            Variant::Rational(value) => {
+                let value = BigDecimal::from(value.numer().clone())
+                    / BigDecimal::from(value.denom().clone());
+                Ok(match self.to_llvm_type(r#type)? {
+                    AnyTypeEnum::FloatType(t) => {
+                        unsafe { t.const_float_from_string(&value.to_string()) }.as_any_value_enum()
+                    }
+                    _ => unsafe {
+                        self.context
+                            .f64_type()
+                            .const_float_from_string(&value.to_string())
+                    }
+                    .as_any_value_enum(),
+                })
+            }
+            Variant::Int(value) => Ok(match self.to_llvm_type(r#type)? {
+                AnyTypeEnum::IntType(t) => t
+                    .const_int_from_string(&value.to_string(), StringRadix::Decimal)
+                    .unwrap()
+                    .as_any_value_enum(),
+                _ => self
+                    .context
+                    .i32_type()
+                    .const_int_from_string(&value.to_string(), StringRadix::Decimal)
+                    .unwrap()
+                    .as_any_value_enum(),
+            }),
+            Variant::Nullptr => Ok(self
+                .context
+                .ptr_type(AddressSpace::default())
+                .const_null()
+                .as_any_value_enum()),
             Variant::Array(array) => {
-                let element_type = match array_element(r#type) {
+                let element_type = match array_element(Rc::clone(&r#type)) {
                     Some(t) => t,
-                    None => return Ok(None),
+                    None => {
+                        return Err(Diagnostic::error()
+                            .with_message(format!("'{}' is not array", r#type.borrow()))
+                            .with_label(Label::primary(
+                                r#type.borrow().file_id,
+                                r#type.borrow().span,
+                            )));
+                    }
                 };
-                Ok(Some(match self.to_llvm_type(Rc::clone(&element_type))? {
+                Ok(match self.to_llvm_type(Rc::clone(&element_type))? {
                     AnyTypeEnum::ArrayType(t) => {
                         let mut values = Vec::new();
                         for value in array {
                             values.push(
-                                match self.to_llvm_value(value.clone(), Rc::clone(&element_type))? {
-                                    Some(t) => t.into_array_value(),
-                                    None => return Ok(None),
-                                },
+                                self.to_llvm_value(value.clone(), Rc::clone(&element_type))?
+                                    .into_array_value(),
                             );
                         }
                         t.const_array(&values).as_any_value_enum()
@@ -418,10 +433,8 @@ impl<'ctx> CodeGen<'ctx> {
                         let mut values = Vec::new();
                         for value in array {
                             values.push(
-                                match self.to_llvm_value(value.clone(), Rc::clone(&element_type))? {
-                                    Some(t) => t.into_int_value(),
-                                    None => return Ok(None),
-                                },
+                                self.to_llvm_value(value.clone(), Rc::clone(&element_type))?
+                                    .into_int_value(),
                             );
                         }
                         t.const_array(&values).as_any_value_enum()
@@ -430,10 +443,8 @@ impl<'ctx> CodeGen<'ctx> {
                         let mut values = Vec::new();
                         for value in array {
                             values.push(
-                                match self.to_llvm_value(value.clone(), Rc::clone(&element_type))? {
-                                    Some(t) => t.into_float_value(),
-                                    None => return Ok(None),
-                                },
+                                self.to_llvm_value(value.clone(), Rc::clone(&element_type))?
+                                    .into_float_value(),
                             );
                         }
                         t.const_array(&values).as_any_value_enum()
@@ -442,10 +453,8 @@ impl<'ctx> CodeGen<'ctx> {
                         let mut values = Vec::new();
                         for value in array {
                             values.push(
-                                match self.to_llvm_value(value.clone(), Rc::clone(&element_type))? {
-                                    Some(t) => t.into_pointer_value(),
-                                    None => return Ok(None),
-                                },
+                                self.to_llvm_value(value.clone(), Rc::clone(&element_type))?
+                                    .into_pointer_value(),
                             );
                         }
                         t.const_array(&values).as_any_value_enum()
@@ -454,10 +463,8 @@ impl<'ctx> CodeGen<'ctx> {
                         let mut values = Vec::new();
                         for value in array {
                             values.push(
-                                match self.to_llvm_value(value.clone(), Rc::clone(&element_type))? {
-                                    Some(t) => t.into_scalable_vector_value(),
-                                    None => return Ok(None),
-                                },
+                                self.to_llvm_value(value.clone(), Rc::clone(&element_type))?
+                                    .into_scalable_vector_value(),
                             );
                         }
                         t.const_array(&values).as_any_value_enum()
@@ -466,10 +473,8 @@ impl<'ctx> CodeGen<'ctx> {
                         let mut values = Vec::new();
                         for value in array {
                             values.push(
-                                match self.to_llvm_value(value.clone(), Rc::clone(&element_type))? {
-                                    Some(t) => t.into_struct_value(),
-                                    None => return Ok(None),
-                                },
+                                self.to_llvm_value(value.clone(), Rc::clone(&element_type))?
+                                    .into_struct_value(),
                             );
                         }
                         t.const_array(&values).as_any_value_enum()
@@ -478,18 +483,31 @@ impl<'ctx> CodeGen<'ctx> {
                         let mut values = Vec::new();
                         for value in array {
                             values.push(
-                                match self.to_llvm_value(value.clone(), Rc::clone(&element_type))? {
-                                    Some(t) => t.into_vector_value(),
-                                    None => return Ok(None),
-                                },
+                                self.to_llvm_value(value.clone(), Rc::clone(&element_type))?
+                                    .into_vector_value(),
                             );
                         }
                         t.const_array(&values).as_any_value_enum()
                     }
-                    _ => return Ok(None),
-                }))
+                    _ => {
+                        return Err(Diagnostic::error()
+                            .with_message(format!(
+                                "'{}' cannot be used as array element types",
+                                r#type.borrow()
+                            ))
+                            .with_label(Label::primary(
+                                r#type.borrow().file_id,
+                                r#type.borrow().span,
+                            )));
+                    }
+                })
             }
-            Variant::Unknown => Ok(None),
+            Variant::Unknown => Err(Diagnostic::error()
+                .with_message(format!("unkown value for type"))
+                .with_label(Label::primary(
+                    r#type.borrow().file_id,
+                    r#type.borrow().span,
+                ))),
         }
     }
 }

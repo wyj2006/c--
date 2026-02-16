@@ -403,13 +403,10 @@ impl<'ctx> CodeGen<'ctx> {
                     self.visit_stmt(Rc::clone(stmt))?;
                 }
                 //expr是常量表达式
-                let case_value = self
-                    .to_llvm_value(
-                        expr.borrow().value.clone(),
-                        Rc::clone(&expr.borrow().r#type),
-                    )
-                    .unwrap()
-                    .unwrap();
+                let case_value = self.to_llvm_value(
+                    expr.borrow().value.clone(),
+                    Rc::clone(&expr.borrow().r#type),
+                )?;
                 self.cases_or_default
                     .last_mut()
                     .unwrap()

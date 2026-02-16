@@ -118,5 +118,5 @@ fn main() {
     }
 
     println!();
-    println!("{}", codegen.module.print_to_string().to_string());
+    println!("{}", codegen.module.to_string());
 }
