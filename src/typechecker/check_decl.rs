@@ -375,6 +375,7 @@ impl TypeChecker {
                             },
                             None => None,
                         },
+                        index: 0,
                     },
                     r#type: Rc::clone(&node.r#type),
                     attributes: node.attributes.clone(),

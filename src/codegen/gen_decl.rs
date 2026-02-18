@@ -1,11 +1,15 @@
 use crate::{
     ast::decl::{Declaration, DeclarationKind},
     codegen::{CodeGen, any_to_basic_type},
+    ctype::{RecordKind, TypeKind, layout::compute_layout},
     diagnostic::map_builder_err,
     symtab::{Namespace, SymbolKind},
 };
 use codespan_reporting::diagnostic::{Diagnostic, Label};
-use inkwell::{types::BasicType, values::AnyValue};
+use inkwell::{
+    types::{AnyType, AnyTypeEnum, BasicType},
+    values::AnyValue,
+};
 use std::{cell::RefCell, rc::Rc};
 
 impl<'ctx> CodeGen<'ctx> {
@@ -170,6 +174,90 @@ impl<'ctx> CodeGen<'ctx> {
                     }
                     _ => unreachable!(),
                 }
+            }
+            DeclarationKind::Record {
+                members_decl: Some(_),
+            } => {
+                let record_type = match &node.r#type.borrow().kind {
+                    TypeKind::Record {
+                        kind: RecordKind::Struct,
+                        members: Some(_),
+                        ..
+                    } => {
+                        let Some(layout) = compute_layout(Rc::clone(&node.r#type)) else {
+                            return Err(Diagnostic::error()
+                                .with_message(format!(
+                                    "cannot compute layout for '{}'",
+                                    node.r#type.borrow()
+                                ))
+                                .with_label(Label::primary(
+                                    node.r#type.borrow().file_id,
+                                    node.r#type.borrow().span,
+                                )));
+                        };
+                        let mut field_types = Vec::new();
+                        for child_layout in layout.children {
+                            let child_layout_ty = &child_layout.r#type;
+                            let llvm_member_ty = self.to_llvm_type(Rc::clone(child_layout_ty))?;
+                            field_types.push(match llvm_member_ty {
+                                AnyTypeEnum::ArrayType(_) => {
+                                    llvm_member_ty.into_array_type().into()
+                                }
+                                AnyTypeEnum::FloatType(_) => {
+                                    llvm_member_ty.into_float_type().into()
+                                }
+                                AnyTypeEnum::IntType(_) => llvm_member_ty.into_int_type().into(),
+                                AnyTypeEnum::PointerType(_) => {
+                                    llvm_member_ty.into_pointer_type().into()
+                                }
+                                AnyTypeEnum::ScalableVectorType(_) => {
+                                    llvm_member_ty.into_scalable_vector_type().into()
+                                }
+                                AnyTypeEnum::StructType(_) => {
+                                    llvm_member_ty.into_struct_type().into()
+                                }
+                                AnyTypeEnum::VectorType(_) => {
+                                    llvm_member_ty.into_vector_type().into()
+                                }
+                                _ => {
+                                    return Err(Diagnostic::error()
+                                        .with_message(format!(
+                                            "invalid type for member: {}",
+                                            child_layout_ty.borrow()
+                                        ))
+                                        .with_label(Label::primary(
+                                            child_layout_ty.borrow().file_id,
+                                            child_layout_ty.borrow().span,
+                                        )));
+                                }
+                            })
+                        }
+                        self.context
+                            .struct_type(&field_types, false)
+                            .as_any_type_enum()
+                    }
+                    TypeKind::Record {
+                        kind: RecordKind::Union,
+                        members: Some(_),
+                        ..
+                    } => self
+                        .context
+                        .struct_type(
+                            &[self
+                                .context
+                                .custom_width_int_type(
+                                    node.r#type.borrow().size().unwrap().div_ceil(8) as u32,
+                                )
+                                .as_basic_type_enum()],
+                            false,
+                        )
+                        .as_any_type_enum(),
+                    _ => unreachable!(),
+                };
+                self.record_types.insert(
+                    self.lookup(Namespace::Tag, &node.name).unwrap().as_ptr() as usize,
+                    record_type,
+                );
             }
             _ => {}
         }

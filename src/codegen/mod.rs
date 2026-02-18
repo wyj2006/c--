@@ -4,7 +4,7 @@ pub mod gen_stmt;
 
 use crate::{
     ast::TranslationUnit,
-    ctype::{RecordKind, Type, TypeKind, array_element},
+    ctype::{Type, TypeKind, array_element},
     symtab::{Namespace, Symbol, SymbolTable},
     variant::Variant,
 };
@@ -36,6 +36,7 @@ pub struct CodeGen<'ctx> {
     pub label_blocks: HashMap<usize, BasicBlock<'ctx>>,
     pub symbol_values: HashMap<usize, AnyValueEnum<'ctx>>,
     pub cases_or_default: Vec<Vec<(Option<IntValue<'ctx>>, BasicBlock<'ctx>)>>,
+    pub record_types: HashMap<usize, AnyTypeEnum<'ctx>>,
 }
 
 impl<'ctx> CodeGen<'ctx> {
@@ -51,6 +52,7 @@ impl<'ctx> CodeGen<'ctx> {
             label_blocks: HashMap::new(),
             symbol_values: HashMap::new(),
             cases_or_default: vec![],
+            record_types: HashMap::new(),
         }
     }
 
@@ -83,8 +85,7 @@ impl<'ctx> CodeGen<'ctx> {
         &self,
         r#type: Rc<RefCell<Type>>,
     ) -> Result<AnyTypeEnum<'ctx>, Diagnostic<usize>> {
-        let r#type = r#type.borrow();
-        Ok(match &r#type.kind {
+        Ok(match &r#type.borrow().kind {
             TypeKind::Void => self.context.void_type().as_any_type_enum(),
             TypeKind::Bool => self.context.bool_type().as_any_type_enum(),
             TypeKind::Float => self.context.f32_type().as_any_type_enum(),
@@ -120,7 +121,10 @@ impl<'ctx> CodeGen<'ctx> {
             | TypeKind::Auto(None) => {
                 return Err(Diagnostic::error()
                     .with_message("incomplete type")
-                    .with_label(Label::primary(r#type.file_id, r#type.span)));
+                    .with_label(Label::primary(
+                        r#type.borrow().file_id,
+                        r#type.borrow().span,
+                    )));
             }
             TypeKind::Typeof {
                 expr: Some(expr),
@@ -202,7 +206,10 @@ impl<'ctx> CodeGen<'ctx> {
             TypeKind::Array { len_expr: None, .. } => {
                 return Err(Diagnostic::error()
                     .with_message(format!("unknown length of array type"))
-                    .with_label(Label::primary(r#type.file_id, r#type.span)));
+                    .with_label(Label::primary(
+                        r#type.borrow().file_id,
+                        r#type.borrow().span,
+                    )));
             }
             TypeKind::Function {
                 return_type,
@@ -284,63 +291,11 @@ impl<'ctx> CodeGen<'ctx> {
                     }
                 }
             }
-            TypeKind::Record {
-                kind: RecordKind::Struct,
-                members: Some(members),
-                ..
-            } => {
-                let mut field_types = Vec::new();
-                //TODO 位域
-                for (_, member) in members {
-                    let member_type = Rc::clone(&member.borrow().r#type);
-                    let llvm_member_ty = self.to_llvm_type(Rc::clone(&member_type))?;
-                    field_types.push(match llvm_member_ty {
-                        AnyTypeEnum::ArrayType(_) => llvm_member_ty.into_array_type().into(),
-                        AnyTypeEnum::FloatType(_) => llvm_member_ty.into_float_type().into(),
-                        AnyTypeEnum::IntType(_) => llvm_member_ty.into_int_type().into(),
-                        AnyTypeEnum::PointerType(_) => llvm_member_ty.into_pointer_type().into(),
-                        AnyTypeEnum::ScalableVectorType(_) => {
-                            llvm_member_ty.into_scalable_vector_type().into()
-                        }
-                        AnyTypeEnum::StructType(_) => llvm_member_ty.into_struct_type().into(),
-                        AnyTypeEnum::VectorType(_) => llvm_member_ty.into_vector_type().into(),
-                        _ => {
-                            return Err(Diagnostic::error()
-                                .with_message(format!(
-                                    "invalid type for member: {}",
-                                    member_type.borrow()
-                                ))
-                                .with_label(Label::primary(
-                                    member_type.borrow().file_id,
-                                    member_type.borrow().span,
-                                )));
-                        }
-                    })
-                }
-                self.context
-                    .struct_type(&field_types, false)
-                    .as_any_type_enum()
-            }
-            TypeKind::Record {
-                kind: RecordKind::Union,
-                members: Some(_),
-                ..
-            } => self
-                .context
-                .struct_type(
-                    &[self
-                        .context
-                        .custom_width_int_type(r#type.size().unwrap().div_ceil(8) as u32)
-                        .as_basic_type_enum()],
-                    false,
-                )
-                .as_any_type_enum(),
-            TypeKind::Record { members: None, .. } => {
-                return Err(Diagnostic::error()
-                    .with_message("incomplete type")
-                    .with_label(Label::primary(r#type.file_id, r#type.span)));
-            }
-            t if t.is_integer() => match r#type.size() {
+            TypeKind::Record { name, .. } => *self
+                .record_types
+                .get(&(self.lookup(Namespace::Tag, name).unwrap().as_ptr() as usize))
+                .unwrap(),
+            t if t.is_integer() => match r#type.borrow().size() {
                 Some(1) => self.context.i8_type().as_any_type_enum(),
                 Some(2) => self.context.i16_type().as_any_type_enum(),
                 Some(4) => self.context.i32_type().as_any_type_enum(),
@@ -353,7 +308,10 @@ impl<'ctx> CodeGen<'ctx> {
                 None => {
                     return Err(Diagnostic::error()
                         .with_message("unknown size of integer type")
-                        .with_label(Label::primary(r#type.file_id, r#type.span)));
+                        .with_label(Label::primary(
+                            r#type.borrow().file_id,
+                            r#type.borrow().span,
+                        )));
                 }
             },
             _ => unreachable!(),

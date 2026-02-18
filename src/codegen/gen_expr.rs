@@ -1,7 +1,7 @@
 use crate::{
     ast::expr::{BinOpKind, CastMethod, Expr, ExprKind, UnaryOpKind},
     codegen::{CodeGen, any_to_basic_type, any_to_basic_value},
-    ctype::{RecordKind, TypeKind, pointee},
+    ctype::{RecordKind, TypeKind, cast::remove_qualifier, layout::compute_layout, pointee},
     diagnostic::map_builder_err,
     symtab::{Namespace, SymbolKind},
     variant::Variant,
@@ -18,6 +18,17 @@ impl<'ctx> CodeGen<'ctx> {
         &mut self,
         node: Rc<RefCell<Expr>>,
     ) -> Result<AnyValueEnum<'ctx>, Diagnostic<usize>> {
+        if self.func_values.len() == 0 {
+            return match self.to_llvm_value(
+                node.borrow().value.clone(),
+                Rc::clone(&node.borrow().r#type),
+            ) {
+                Ok(t) => Ok(t),
+                Err(_) => Err(Diagnostic::error()
+                    .with_message("not a constant expression")
+                    .with_label(Label::primary(node.borrow().file_id, node.borrow().span))),
+            };
+        }
         let node = node.borrow();
         match &node.kind {
             ExprKind::Name(name) => {
@@ -64,7 +75,15 @@ impl<'ctx> CodeGen<'ctx> {
                 unreachable!()
             }
             ExprKind::Cast { target, method, .. } => {
-                let target_value = self.visit_expr(Rc::clone(target))?;
+                let target_value = if let CastMethod::LToRValue = *method {
+                    //避免重复生成target的代码
+                    self.context
+                        .i32_type()
+                        .const_int(0, false)
+                        .as_any_value_enum()
+                } else {
+                    self.visit_expr(Rc::clone(target))?
+                };
                 match method {
                     CastMethod::Nothing | CastMethod::PtrToPtr => {
                         Ok(self.visit_expr(Rc::clone(target))?)
@@ -89,31 +108,7 @@ impl<'ctx> CodeGen<'ctx> {
                         })?
                         .as_any_value_enum())
                     }
-                    CastMethod::LToRValue => Ok(map_builder_err(
-                        node.file_id,
-                        node.span,
-                        self.builder.build_load(
-                            match any_to_basic_type(
-                                self.to_llvm_type(Rc::clone(&target.borrow().r#type))?,
-                            ) {
-                                Some(t) => t,
-                                None => {
-                                    return Err(Diagnostic::error()
-                                        .with_message(format!(
-                                            "invalid type for lvalue: {}",
-                                            target.borrow().r#type.borrow()
-                                        ))
-                                        .with_label(Label::primary(
-                                            target.borrow().r#type.borrow().file_id,
-                                            target.borrow().r#type.borrow().span,
-                                        )));
-                                }
-                            },
-                            target_value.into_pointer_value(),
-                            "",
-                        ),
-                    )?
-                    .as_any_value_enum()),
+                    CastMethod::LToRValue => Ok(self.build_load(Rc::clone(target))?),
                     _ => Ok(map_builder_err(
                         node.file_id,
                         node.span,
@@ -922,17 +917,9 @@ impl<'ctx> CodeGen<'ctx> {
                     }
                 }
                 BinOpKind::Assign => {
-                    let left_value = self.visit_expr(Rc::clone(left))?;
                     let right_value = self.visit_expr(Rc::clone(right))?;
-                    Ok(map_builder_err(
-                        node.file_id,
-                        node.span,
-                        self.builder.build_store(
-                            left_value.into_pointer_value(),
-                            any_to_basic_value(right_value).unwrap(),
-                        ),
-                    )?
-                    .as_any_value_enum())
+                    self.build_store(Rc::clone(left), right_value)?;
+                    Ok(right_value)
                 }
                 BinOpKind::MulAssign
                 | BinOpKind::DivAssign
@@ -979,17 +966,9 @@ impl<'ctx> CodeGen<'ctx> {
                             },
                         )
                     }));
-                    let left_value = self.visit_expr(Rc::clone(left))?;
                     let right_value = self.visit_expr(eq_expr)?;
-                    Ok(map_builder_err(
-                        node.file_id,
-                        node.span,
-                        self.builder.build_store(
-                            left_value.into_pointer_value(),
-                            any_to_basic_value(right_value).unwrap(),
-                        ),
-                    )?
-                    .as_any_value_enum())
+                    self.build_store(Rc::clone(left), right_value)?;
+                    Ok(right_value)
                 }
                 BinOpKind::Comma => {
                     self.visit_expr(Rc::clone(left))?;
@@ -1012,14 +991,7 @@ impl<'ctx> CodeGen<'ctx> {
                     Rc::clone(&target.borrow().r#type)
                 };
 
-                let record_type = match &target_type.borrow().kind {
-                    TypeKind::Qualified { r#type, .. } => match &r#type.borrow().kind {
-                        TypeKind::Record { .. } => Rc::clone(r#type),
-                        _ => unreachable!(),
-                    },
-                    TypeKind::Record { .. } => Rc::clone(&target.borrow().r#type),
-                    _ => unreachable!(),
-                };
+                let record_type = remove_qualifier(Rc::clone(&target_type));
 
                 match &record_type.borrow().kind {
                     TypeKind::Record {
@@ -1027,7 +999,11 @@ impl<'ctx> CodeGen<'ctx> {
                         members: Some(members),
                         ..
                     } => {
-                        let index = members.get_index_of(name).unwrap();
+                        let SymbolKind::Member { index, .. } =
+                            &members.get(name).unwrap().borrow().kind
+                        else {
+                            unreachable!();
+                        };
                         Ok(map_builder_err(
                             node.file_id,
                             node.span,
@@ -1035,7 +1011,7 @@ impl<'ctx> CodeGen<'ctx> {
                                 any_to_basic_type(self.to_llvm_type(Rc::clone(&record_type))?)
                                     .unwrap(),
                                 target_value.into_pointer_value(),
-                                index as u32,
+                                *index as u32,
                                 "",
                             ),
                         )?
@@ -1097,5 +1073,198 @@ impl<'ctx> CodeGen<'ctx> {
             //TODO 复数和十进制浮点数
             _ => todo!(),
         }
+    }
+
+    //如果expr是位域访问, 那么生成加载位域值的操作, 否则就是正常的load代码
+    pub fn build_load(
+        &mut self,
+        node: Rc<RefCell<Expr>>,
+    ) -> Result<AnyValueEnum<'ctx>, Diagnostic<usize>> {
+        let value = self.visit_expr(Rc::clone(&node))?;
+        let value = map_builder_err(
+            node.borrow().file_id,
+            node.borrow().span,
+            self.builder.build_load(
+                match any_to_basic_type(self.to_llvm_type(Rc::clone(&node.borrow().r#type))?) {
+                    Some(t) => t,
+                    None => {
+                        return Err(Diagnostic::error()
+                            .with_message(format!(
+                                "invalid type for lvalue: {}",
+                                node.borrow().r#type.borrow()
+                            ))
+                            .with_label(Label::primary(
+                                node.borrow().r#type.borrow().file_id,
+                                node.borrow().r#type.borrow().span,
+                            )));
+                    }
+                },
+                value.into_pointer_value(),
+                "",
+            ),
+        )?
+        .as_any_value_enum();
+
+        match &*node.borrow() {
+            Expr {
+                file_id,
+                span,
+                kind:
+                    ExprKind::MemberAccess {
+                        target,
+                        is_arrow,
+                        name,
+                    },
+                symbol: Some(symbol),
+                ..
+            } => {
+                let target_type = if *is_arrow {
+                    pointee(Rc::clone(&target.borrow().r#type)).unwrap()
+                } else {
+                    Rc::clone(&target.borrow().r#type)
+                };
+                let record_type = remove_qualifier(Rc::clone(&target_type));
+
+                if let TypeKind::Record { .. } = record_type.borrow().kind {
+                    let layout = compute_layout(Rc::clone(&record_type)).unwrap();
+
+                    let SymbolKind::Member { index, .. } = &symbol.borrow().kind else {
+                        unreachable!();
+                    };
+
+                    let layout = &layout.children[*index];
+                    for child in &layout.children {
+                        if let Some(t) = &child.name
+                            && *t == *name
+                        {
+                            let mask = self
+                                .context
+                                .i32_type()
+                                .const_int((1 << child.width) - 1, false);
+                            let lshr = map_builder_err(
+                                *file_id,
+                                *span,
+                                self.builder.build_right_shift(
+                                    value.into_int_value(),
+                                    self.context
+                                        .i32_type()
+                                        .const_int(child.offset as u64, false),
+                                    false,
+                                    "lshr",
+                                ),
+                            )?;
+                            return Ok(map_builder_err(
+                                *file_id,
+                                *span,
+                                self.builder.build_and(lshr, mask, ""),
+                            )?
+                            .as_any_value_enum());
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+
+        Ok(value)
+    }
+
+    //行为类似于build_load
+    pub fn build_store(
+        &mut self,
+        node: Rc<RefCell<Expr>>,
+        mut value: AnyValueEnum<'ctx>,
+    ) -> Result<(), Diagnostic<usize>> {
+        let ptr = self.visit_expr(Rc::clone(&node))?.into_pointer_value();
+
+        match &*node.borrow() {
+            Expr {
+                file_id,
+                span,
+                kind:
+                    ExprKind::MemberAccess {
+                        target,
+                        is_arrow,
+                        name,
+                    },
+                symbol: Some(symbol),
+                ..
+            } => {
+                let target_type = if *is_arrow {
+                    pointee(Rc::clone(&target.borrow().r#type)).unwrap()
+                } else {
+                    Rc::clone(&target.borrow().r#type)
+                };
+                let record_type = remove_qualifier(Rc::clone(&target_type));
+                if let TypeKind::Record { .. } = record_type.borrow().kind {
+                    let layout = compute_layout(Rc::clone(&record_type)).unwrap();
+
+                    let SymbolKind::Member { index, .. } = &symbol.borrow().kind else {
+                        unreachable!();
+                    };
+
+                    let layout = &layout.children[*index];
+                    for child in &layout.children {
+                        if let Some(t) = &child.name
+                            && *t == *name
+                        {
+                            let mask = self
+                                .context
+                                .i32_type()
+                                .const_int(!(((1 << child.width) - 1) << child.offset), false);
+
+                            let old_value = map_builder_err(
+                                *file_id,
+                                *span,
+                                self.builder.build_load(
+                                    any_to_basic_type(
+                                        self.to_llvm_type(Rc::clone(&node.borrow().r#type))?,
+                                    )
+                                    .unwrap(),
+                                    ptr,
+                                    "load",
+                                ),
+                            )?;
+                            let masked_value = map_builder_err(
+                                *file_id,
+                                *span,
+                                self.builder.build_and(
+                                    old_value.into_int_value(),
+                                    mask,
+                                    "and_mask",
+                                ),
+                            )?;
+                            let shl = map_builder_err(
+                                *file_id,
+                                *span,
+                                self.builder.build_left_shift(
+                                    value.into_int_value(),
+                                    self.context
+                                        .i32_type()
+                                        .const_int(child.offset as u64, false),
+                                    "shl",
+                                ),
+                            )?;
+                            value = map_builder_err(
+                                *file_id,
+                                *span,
+                                self.builder.build_or(shl, masked_value, "or"),
+                            )?
+                            .as_any_value_enum();
+                            break;
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+
+        map_builder_err(
+            node.borrow().file_id,
+            node.borrow().span,
+            self.builder
+                .build_store(ptr, any_to_basic_value(value).unwrap()),
+        )?;
+        Ok(())
     }
 }

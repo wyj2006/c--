@@ -1,5 +1,9 @@
+use std::{cell::RefCell, rc::Rc};
+
 use crate::{
+    ast::expr::Expr,
     ctype::{RecordKind, Type, TypeKind},
+    symtab::SymbolKind,
     variant::Variant,
 };
 use num::ToPrimitive;
@@ -78,8 +82,27 @@ impl TypeKind {
                 ..
             } => {
                 let mut size = 0;
+
                 for (_, member) in members {
-                    size = size.max(member.borrow().r#type.borrow().size()?);
+                    let member_type = &member.borrow().r#type;
+                    let bit_field = if let SymbolKind::Member {
+                        bit_field: Some(bit_field),
+                        ..
+                    } = member.borrow().kind
+                    {
+                        bit_field
+                    } else {
+                        0
+                    };
+                    if bit_field > 0 {
+                        size = size.max(bit_field.div_ceil(8));
+                    }
+                    //无名位域
+                    if member.borrow().name.len() == 0 {
+                        continue;
+                    }
+                    //处理当前成员
+                    size = size.max(member_type.borrow().size()?);
                 }
                 Some(size)
             }
@@ -88,13 +111,68 @@ impl TypeKind {
                 members: Some(members),
                 ..
             } => {
-                let mut size: usize = 0;
-                for (_, member) in members {
-                    let member_align = member.borrow().r#type.borrow().align()?;
-                    size = size.div_ceil(member_align) * member_align;
-                    size += member.borrow().r#type.borrow().size()?;
+                let mut offset: usize = 0;
+                let mut bit_fields = vec![];
+
+                for (i, (_, member)) in members.iter().enumerate() {
+                    let member_type = &member.borrow().r#type;
+                    let bit_field = if let SymbolKind::Member {
+                        bit_field: Some(bit_field),
+                        ..
+                    } = member.borrow().kind
+                    {
+                        bit_field
+                    } else {
+                        0
+                    };
+                    if bit_field > 0 {
+                        bit_fields.push(bit_field);
+                        if i < members.len() - 1 {
+                            continue;
+                        }
+                    }
+                    if bit_fields.len() > 0 {
+                        //处理位域
+                        let bitfield_type = Type {
+                            kind: TypeKind::BitInt {
+                                unsigned: true,
+                                width_expr: Rc::new(RefCell::new(Expr::new_const_int(
+                                    member_type.borrow().file_id,
+                                    member_type.borrow().span,
+                                    bit_fields.iter().sum::<usize>(),
+                                    Rc::new(RefCell::new(Type {
+                                        kind: TypeKind::LongLong,
+                                        ..Type::new(
+                                            member_type.borrow().file_id,
+                                            member_type.borrow().span,
+                                        )
+                                    })),
+                                ))),
+                            },
+                            ..Type::new(member_type.borrow().file_id, member_type.borrow().span)
+                        };
+
+                        let align = bitfield_type.align()?;
+                        offset = offset.div_ceil(align) * align;
+                        offset += bitfield_type.size()?;
+
+                        bit_fields = vec![];
+
+                        //最后一个成员是位域
+                        if i == members.len() - 1 && bit_field > 0 {
+                            continue;
+                        }
+                        //无名位域
+                        if member.borrow().name.len() == 0 {
+                            continue;
+                        }
+                    }
+                    //处理当前成员
+                    let member_align = member_type.borrow().align()?;
+                    offset = offset.div_ceil(member_align) * member_align;
+                    offset += member.borrow().r#type.borrow().size()?;
                 }
-                Some(size)
+                Some(offset)
             }
             _ => None,
         }

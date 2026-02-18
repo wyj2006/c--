@@ -2,6 +2,7 @@ pub mod align;
 pub mod cast;
 pub mod display;
 pub mod group;
+pub mod layout;
 pub mod size;
 
 use crate::ast::{Attribute, expr::Expr};

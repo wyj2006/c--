@@ -48,6 +48,7 @@ pub enum SymbolKind {
     },
     Member {
         bit_field: Option<usize>,
+        index: usize,
     },
     Function {
         function_specs: Vec<FunctionSpec>,
