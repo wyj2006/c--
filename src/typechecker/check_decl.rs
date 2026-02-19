@@ -73,24 +73,35 @@ impl TypeChecker {
 
         match &node.kind {
             DeclarationKind::Var { initializer } => {
-                self.cur_symtab.borrow_mut().add(
-                    Namespace::Ordinary,
-                    Rc::new(RefCell::new(Symbol {
-                        define_loc: match initializer {
-                            Some(_) => Some((node.file_id, node.span)),
-                            None => None,
-                        },
-                        declare_locs: vec![(node.file_id, node.span)],
-                        name: node.name.clone(),
-                        kind: SymbolKind::Object {
-                            storage_classes: node.storage_classes.clone(),
-                        },
-                        r#type: Rc::clone(&node.r#type),
-                        attributes: node.attributes.clone(),
-                    })),
-                )?;
+                let symbol = Rc::new(RefCell::new(Symbol {
+                    define_loc: match initializer {
+                        Some(_) => Some((node.file_id, node.span)),
+                        None => None,
+                    },
+                    declare_locs: vec![(node.file_id, node.span)],
+                    name: node.name.clone(),
+                    kind: SymbolKind::Object {
+                        storage_classes: node.storage_classes.clone(),
+                        init_value: Variant::Unknown,
+                    },
+                    r#type: Rc::clone(&node.r#type),
+                    attributes: node.attributes.clone(),
+                }));
+
+                self.cur_symtab
+                    .borrow_mut()
+                    .add(Namespace::Ordinary, Rc::clone(&symbol))?;
+
                 if let Some(initializer) = initializer {
                     self.visit_initializer(Rc::clone(initializer), Rc::clone(&node.r#type))?;
+
+                    if node.r#type.borrow().is_const() {
+                        let SymbolKind::Object { init_value, .. } = &mut symbol.borrow_mut().kind
+                        else {
+                            unreachable!();
+                        };
+                        *init_value = initializer.borrow().value.clone();
+                    }
                 }
             }
             DeclarationKind::Function {

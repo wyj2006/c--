@@ -179,9 +179,10 @@ impl Print for Declaration {
 impl Print for Initializer {
     fn display(&self) -> String {
         format!(
-            "Initializer {} {}",
+            "Initializer {} {} {}",
             format_location(self.file_id, self.span),
-            self.r#type.borrow().to_string()
+            self.r#type.borrow(),
+            self.value
         )
     }
 

@@ -4,6 +4,7 @@ use crate::{
         decl::{FunctionSpec, StorageClass},
     },
     ctype::{RecordKind, Type, TypeKind, is_compatible},
+    variant::Variant,
 };
 use codespan::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -46,6 +47,7 @@ pub enum SymbolKind {
     Object {
         //TODO 常量
         storage_classes: Vec<StorageClass>,
+        init_value: Variant,
     },
     Member {
         bit_field: Option<usize>,
@@ -94,7 +96,9 @@ impl SymbolTable {
                     symbol.r#type.borrow().to_string(),
                     symbol.r#type.as_ptr(),
                     match &symbol.kind {
-                        SymbolKind::Object { storage_classes }
+                        SymbolKind::Object {
+                            storage_classes, ..
+                        }
                         | SymbolKind::Parameter {
                             storage_classes, ..
                         } => storage_classes

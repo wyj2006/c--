@@ -7,6 +7,7 @@ use crate::ast::decl::Declaration;
 use crate::ctype::Type;
 use crate::file_map::source_lookup;
 use crate::symtab::SymbolTable;
+use crate::variant::Variant;
 use codespan::Span;
 use expr::Expr;
 use std::cell::RefCell;
@@ -87,6 +88,7 @@ pub struct Initializer {
     pub designation: Vec<Designation>, //只有braced initializer中的initializer才有可能有
     pub kind: InitializerKind,
     pub r#type: Rc<RefCell<Type>>,
+    pub value: Variant,
 }
 
 impl Initializer {
@@ -98,6 +100,7 @@ impl Initializer {
             designation: vec![],
             kind,
             r#type: Rc::new(RefCell::new(Type::new(file_id, span))),
+            value: Variant::Unknown,
         }
     }
 }

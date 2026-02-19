@@ -1,4 +1,4 @@
-use crate::ctype::{RecordKind, Type, TypeKind};
+use crate::ctype::{RecordKind, Type, TypeKind, TypeQual};
 use num::BigInt;
 use num::pow::Pow;
 use std::rc::Rc;
@@ -82,6 +82,10 @@ impl Type {
 
     pub fn is_char(&self) -> bool {
         self.kind.is_char()
+    }
+
+    pub fn is_const(&self) -> bool {
+        self.kind.is_const()
     }
 }
 
@@ -310,6 +314,13 @@ impl TypeKind {
     pub fn is_char(&self) -> bool {
         match self {
             TypeKind::Char | TypeKind::UnsignedChar | TypeKind::SignedChar => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_const(&self) -> bool {
+        match self {
+            TypeKind::Qualified { qualifiers, .. } => qualifiers.contains(&TypeQual::Const),
             _ => false,
         }
     }

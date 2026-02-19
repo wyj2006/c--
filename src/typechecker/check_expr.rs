@@ -472,6 +472,10 @@ impl TypeChecker {
                                     }
                                 }
                             }
+                            SymbolKind::Object { init_value, .. } => {
+                                //如果不是常量, 那么init_value将会是Unkown
+                                node.value = init_value.clone();
+                            }
                             _ => {}
                         }
                         node.symbol = Some(Rc::clone(t));
@@ -1276,7 +1280,9 @@ impl TypeChecker {
                                                     node.span,
                                                 )));
                                         }
-                                        SymbolKind::Object { storage_classes }
+                                        SymbolKind::Object {
+                                            storage_classes, ..
+                                        }
                                         | SymbolKind::Parameter {
                                             storage_classes, ..
                                         } => {
@@ -1423,7 +1429,7 @@ impl TypeChecker {
                             } else {
                                 return Err(Diagnostic::error().with_message(format!(
                                         "the operator of '{op}' must have an real type or is a pointer"
-                                    )).with_label(Label::primary(left.borrow().file_id,left.borrow().span)).with_message("the left operand")
+                                    )).with_label(Label::primary(left.borrow().file_id,left.borrow().span).with_message("the left operand"))
                                 .with_label(Label::primary(right.borrow().file_id,right.borrow().span).with_message("the right operand")));
                             }
                             node.r#type = Rc::new(RefCell::new(Type {
@@ -1507,7 +1513,7 @@ impl TypeChecker {
                             } else {
                                 return Err(Diagnostic::error().with_message(format!(
                                         "the operator of '{op}' must have an arithmetic type or is a pointer"
-                                    )).with_label(Label::primary(left.borrow().file_id,left.borrow().span)).with_message("the left operand")
+                                    )).with_label(Label::primary(left.borrow().file_id,left.borrow().span).with_message("the left operand"))
                                 .with_label(Label::primary(right.borrow().file_id,right.borrow().span).with_message("the right operand")));
                             }
                             node.r#type = Rc::new(RefCell::new(Type {
@@ -1567,7 +1573,7 @@ impl TypeChecker {
                             } else {
                                 return Err(Diagnostic::error().with_message( format!(
                                         "the operator of '{op}' must have an arithmetic type or is a pointer"
-                                    )).with_label(Label::primary(left.borrow().file_id,left.borrow().span)).with_message("the left operand")
+                                    )).with_label(Label::primary(left.borrow().file_id,left.borrow().span).with_message("the left operand"))
                                 .with_label(Label::primary(right.borrow().file_id,right.borrow().span).with_message("the right operand")));
                             }
                         }
@@ -1580,11 +1586,10 @@ impl TypeChecker {
                                     .with_message(format!(
                                         "the operator of '{op}' must have an integer type"
                                     ))
-                                    .with_label(Label::primary(
-                                        left.borrow().file_id,
-                                        left.borrow().span,
-                                    ))
-                                    .with_message("the left operand")
+                                    .with_label(
+                                        Label::primary(left.borrow().file_id, left.borrow().span)
+                                            .with_message("the left operand"),
+                                    )
                                     .with_label(
                                         Label::primary(right.borrow().file_id, right.borrow().span)
                                             .with_message("the right operand"),
@@ -1623,11 +1628,10 @@ impl TypeChecker {
                                     .with_message(format!(
                                         "the operator of '{op}' must have an arithmetic type"
                                     ))
-                                    .with_label(Label::primary(
-                                        left.borrow().file_id,
-                                        left.borrow().span,
-                                    ))
-                                    .with_message("the left operand")
+                                    .with_label(
+                                        Label::primary(left.borrow().file_id, left.borrow().span)
+                                            .with_message("the left operand"),
+                                    )
                                     .with_label(
                                         Label::primary(right.borrow().file_id, right.borrow().span)
                                             .with_message("the right operand"),
@@ -1668,11 +1672,10 @@ impl TypeChecker {
                                     .with_message(format!(
                                         "the operator of '{op}' must have an integer type"
                                     ))
-                                    .with_label(Label::primary(
-                                        left.borrow().file_id,
-                                        left.borrow().span,
-                                    ))
-                                    .with_message("the left operand")
+                                    .with_label(
+                                        Label::primary(left.borrow().file_id, left.borrow().span)
+                                            .with_message("the left operand"),
+                                    )
                                     .with_label(
                                         Label::primary(right.borrow().file_id, right.borrow().span)
                                             .with_message("the right operand"),
@@ -1710,11 +1713,10 @@ impl TypeChecker {
                                     .with_message(format!(
                                         "the operator of '{op}' must have an integer type"
                                     ))
-                                    .with_label(Label::primary(
-                                        left.borrow().file_id,
-                                        left.borrow().span,
-                                    ))
-                                    .with_message("the left operand")
+                                    .with_label(
+                                        Label::primary(left.borrow().file_id, left.borrow().span)
+                                            .with_message("the left operand"),
+                                    )
                                     .with_label(
                                         Label::primary(right.borrow().file_id, right.borrow().span)
                                             .with_message("the right operand"),
@@ -1752,7 +1754,7 @@ impl TypeChecker {
                             } else {
                                 return Err(Diagnostic::error().with_message(format!(
                                         "the operator of '{op}' must be a lvalue and can be modified"
-                                    )).with_label(Label::primary(left.borrow().file_id,left.borrow().span)).with_message("the left operand")
+                                    )).with_label(Label::primary(left.borrow().file_id,left.borrow().span).with_message("the left operand"))
                                 .with_label(Label::primary(right.borrow().file_id,right.borrow().span).with_message("the right operand")));
                             }
                         }

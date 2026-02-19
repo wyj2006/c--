@@ -386,6 +386,7 @@ impl TypeChecker {
                         }
                     }
                 } else {
+                    let value = expr.borrow().value.clone();
                     match &mut node.kind {
                         InitializerKind::Expr(expr) => {
                             *expr = self.try_implicit_cast(
@@ -395,6 +396,7 @@ impl TypeChecker {
                         }
                         _ => {}
                     }
+                    node.value = value;
                 }
             }
         }
