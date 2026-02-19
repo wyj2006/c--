@@ -1,14 +1,14 @@
 use crate::{
     ast::decl::{Declaration, DeclarationKind},
-    codegen::{CodeGen, any_to_basic_type, any_to_basic_value},
-    ctype::{RecordKind, TypeKind, layout::compute_layout},
+    codegen::CodeGen,
+    ctype::{RecordKind, TypeKind, array_element, layout::compute_layout},
     diagnostic::map_builder_err,
     symtab::{Namespace, SymbolKind},
 };
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use inkwell::{
-    types::{AnyType, AnyTypeEnum, BasicType},
-    values::AnyValue,
+    types::{AnyType, AnyTypeEnum, BasicType, BasicTypeEnum},
+    values::{AnyValue, BasicValueEnum},
 };
 use std::{cell::RefCell, rc::Rc};
 
@@ -107,22 +107,28 @@ impl<'ctx> CodeGen<'ctx> {
             }
             //TODO storage classes
             DeclarationKind::Var { initializer } => {
-                let r#type = match any_to_basic_type(self.to_llvm_type(Rc::clone(&node.r#type))?) {
-                    Some(t) => t,
-                    None => {
-                        return Err(Diagnostic::error()
-                            .with_message(format!("{} is not basic type", node.r#type.borrow()))
-                            .with_label(Label::primary(
-                                node.r#type.borrow().file_id,
-                                node.r#type.borrow().span,
-                            )));
-                    }
-                };
+                let r#type =
+                    match BasicTypeEnum::try_from(self.to_llvm_type(Rc::clone(&node.r#type))?) {
+                        Ok(t) => t,
+                        Err(_) => {
+                            return Err(Diagnostic::error()
+                                .with_message(format!(
+                                    "{} is not a basic type",
+                                    node.r#type.borrow()
+                                ))
+                                .with_label(Label::primary(
+                                    node.r#type.borrow().file_id,
+                                    node.r#type.borrow().span,
+                                )));
+                        }
+                    };
                 let init_value = match initializer {
                     Some(initializer) => Some(
-                        match any_to_basic_value(self.visit_initializer(Rc::clone(initializer))?) {
-                            Some(t) => t,
-                            None => {
+                        match BasicValueEnum::try_from(
+                            self.visit_initializer(Rc::clone(initializer))?,
+                        ) {
+                            Ok(t) => t,
+                            Err(_) => {
                                 return Err(Diagnostic::error()
                                     .with_message("not a basic value")
                                     .with_label(Label::primary(
@@ -134,6 +140,7 @@ impl<'ctx> CodeGen<'ctx> {
                     ),
                     None => None,
                 };
+                //全局变量不可能是vla
                 let value = if self.func_values.len() == 0 {
                     let value = self.module.add_global(r#type, None, &node.name);
                     if let Some(init_value) = init_value {
@@ -141,11 +148,42 @@ impl<'ctx> CodeGen<'ctx> {
                     }
                     value.as_any_value_enum()
                 } else {
-                    let value = map_builder_err(
-                        node.file_id,
-                        node.span,
-                        self.builder.build_alloca(r#type, &node.name),
-                    )?;
+                    let value = if node.r#type.borrow().is_vla() {
+                        let len_expr = node.r#type.borrow().array_len_expr().unwrap();
+                        let size = self.visit_expr(Rc::clone(&len_expr))?.into_int_value();
+                        let element_type = array_element(Rc::clone(&node.r#type)).unwrap();
+                        map_builder_err(
+                            node.file_id,
+                            node.span,
+                            self.builder.build_array_alloca(
+                                match BasicTypeEnum::try_from(
+                                    self.to_llvm_type(Rc::clone(&element_type))?,
+                                ) {
+                                    Ok(t) => t,
+                                    Err(_) => {
+                                        return Err(Diagnostic::error()
+                                            .with_message(format!(
+                                                "array element not has a basic type: '{}'",
+                                                element_type.borrow()
+                                            ))
+                                            .with_label(Label::primary(
+                                                element_type.borrow().file_id,
+                                                element_type.borrow().span,
+                                            )));
+                                    }
+                                },
+                                size,
+                                &node.name,
+                            ),
+                        )?
+                    } else {
+                        map_builder_err(
+                            node.file_id,
+                            node.span,
+                            self.builder.build_alloca(r#type, &node.name),
+                        )?
+                    };
+                    //vla也不会有初始化列表
                     if let Some(init_value) = init_value {
                         map_builder_err(
                             node.file_id,
@@ -164,17 +202,21 @@ impl<'ctx> CodeGen<'ctx> {
             }
             DeclarationKind::Parameter => {
                 let symbol = self.lookup(Namespace::Ordinary, &node.name).unwrap();
-                let r#type = match any_to_basic_type(self.to_llvm_type(Rc::clone(&node.r#type))?) {
-                    Some(t) => t,
-                    None => {
-                        return Err(Diagnostic::error()
-                            .with_message(format!("{} is not basic type", node.r#type.borrow()))
-                            .with_label(Label::primary(
-                                node.r#type.borrow().file_id,
-                                node.r#type.borrow().span,
-                            )));
-                    }
-                };
+                let r#type =
+                    match BasicTypeEnum::try_from(self.to_llvm_type(Rc::clone(&node.r#type))?) {
+                        Ok(t) => t,
+                        Err(_) => {
+                            return Err(Diagnostic::error()
+                                .with_message(format!(
+                                    "{} is not a basic type",
+                                    node.r#type.borrow()
+                                ))
+                                .with_label(Label::primary(
+                                    node.r#type.borrow().file_id,
+                                    node.r#type.borrow().span,
+                                )));
+                        }
+                    };
                 match &symbol.borrow().kind {
                     SymbolKind::Parameter { index, .. } => {
                         let param_value = map_builder_err(

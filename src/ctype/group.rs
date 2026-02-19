@@ -1,4 +1,5 @@
 use crate::ctype::{RecordKind, Type, TypeKind, TypeQual};
+use crate::variant::Variant;
 use num::BigInt;
 use num::pow::Pow;
 use std::rc::Rc;
@@ -86,6 +87,10 @@ impl Type {
 
     pub fn is_const(&self) -> bool {
         self.kind.is_const()
+    }
+
+    pub fn is_vla(&self) -> bool {
+        self.kind.is_vla()
     }
 }
 
@@ -321,6 +326,17 @@ impl TypeKind {
     pub fn is_const(&self) -> bool {
         match self {
             TypeKind::Qualified { qualifiers, .. } => qualifiers.contains(&TypeQual::Const),
+            _ => false,
+        }
+    }
+
+    pub fn is_vla(&self) -> bool {
+        match self {
+            TypeKind::Array {
+                len_expr: Some(len_expr),
+                ..
+            } => matches!(len_expr.borrow().value, Variant::Unknown),
+            TypeKind::Qualified { r#type, .. } => r#type.borrow().is_vla(),
             _ => false,
         }
     }

@@ -7,8 +7,8 @@ TranslationUnit <(1, 1), (6, 1)>
     Compound <(3, 1), (5, 2)>
       DeclStmt <(4, 5), (4, 29)>
         VarDecl <(4, 9), (4, 18)> a int[1][4][5] 
-          Initializer <(4, 19), (4, 28)> int[1][4][5]
-            Initializer <(4, 20), (4, 21)> int
+          Initializer <(4, 19), (4, 28)> int[1][4][5] 
+            Initializer <(4, 20), (4, 21)> int 1
               Designation <(4, 20), (4, 21)> 
                 Integer 10 0 [] <(4, 20), (4, 21)> unsigned long long 0 
               Designation <(4, 20), (4, 21)> 
@@ -16,7 +16,7 @@ TranslationUnit <(1, 1), (6, 1)>
               Designation <(4, 20), (4, 21)> 
                 Integer 10 0 [] <(4, 20), (4, 21)> unsigned long long 0 
               Integer 10 1 [] <(4, 20), (4, 21)> int 1 
-            Initializer <(4, 22), (4, 23)> int
+            Initializer <(4, 22), (4, 23)> int 2
               Designation <(4, 22), (4, 23)> 
                 Integer 10 0 [] <(4, 22), (4, 23)> unsigned long long 0 
               Designation <(4, 22), (4, 23)> 
@@ -24,7 +24,7 @@ TranslationUnit <(1, 1), (6, 1)>
               Designation <(4, 22), (4, 23)> 
                 Integer 10 1 [] <(4, 22), (4, 23)> unsigned long long 1 
               Integer 10 2 [] <(4, 22), (4, 23)> int 2 
-            Initializer <(4, 24), (4, 25)> int
+            Initializer <(4, 24), (4, 25)> int 3
               Designation <(4, 24), (4, 25)> 
                 Integer 10 0 [] <(4, 24), (4, 25)> unsigned long long 0 
               Designation <(4, 24), (4, 25)> 
@@ -32,7 +32,7 @@ TranslationUnit <(1, 1), (6, 1)>
               Designation <(4, 24), (4, 25)> 
                 Integer 10 2 [] <(4, 24), (4, 25)> unsigned long long 2 
               Integer 10 3 [] <(4, 24), (4, 25)> int 3 
-            Initializer <(4, 26), (4, 27)> int
+            Initializer <(4, 26), (4, 27)> int 4
               Designation <(4, 26), (4, 27)> 
                 Integer 10 0 [] <(4, 26), (4, 27)> unsigned long long 0 
               Designation <(4, 26), (4, 27)> 

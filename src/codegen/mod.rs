@@ -19,8 +19,8 @@ use inkwell::{
     builder::Builder,
     context::Context,
     module::Module,
-    types::{AnyType, AnyTypeEnum, BasicType, BasicTypeEnum, StringRadix},
-    values::{AnyValue, AnyValueEnum, BasicValue, BasicValueEnum, FunctionValue, IntValue},
+    types::{AnyType, AnyTypeEnum, StringRadix},
+    values::{AnyValue, AnyValueEnum, FunctionValue, IntValue},
 };
 use num::ToPrimitive;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
@@ -152,8 +152,12 @@ impl<'ctx> CodeGen<'ctx> {
                                 )));
                         }
                     },
-                    //TODO VLA
-                    Variant::Unknown => todo!(),
+                    Variant::Unknown => {
+                        return Ok(self
+                            .context
+                            .ptr_type(AddressSpace::default())
+                            .as_any_type_enum());
+                    }
                     _ => {
                         return Err(Diagnostic::error()
                             .with_message(format!("array length must be an integer constant"))
@@ -485,31 +489,4 @@ impl<'ctx> CodeGen<'ctx> {
                 ))),
         }
     }
-}
-
-pub fn any_to_basic_type(r#type: AnyTypeEnum) -> Option<BasicTypeEnum> {
-    Some(match r#type {
-        AnyTypeEnum::ArrayType(t) => t.as_basic_type_enum(),
-        AnyTypeEnum::FloatType(t) => t.as_basic_type_enum(),
-        AnyTypeEnum::IntType(t) => t.as_basic_type_enum(),
-        AnyTypeEnum::PointerType(t) => t.as_basic_type_enum(),
-        AnyTypeEnum::ScalableVectorType(t) => t.as_basic_type_enum(),
-        AnyTypeEnum::StructType(t) => t.as_basic_type_enum(),
-        AnyTypeEnum::VectorType(t) => t.as_basic_type_enum(),
-        _ => None?,
-    })
-}
-
-pub fn any_to_basic_value(value: AnyValueEnum) -> Option<BasicValueEnum> {
-    Some(match value {
-        AnyValueEnum::ArrayValue(t) => t.as_basic_value_enum(),
-        AnyValueEnum::FloatValue(t) => t.as_basic_value_enum(),
-        AnyValueEnum::IntValue(t) => t.as_basic_value_enum(),
-        AnyValueEnum::PhiValue(t) => t.as_basic_value(),
-        AnyValueEnum::PointerValue(t) => t.as_basic_value_enum(),
-        AnyValueEnum::ScalableVectorValue(t) => t.as_basic_value_enum(),
-        AnyValueEnum::StructValue(t) => t.as_basic_value_enum(),
-        AnyValueEnum::VectorValue(t) => t.as_basic_value_enum(),
-        _ => None?,
-    })
 }

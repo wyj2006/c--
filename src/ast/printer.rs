@@ -182,7 +182,11 @@ impl Print for Initializer {
             "Initializer {} {} {}",
             format_location(self.file_id, self.span),
             self.r#type.borrow(),
-            self.value
+            if let Variant::Unknown = self.value {
+                "".to_string()
+            } else {
+                self.value.to_string()
+            }
         )
     }
 

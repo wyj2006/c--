@@ -156,6 +156,10 @@ impl Type {
     pub fn is_complete(&self) -> bool {
         self.kind.is_complete()
     }
+
+    pub fn array_len_expr(&self) -> Option<Rc<RefCell<Expr>>> {
+        self.kind.array_len_expr()
+    }
 }
 
 impl TypeKind {
@@ -170,6 +174,17 @@ impl TypeKind {
         match self.size() {
             Some(_) => true,
             None => false,
+        }
+    }
+
+    pub fn array_len_expr(&self) -> Option<Rc<RefCell<Expr>>> {
+        match self {
+            TypeKind::Array {
+                len_expr: Some(len_expr),
+                ..
+            } => Some(Rc::clone(len_expr)),
+            TypeKind::Qualified { r#type, .. } => r#type.borrow().array_len_expr(),
+            _ => None,
         }
     }
 }

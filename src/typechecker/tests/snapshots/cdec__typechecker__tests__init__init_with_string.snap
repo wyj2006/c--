@@ -7,29 +7,29 @@ TranslationUnit <(1, 1), (9, 1)>
     Compound <(3, 1), (8, 2)>
       DeclStmt <(4, 5), (4, 22)>
         VarDecl <(4, 10), (4, 14)> a char[2] 
-          Initializer <(4, 15), (4, 21)> char[2]
+          Initializer <(4, 15), (4, 21)> char[2] 
             String Default "fdas" <(4, 15), (4, 21)> const char[5] [102, 100, 97, 115, 0] lvalue
       DeclStmt <(5, 5), (5, 23)>
         VarDecl <(5, 10), (5, 13)> b char[5] 
-          Initializer <(5, 14), (5, 22)> char[5]
-            Initializer <(5, 15), (5, 21)> char[5]
+          Initializer <(5, 14), (5, 22)> char[5] 
+            Initializer <(5, 15), (5, 21)> char[5] 
               String Default "fdsa" <(5, 15), (5, 21)> const char[5] [102, 100, 115, 97, 0] lvalue
       DeclStmt <(6, 5), (6, 39)>
         VarDecl <(6, 10), (6, 19)> c char[2][4][5] 
-          Initializer <(6, 20), (6, 38)> char[2][4][5]
-            Initializer <(6, 25), (6, 31)> char[5]
+          Initializer <(6, 20), (6, 38)> char[2][4][5] 
+            Initializer <(6, 25), (6, 31)> char[5] 
               Designation <(6, 21), (6, 25)> 
                 Integer 10 1 [] <(6, 22), (6, 23)> int 1 
               Designation <(6, 25), (6, 31)> 
                 Integer 10 0 [] <(6, 25), (6, 31)> unsigned long long 0 
               String Default "fdas" <(6, 25), (6, 31)> const char[5] [102, 100, 97, 115, 0] lvalue
-            Initializer <(6, 32), (6, 35)> char[5]
+            Initializer <(6, 32), (6, 35)> char[5] 
               Designation <(6, 32), (6, 35)> 
                 Integer 10 1 [] <(6, 32), (6, 35)> unsigned long long 1 
               Designation <(6, 32), (6, 35)> 
                 Integer 10 1 [] <(6, 32), (6, 35)> unsigned long long 1 
               String Default "f" <(6, 32), (6, 35)> const char[2] [102, 0] lvalue
-            Initializer <(6, 36), (6, 37)> char
+            Initializer <(6, 36), (6, 37)> char 1
               Designation <(6, 36), (6, 37)> 
                 Integer 10 1 [] <(6, 36), (6, 37)> unsigned long long 1 
               Designation <(6, 36), (6, 37)> 
@@ -42,7 +42,7 @@ TranslationUnit <(1, 1), (9, 1)>
         RecordDecl <(7, 5), (7, 25)> A struct A 
           MemberDecl <(7, 19), (7, 23)> a char[5] 
         VarDecl <(7, 25), (7, 26)> d struct A 
-          Initializer <(7, 27), (7, 35)> struct A
-            Initializer <(7, 28), (7, 34)> char[5]
+          Initializer <(7, 27), (7, 35)> struct A 
+            Initializer <(7, 28), (7, 34)> char[5] 
               Designation <(7, 28), (7, 34)> a
               String Default "fdsa" <(7, 28), (7, 34)> const char[5] [102, 100, 115, 97, 0] lvalue

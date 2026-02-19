@@ -9,8 +9,8 @@ TranslationUnit <(1, 1), (8, 1)>
         RecordDecl <(4, 5), (6, 6)> <unnamed struct (4, 5)> struct <unnamed struct (4, 5)> 
           MemberDecl <(5, 13), (5, 23)> x int[3][4][5] 
         VarDecl <(6, 6), (6, 7)> a struct <unnamed struct (4, 5)> 
-          Initializer <(6, 8), (6, 17)> struct <unnamed struct (4, 5)>
-            Initializer <(6, 9), (6, 10)> int
+          Initializer <(6, 8), (6, 17)> struct <unnamed struct (4, 5)> 
+            Initializer <(6, 9), (6, 10)> int 1
               Designation <(6, 9), (6, 10)> x
               Designation <(6, 9), (6, 10)> 
                 Integer 10 0 [] <(6, 9), (6, 10)> unsigned long long 0 
@@ -19,7 +19,7 @@ TranslationUnit <(1, 1), (8, 1)>
               Designation <(6, 9), (6, 10)> 
                 Integer 10 0 [] <(6, 9), (6, 10)> unsigned long long 0 
               Integer 10 1 [] <(6, 9), (6, 10)> int 1 
-            Initializer <(6, 11), (6, 12)> int
+            Initializer <(6, 11), (6, 12)> int 2
               Designation <(6, 11), (6, 12)> x
               Designation <(6, 11), (6, 12)> 
                 Integer 10 0 [] <(6, 11), (6, 12)> unsigned long long 0 
@@ -28,7 +28,7 @@ TranslationUnit <(1, 1), (8, 1)>
               Designation <(6, 11), (6, 12)> 
                 Integer 10 1 [] <(6, 11), (6, 12)> unsigned long long 1 
               Integer 10 2 [] <(6, 11), (6, 12)> int 2 
-            Initializer <(6, 13), (6, 14)> int
+            Initializer <(6, 13), (6, 14)> int 3
               Designation <(6, 13), (6, 14)> x
               Designation <(6, 13), (6, 14)> 
                 Integer 10 0 [] <(6, 13), (6, 14)> unsigned long long 0 
@@ -37,7 +37,7 @@ TranslationUnit <(1, 1), (8, 1)>
               Designation <(6, 13), (6, 14)> 
                 Integer 10 2 [] <(6, 13), (6, 14)> unsigned long long 2 
               Integer 10 3 [] <(6, 13), (6, 14)> int 3 
-            Initializer <(6, 15), (6, 16)> int
+            Initializer <(6, 15), (6, 16)> int 4
               Designation <(6, 15), (6, 16)> x
               Designation <(6, 15), (6, 16)> 
                 Integer 10 0 [] <(6, 15), (6, 16)> unsigned long long 0 

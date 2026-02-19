@@ -1,6 +1,6 @@
 use crate::{
     ast::expr::{BinOpKind, CastMethod, Expr, ExprKind, UnaryOpKind},
-    codegen::{CodeGen, any_to_basic_type, any_to_basic_value},
+    codegen::CodeGen,
     ctype::{
         RecordKind, TypeKind,
         cast::remove_qualifier,
@@ -14,13 +14,14 @@ use crate::{
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use inkwell::{
     FloatPredicate, IntPredicate,
-    values::{AnyValue, AnyValueEnum, InstructionOpcode, IntValue},
+    types::BasicTypeEnum,
+    values::{AnyValue, AnyValueEnum, BasicValueEnum, InstructionOpcode, IntValue},
 };
 use std::{cell::RefCell, rc::Rc, u64};
 
 impl<'ctx> CodeGen<'ctx> {
     pub fn visit_expr(
-        &mut self,
+        &self,
         node: Rc<RefCell<Expr>>,
     ) -> Result<AnyValueEnum<'ctx>, Diagnostic<usize>> {
         if self.func_values.len() == 0 {
@@ -53,11 +54,11 @@ impl<'ctx> CodeGen<'ctx> {
                     None,
                     "str",
                 );
-                global_value.set_initializer(&match any_to_basic_value(
+                global_value.set_initializer(&match BasicValueEnum::try_from(
                     self.to_llvm_value(node.value.clone(), Rc::clone(&node.r#type))?,
                 ) {
-                    Some(t) => t,
-                    None => unreachable!(),
+                    Ok(t) => t,
+                    Err(_) => unreachable!(),
                 });
                 Ok(global_value.as_any_value_enum())
             }
@@ -90,10 +91,8 @@ impl<'ctx> CodeGen<'ctx> {
                     self.visit_expr(Rc::clone(target))?
                 };
                 match method {
-                    CastMethod::Nothing | CastMethod::PtrToPtr => {
-                        Ok(self.visit_expr(Rc::clone(target))?)
-                    }
-                    CastMethod::FuncToPtr => Ok(match self.visit_expr(Rc::clone(target))? {
+                    CastMethod::Nothing | CastMethod::PtrToPtr => Ok(target_value),
+                    CastMethod::FuncToPtr => Ok(match target_value {
                         AnyValueEnum::FunctionValue(t) => {
                             //实际上在调用as_any_value_enum后值又变成了FunctionValue
                             t.as_global_value().as_pointer_value().as_any_value_enum()
@@ -103,8 +102,11 @@ impl<'ctx> CodeGen<'ctx> {
                     CastMethod::ArrayToPtr => {
                         Ok(map_builder_err(node.file_id, node.span, unsafe {
                             self.builder.build_in_bounds_gep(
-                                self.to_llvm_type(Rc::clone(&target.borrow().r#type))?
-                                    .into_array_type(),
+                                //如果是数组, 那结果是array type, 如果是vla, 那结果是pointer type
+                                BasicTypeEnum::try_from(
+                                    self.to_llvm_type(Rc::clone(&target.borrow().r#type))?,
+                                )
+                                .unwrap(),
                                 //target 一般是左值, 而左值一定是PointerValue
                                 target_value.into_pointer_value(),
                                 &[self.context.i64_type().const_int(0, false)],
@@ -132,9 +134,9 @@ impl<'ctx> CodeGen<'ctx> {
                                 CastMethod::IntTrunc => InstructionOpcode::Trunc,
                                 _ => unreachable!(),
                             },
-                            match any_to_basic_value(target_value) {
-                                Some(t) => t,
-                                None => {
+                            match BasicValueEnum::try_from(target_value) {
+                                Ok(t) => t,
+                                Err(_) => {
                                     return Err(Diagnostic::error()
                                         .with_message(format!(
                                             "cast from a invalid value: {target_value}"
@@ -145,9 +147,11 @@ impl<'ctx> CodeGen<'ctx> {
                                         )));
                                 }
                             },
-                            match any_to_basic_type(self.to_llvm_type(Rc::clone(&node.r#type))?) {
-                                Some(t) => t,
-                                None => {
+                            match BasicTypeEnum::try_from(
+                                self.to_llvm_type(Rc::clone(&node.r#type))?,
+                            ) {
+                                Ok(t) => t,
+                                Err(_) => {
                                     return Err(Diagnostic::error()
                                         .with_message(format!(
                                             "cast to a invalid type: {}",
@@ -225,12 +229,13 @@ impl<'ctx> CodeGen<'ctx> {
                     node.file_id,
                     node.span,
                     self.builder.build_phi(
-                        any_to_basic_type(self.to_llvm_type(Rc::clone(&node.r#type))?).unwrap(),
+                        BasicTypeEnum::try_from(self.to_llvm_type(Rc::clone(&node.r#type))?)
+                            .unwrap(),
                         "",
                     ),
                 )?;
-                phi.add_incoming(&[(&any_to_basic_value(true_value).unwrap(), true_block)]);
-                phi.add_incoming(&[(&any_to_basic_value(false_value).unwrap(), false_block)]);
+                phi.add_incoming(&[(&BasicValueEnum::try_from(true_value).unwrap(), true_block)]);
+                phi.add_incoming(&[(&BasicValueEnum::try_from(false_value).unwrap(), false_block)]);
 
                 Ok(phi.as_any_value_enum())
             }
@@ -238,7 +243,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let mut args = Vec::new();
                 for arg in arguments {
                     args.push(
-                        any_to_basic_value(self.visit_expr(Rc::clone(arg))?)
+                        BasicValueEnum::try_from(self.visit_expr(Rc::clone(arg))?)
                             .unwrap()
                             .into(),
                     );
@@ -277,8 +282,10 @@ impl<'ctx> CodeGen<'ctx> {
                     | (AnyValueEnum::IntValue(index), AnyValueEnum::PointerValue(target)) => {
                         Ok(map_builder_err(node.file_id, node.span, unsafe {
                             self.builder.build_in_bounds_gep(
-                                any_to_basic_type(self.to_llvm_type(Rc::clone(&node.r#type))?)
-                                    .unwrap(),
+                                BasicTypeEnum::try_from(
+                                    self.to_llvm_type(Rc::clone(&node.r#type))?,
+                                )
+                                .unwrap(),
                                 target,
                                 &[index],
                                 "",
@@ -372,7 +379,7 @@ impl<'ctx> CodeGen<'ctx> {
                             node.file_id,
                             node.span,
                             self.builder.build_load(
-                                any_to_basic_type(
+                                BasicTypeEnum::try_from(
                                     self.to_llvm_type(Rc::clone(&operand.borrow().r#type))?,
                                 )
                                 .unwrap(),
@@ -410,11 +417,11 @@ impl<'ctx> CodeGen<'ctx> {
                             t if t.is_pointer() => {
                                 map_builder_err(node.file_id, node.span, unsafe {
                                     self.builder.build_in_bounds_gep(
-                                        match any_to_basic_type(self.to_llvm_type(
+                                        match BasicTypeEnum::try_from(self.to_llvm_type(
                                             pointee(Rc::clone(&operand.borrow().r#type)).unwrap(),
                                         )?) {
-                                            Some(t) => t,
-                                            None => {
+                                            Ok(t) => t,
+                                            Err(_) => {
                                                 return Err(Diagnostic::error()
                                                     .with_message(format!(
                                                         "not point to a basic type"
@@ -440,7 +447,7 @@ impl<'ctx> CodeGen<'ctx> {
                             self.builder.build_store(
                                 //操作数本身就是左值
                                 operand_value.into_pointer_value(),
-                                any_to_basic_value(new_value).unwrap(),
+                                BasicValueEnum::try_from(new_value).unwrap(),
                             ),
                         )?;
                         match op {
@@ -492,7 +499,8 @@ impl<'ctx> CodeGen<'ctx> {
                         node.file_id,
                         node.span,
                         self.builder.build_phi(
-                            any_to_basic_type(self.to_llvm_type(Rc::clone(&node.r#type))?).unwrap(),
+                            BasicTypeEnum::try_from(self.to_llvm_type(Rc::clone(&node.r#type))?)
+                                .unwrap(),
                             "",
                         ),
                     )?;
@@ -539,7 +547,8 @@ impl<'ctx> CodeGen<'ctx> {
                         node.file_id,
                         node.span,
                         self.builder.build_phi(
-                            any_to_basic_type(self.to_llvm_type(Rc::clone(&node.r#type))?).unwrap(),
+                            BasicTypeEnum::try_from(self.to_llvm_type(Rc::clone(&node.r#type))?)
+                                .unwrap(),
                             "",
                         ),
                     )?;
@@ -727,7 +736,7 @@ impl<'ctx> CodeGen<'ctx> {
                         (TypeKind::Pointer(pointee), b) if b.is_integer() => {
                             Ok(map_builder_err(node.file_id, node.span, unsafe {
                                 self.builder.build_in_bounds_gep(
-                                    any_to_basic_type(self.to_llvm_type(Rc::clone(pointee))?)
+                                    BasicTypeEnum::try_from(self.to_llvm_type(Rc::clone(pointee))?)
                                         .unwrap(),
                                     left_value.into_pointer_value(),
                                     &[right_value.into_int_value()],
@@ -739,7 +748,7 @@ impl<'ctx> CodeGen<'ctx> {
                         (a, TypeKind::Pointer(pointee)) if a.is_integer() => {
                             Ok(map_builder_err(node.file_id, node.span, unsafe {
                                 self.builder.build_in_bounds_gep(
-                                    any_to_basic_type(self.to_llvm_type(Rc::clone(pointee))?)
+                                    BasicTypeEnum::try_from(self.to_llvm_type(Rc::clone(pointee))?)
                                         .unwrap(),
                                     right_value.into_pointer_value(),
                                     &[left_value.into_int_value()],
@@ -787,7 +796,7 @@ impl<'ctx> CodeGen<'ctx> {
                             )?;
                             Ok(map_builder_err(node.file_id, node.span, unsafe {
                                 self.builder.build_in_bounds_gep(
-                                    any_to_basic_type(self.to_llvm_type(Rc::clone(pointee))?)
+                                    BasicTypeEnum::try_from(self.to_llvm_type(Rc::clone(pointee))?)
                                         .unwrap(),
                                     left_value.into_pointer_value(),
                                     &[right_neg],
@@ -1013,8 +1022,10 @@ impl<'ctx> CodeGen<'ctx> {
                             node.file_id,
                             node.span,
                             self.builder.build_struct_gep(
-                                any_to_basic_type(self.to_llvm_type(Rc::clone(&record_type))?)
-                                    .unwrap(),
+                                BasicTypeEnum::try_from(
+                                    self.to_llvm_type(Rc::clone(&record_type))?,
+                                )
+                                .unwrap(),
                                 target_value.into_pointer_value(),
                                 *index as u32,
                                 "",
@@ -1035,9 +1046,9 @@ impl<'ctx> CodeGen<'ctx> {
                     node.file_id,
                     node.span,
                     self.builder.build_alloca(
-                        match any_to_basic_type(self.to_llvm_type(Rc::clone(&node.r#type))?) {
-                            Some(t) => t,
-                            None => {
+                        match BasicTypeEnum::try_from(self.to_llvm_type(Rc::clone(&node.r#type))?) {
+                            Ok(t) => t,
+                            Err(_) => {
                                 return Err(Diagnostic::error()
                                     .with_message("not a basic type")
                                     .with_label(Label::primary(
@@ -1055,9 +1066,9 @@ impl<'ctx> CodeGen<'ctx> {
                     node.span,
                     self.builder.build_store(
                         ptr,
-                        match any_to_basic_value(value) {
-                            Some(t) => t,
-                            None => {
+                        match BasicValueEnum::try_from(value) {
+                            Ok(t) => t,
+                            Err(_) => {
                                 return Err(Diagnostic::error()
                                     .with_message("not a basic value")
                                     .with_label(Label::primary(
@@ -1074,10 +1085,7 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     //将标量类型的表达式转换为bool值
-    pub fn to_bool(
-        &mut self,
-        expr: Rc<RefCell<Expr>>,
-    ) -> Result<IntValue<'ctx>, Diagnostic<usize>> {
+    pub fn to_bool(&self, expr: Rc<RefCell<Expr>>) -> Result<IntValue<'ctx>, Diagnostic<usize>> {
         let file_id = expr.borrow().file_id;
         let span = expr.borrow().span;
         let value = self.visit_expr(Rc::clone(&expr))?;
@@ -1120,7 +1128,7 @@ impl<'ctx> CodeGen<'ctx> {
 
     //如果expr是位域访问, 那么生成加载位域值的操作, 否则就是正常的load代码
     pub fn build_load(
-        &mut self,
+        &self,
         node: Rc<RefCell<Expr>>,
     ) -> Result<AnyValueEnum<'ctx>, Diagnostic<usize>> {
         let value = self.visit_expr(Rc::clone(&node))?;
@@ -1128,9 +1136,10 @@ impl<'ctx> CodeGen<'ctx> {
             node.borrow().file_id,
             node.borrow().span,
             self.builder.build_load(
-                match any_to_basic_type(self.to_llvm_type(Rc::clone(&node.borrow().r#type))?) {
-                    Some(t) => t,
-                    None => {
+                match BasicTypeEnum::try_from(self.to_llvm_type(Rc::clone(&node.borrow().r#type))?)
+                {
+                    Ok(t) => t,
+                    Err(_) => {
                         return Err(Diagnostic::error()
                             .with_message(format!(
                                 "invalid type for lvalue: {}",
@@ -1214,7 +1223,7 @@ impl<'ctx> CodeGen<'ctx> {
 
     //行为类似于build_load
     pub fn build_store(
-        &mut self,
+        &self,
         node: Rc<RefCell<Expr>>,
         mut value: AnyValueEnum<'ctx>,
     ) -> Result<(), Diagnostic<usize>> {
@@ -1255,7 +1264,7 @@ impl<'ctx> CodeGen<'ctx> {
                                 *file_id,
                                 *span,
                                 self.builder.build_load(
-                                    any_to_basic_type(
+                                    BasicTypeEnum::try_from(
                                         self.to_llvm_type(Rc::clone(&node.borrow().r#type))?,
                                     )
                                     .unwrap(),
@@ -1317,7 +1326,7 @@ impl<'ctx> CodeGen<'ctx> {
             node.borrow().file_id,
             node.borrow().span,
             self.builder
-                .build_store(ptr, any_to_basic_value(value).unwrap()),
+                .build_store(ptr, BasicValueEnum::try_from(value).unwrap()),
         )?;
         Ok(())
     }

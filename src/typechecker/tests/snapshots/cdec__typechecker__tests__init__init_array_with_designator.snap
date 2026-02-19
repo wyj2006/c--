@@ -7,21 +7,21 @@ TranslationUnit <(1, 1), (7, 1)>
     Compound <(3, 1), (6, 2)>
       DeclStmt <(4, 5), (4, 39)>
         VarDecl <(4, 9), (4, 19)> a int[3][4][5] 
-          Initializer <(4, 20), (4, 38)> int[3][4][5]
-            Initializer <(4, 28), (4, 33)> int[5]
+          Initializer <(4, 20), (4, 38)> int[3][4][5] 
+            Initializer <(4, 28), (4, 33)> int[5] 
               Designation <(4, 21), (4, 28)> 
                 Integer 8  [] <(4, 22), (4, 23)> int 0 
               Designation <(4, 21), (4, 28)> 
                 Integer 10 1 [] <(4, 25), (4, 26)> int 1 
-              Initializer <(4, 29), (4, 30)> int
+              Initializer <(4, 29), (4, 30)> int 1
                 Designation <(4, 29), (4, 30)> 
                   Integer 10 0 [] <(4, 29), (4, 30)> unsigned long long 0 
                 Integer 10 1 [] <(4, 29), (4, 30)> int 1 
-              Initializer <(4, 31), (4, 32)> int
+              Initializer <(4, 31), (4, 32)> int 2
                 Designation <(4, 31), (4, 32)> 
                   Integer 10 1 [] <(4, 31), (4, 32)> unsigned long long 1 
                 Integer 10 2 [] <(4, 31), (4, 32)> int 2 
-            Initializer <(4, 34), (4, 35)> int
+            Initializer <(4, 34), (4, 35)> int 3
               Designation <(4, 34), (4, 35)> 
                 Integer 10 0 [] <(4, 34), (4, 35)> unsigned long long 0 
               Designation <(4, 34), (4, 35)> 
@@ -29,7 +29,7 @@ TranslationUnit <(1, 1), (7, 1)>
               Designation <(4, 34), (4, 35)> 
                 Integer 10 0 [] <(4, 34), (4, 35)> unsigned long long 0 
               Integer 10 3 [] <(4, 34), (4, 35)> int 3 
-            Initializer <(4, 36), (4, 37)> int
+            Initializer <(4, 36), (4, 37)> int 4
               Designation <(4, 36), (4, 37)> 
                 Integer 10 0 [] <(4, 36), (4, 37)> unsigned long long 0 
               Designation <(4, 36), (4, 37)> 
@@ -39,20 +39,20 @@ TranslationUnit <(1, 1), (7, 1)>
               Integer 10 4 [] <(4, 36), (4, 37)> int 4 
       DeclStmt <(5, 5), (5, 29)>
         VarDecl <(5, 9), (5, 16)> b int[3][4] 
-          Initializer <(5, 17), (5, 28)> int[3][4]
-            Initializer <(5, 22), (5, 23)> int
+          Initializer <(5, 17), (5, 28)> int[3][4] 
+            Initializer <(5, 22), (5, 23)> int 1
               Designation <(5, 18), (5, 22)> 
                 Integer 10 1 [] <(5, 19), (5, 20)> int 1 
               Designation <(5, 22), (5, 23)> 
                 Integer 10 0 [] <(5, 22), (5, 23)> unsigned long long 0 
               Integer 10 1 [] <(5, 22), (5, 23)> int 1 
-            Initializer <(5, 24), (5, 25)> int
+            Initializer <(5, 24), (5, 25)> int 2
               Designation <(5, 24), (5, 25)> 
                 Integer 10 1 [] <(5, 24), (5, 25)> unsigned long long 1 
               Designation <(5, 24), (5, 25)> 
                 Integer 10 1 [] <(5, 24), (5, 25)> unsigned long long 1 
               Integer 10 2 [] <(5, 24), (5, 25)> int 2 
-            Initializer <(5, 26), (5, 27)> int
+            Initializer <(5, 26), (5, 27)> int 3
               Designation <(5, 26), (5, 27)> 
                 Integer 10 1 [] <(5, 26), (5, 27)> unsigned long long 1 
               Designation <(5, 26), (5, 27)> 

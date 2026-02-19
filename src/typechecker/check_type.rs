@@ -179,7 +179,26 @@ impl TypeChecker {
                                 }
                             },
                             //VLA的情况
-                            Variant::Unknown => {}
+                            Variant::Unknown => {
+                                if !len_expr.borrow().r#type.borrow().is_integer() {
+                                    return Err(Diagnostic::error()
+                                        .with_message(format!(
+                                            "array length must have an integer type"
+                                        ))
+                                        .with_label(Label::primary(
+                                            len_expr.borrow().file_id,
+                                            len_expr.borrow().span,
+                                        )));
+                                }
+                                if let None = self.cur_symtab.borrow().parent {
+                                    return Err(Diagnostic::error()
+                                        .with_message("vla cannot appear at the file scope")
+                                        .with_label(Label::primary(
+                                            len_expr.borrow().file_id,
+                                            len_expr.borrow().span,
+                                        )));
+                                }
+                            }
                             _ => {
                                 return Err(Diagnostic::error()
                                     .with_message(format!(

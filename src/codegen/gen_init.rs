@@ -1,6 +1,6 @@
 use crate::{
     ast::{Designation, DesignationKind, Initializer, InitializerKind},
-    codegen::{CodeGen, any_to_basic_type, any_to_basic_value},
+    codegen::CodeGen,
     ctype::layout::{ConstDesignation, Layout, compute_layout},
     diagnostic::map_builder_err,
     variant::Variant,
@@ -179,9 +179,9 @@ impl<'ctx> CodeGen<'ctx> {
             }
         } else {
             Ok(
-                match any_to_basic_type(self.to_llvm_type(Rc::clone(&layout.r#type))?) {
-                    Some(t) => t.const_zero(),
-                    None => {
+                match BasicTypeEnum::try_from(self.to_llvm_type(Rc::clone(&layout.r#type))?) {
+                    Ok(t) => t.const_zero(),
+                    Err(_) => {
                         return Err(Diagnostic::error()
                             .with_message(format!("not a basic type: '{}'", layout.r#type.borrow()))
                             .with_label(Label::primary(
@@ -195,7 +195,7 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     pub fn visit_initializer(
-        &mut self,
+        &self,
         node: Rc<RefCell<Initializer>>,
     ) -> Result<AnyValueEnum<'ctx>, Diagnostic<usize>> {
         match &node.borrow().kind {
@@ -210,18 +210,19 @@ impl<'ctx> CodeGen<'ctx> {
                     }
                     let designation =
                         ConstDesignation::from_designation(&initializer.borrow().designation)?;
-                    let value =
-                        match any_to_basic_value(self.visit_initializer(Rc::clone(initializer))?) {
-                            Some(t) => t,
-                            None => {
-                                return Err(Diagnostic::error()
-                                    .with_message("not a basic value")
-                                    .with_label(Label::primary(
-                                        initializer.borrow().file_id,
-                                        initializer.borrow().span,
-                                    )));
-                            }
-                        };
+                    let value = match BasicValueEnum::try_from(
+                        self.visit_initializer(Rc::clone(initializer))?,
+                    ) {
+                        Ok(t) => t,
+                        Err(_) => {
+                            return Err(Diagnostic::error()
+                                .with_message("not a basic value")
+                                .with_label(Label::primary(
+                                    initializer.borrow().file_id,
+                                    initializer.borrow().span,
+                                )));
+                        }
+                    };
                     init_values.insert(designation, value);
                 }
 

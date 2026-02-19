@@ -7,23 +7,23 @@ TranslationUnit <(1, 1), (6, 1)>
     Compound <(3, 1), (5, 2)>
       DeclStmt <(4, 5), (4, 32)>
         VarDecl <(4, 9), (4, 19)> a int[3][4][5] 
-          Initializer <(4, 20), (4, 31)> int[3][4][5]
-            Initializer <(4, 21), (4, 26)> int[4][5]
+          Initializer <(4, 20), (4, 31)> int[3][4][5] 
+            Initializer <(4, 21), (4, 26)> int[4][5] 
               Designation <(4, 21), (4, 26)> 
                 Integer 10 0 [] <(4, 21), (4, 26)> unsigned long long 0 
-              Initializer <(4, 22), (4, 23)> int
+              Initializer <(4, 22), (4, 23)> int 1
                 Designation <(4, 22), (4, 23)> 
                   Integer 10 0 [] <(4, 22), (4, 23)> unsigned long long 0 
                 Designation <(4, 22), (4, 23)> 
                   Integer 10 0 [] <(4, 22), (4, 23)> unsigned long long 0 
                 Integer 10 1 [] <(4, 22), (4, 23)> int 1 
-              Initializer <(4, 24), (4, 25)> int
+              Initializer <(4, 24), (4, 25)> int 2
                 Designation <(4, 24), (4, 25)> 
                   Integer 10 0 [] <(4, 24), (4, 25)> unsigned long long 0 
                 Designation <(4, 24), (4, 25)> 
                   Integer 10 1 [] <(4, 24), (4, 25)> unsigned long long 1 
                 Integer 10 2 [] <(4, 24), (4, 25)> int 2 
-            Initializer <(4, 27), (4, 28)> int
+            Initializer <(4, 27), (4, 28)> int 3
               Designation <(4, 27), (4, 28)> 
                 Integer 10 1 [] <(4, 27), (4, 28)> unsigned long long 1 
               Designation <(4, 27), (4, 28)> 
@@ -31,7 +31,7 @@ TranslationUnit <(1, 1), (6, 1)>
               Designation <(4, 27), (4, 28)> 
                 Integer 10 0 [] <(4, 27), (4, 28)> unsigned long long 0 
               Integer 10 3 [] <(4, 27), (4, 28)> int 3 
-            Initializer <(4, 29), (4, 30)> int
+            Initializer <(4, 29), (4, 30)> int 4
               Designation <(4, 29), (4, 30)> 
                 Integer 10 1 [] <(4, 29), (4, 30)> unsigned long long 1 
               Designation <(4, 29), (4, 30)> 
