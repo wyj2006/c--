@@ -190,9 +190,7 @@ impl CParser {
                         .extend(storage_classes.clone());
                     if storage_classes
                         .iter()
-                        .map(|x| &x.kind)
-                        .collect::<Vec<&StorageClassKind>>()
-                        .contains(&&StorageClassKind::Typedef)
+                        .any(|x| x.kind == StorageClassKind::Typedef)
                     {
                         decl.borrow_mut().kind = DeclarationKind::Type;
                     }
@@ -290,7 +288,7 @@ impl CParser {
             match rule.as_rule() {
                 Rule::type_qualifier => qualifiers.push(self.parse_type_qualifier(rule)?),
                 Rule::storage_class_specifier => match self.parse_storage_class_specifier(rule)? {
-                    StorageClass {
+                    t @ StorageClass {
                         file_id,
                         kind,
                         span,
@@ -299,6 +297,7 @@ impl CParser {
                             kind: TypeKind::Auto(None),
                             ..Type::new(file_id, span)
                         });
+                        storage_classes.push(t);
                     }
                     t => storage_classes.push(t),
                 },

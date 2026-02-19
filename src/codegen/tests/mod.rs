@@ -1,5 +1,6 @@
 pub mod bitfield;
 pub mod init;
+pub mod storage;
 
 #[macro_export]
 macro_rules! codegen_test_template {

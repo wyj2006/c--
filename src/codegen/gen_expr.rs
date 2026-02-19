@@ -1,5 +1,8 @@
 use crate::{
-    ast::expr::{BinOpKind, CastMethod, Expr, ExprKind, UnaryOpKind},
+    ast::{
+        decl::StorageClassKind,
+        expr::{BinOpKind, CastMethod, Expr, ExprKind, UnaryOpKind},
+    },
     codegen::CodeGen,
     ctype::{
         RecordKind, TypeKind,
@@ -14,8 +17,9 @@ use crate::{
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use inkwell::{
     FloatPredicate, IntPredicate,
+    module::Linkage,
     types::BasicTypeEnum,
-    values::{AnyValue, AnyValueEnum, BasicValueEnum, InstructionOpcode, IntValue},
+    values::{AnyValue, AnyValueEnum, BasicValue, BasicValueEnum, InstructionOpcode, IntValue},
 };
 use std::{cell::RefCell, rc::Rc, u64};
 
@@ -24,7 +28,11 @@ impl<'ctx> CodeGen<'ctx> {
         &self,
         node: Rc<RefCell<Expr>>,
     ) -> Result<AnyValueEnum<'ctx>, Diagnostic<usize>> {
-        if self.func_values.len() == 0 {
+        if self.func_values.len() == 0
+            //这两种表达式不一定会在函数内生成代码
+            && !matches!(node.borrow().kind, ExprKind::CompoundLiteral { .. })
+            && !matches!(node.borrow().kind, ExprKind::String { .. })
+        {
             return match self.to_llvm_value(
                 node.borrow().value.clone(),
                 Rc::clone(&node.borrow().r#type),
@@ -1040,46 +1048,82 @@ impl<'ctx> CodeGen<'ctx> {
                     _ => unreachable!(),
                 }
             }
-            //TODO storage_classes
-            ExprKind::CompoundLiteral { initializer, .. } => {
-                let ptr = map_builder_err(
-                    node.file_id,
-                    node.span,
-                    self.builder.build_alloca(
-                        match BasicTypeEnum::try_from(self.to_llvm_type(Rc::clone(&node.r#type))?) {
-                            Ok(t) => t,
-                            Err(_) => {
-                                return Err(Diagnostic::error()
-                                    .with_message("not a basic type")
-                                    .with_label(Label::primary(
-                                        node.r#type.borrow().file_id,
-                                        node.r#type.borrow().span,
-                                    )));
-                            }
-                        },
-                        "compoundliteral",
-                    ),
-                )?;
-                let value = self.visit_initializer(Rc::clone(initializer))?;
-                map_builder_err(
-                    node.file_id,
-                    node.span,
-                    self.builder.build_store(
-                        ptr,
-                        match BasicValueEnum::try_from(value) {
-                            Ok(t) => t,
-                            Err(_) => {
-                                return Err(Diagnostic::error()
-                                    .with_message("not a basic value")
-                                    .with_label(Label::primary(
-                                        initializer.borrow().file_id,
-                                        initializer.borrow().span,
-                                    )));
-                            }
-                        },
-                    ),
-                )?;
-                Ok(ptr.as_any_value_enum())
+            ExprKind::CompoundLiteral {
+                storage_classes,
+                initializer,
+                ..
+            } => {
+                let init_value =
+                    match BasicValueEnum::try_from(self.visit_initializer(Rc::clone(initializer))?)
+                    {
+                        Ok(t) => t,
+                        Err(_) => {
+                            return Err(Diagnostic::error()
+                                .with_message("not a basic value")
+                                .with_label(Label::primary(
+                                    initializer.borrow().file_id,
+                                    initializer.borrow().span,
+                                )));
+                        }
+                    };
+
+                let ty = match BasicTypeEnum::try_from(self.to_llvm_type(Rc::clone(&node.r#type))?)
+                {
+                    Ok(t) => t,
+                    Err(_) => {
+                        return Err(Diagnostic::error()
+                            .with_message("not a basic type")
+                            .with_label(Label::primary(
+                                node.r#type.borrow().file_id,
+                                node.r#type.borrow().span,
+                            )));
+                    }
+                };
+
+                if self.func_values.len() == 0
+                    || storage_classes
+                        .iter()
+                        .any(|x| x.kind == StorageClassKind::Static)
+                {
+                    let value = self.module.add_global(ty, None, "compoundliteral");
+
+                    value.set_thread_local(
+                        storage_classes
+                            .iter()
+                            .any(|x| x.kind == StorageClassKind::ThreadLocal),
+                    );
+
+                    if storage_classes
+                        .iter()
+                        .any(|x| x.kind == StorageClassKind::Static)
+                    {
+                        value.set_linkage(Linkage::Internal);
+                    }
+
+                    if init_value.is_const() {
+                        value.set_initializer(&init_value);
+                    } else {
+                        return Err(Diagnostic::error()
+                            .with_message("not a constant")
+                            .with_label(Label::primary(
+                                initializer.borrow().file_id,
+                                initializer.borrow().span,
+                            )));
+                    }
+                    Ok(value.as_pointer_value().as_any_value_enum())
+                } else {
+                    let value = map_builder_err(
+                        node.file_id,
+                        node.span,
+                        self.builder.build_alloca(ty, "compoundliteral"),
+                    )?;
+                    map_builder_err(
+                        node.file_id,
+                        node.span,
+                        self.builder.build_store(value, init_value),
+                    )?;
+                    Ok(value.as_any_value_enum())
+                }
             }
         }
     }

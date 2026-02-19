@@ -39,7 +39,7 @@ impl StorageClass {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum StorageClassKind {
     Auto,
     Constexpr,
@@ -48,6 +48,12 @@ pub enum StorageClassKind {
     Static,
     ThreadLocal,
     Typedef,
+}
+
+impl PartialEq<StorageClassKind> for StorageClass {
+    fn eq(&self, other: &StorageClassKind) -> bool {
+        self.kind == *other
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -68,9 +74,15 @@ impl FunctionSpec {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum FunctionSpecKind {
     Inline,
+}
+
+impl PartialEq<FunctionSpecKind> for FunctionSpec {
+    fn eq(&self, other: &FunctionSpecKind) -> bool {
+        self.kind == *other
+    }
 }
 
 impl Declaration {

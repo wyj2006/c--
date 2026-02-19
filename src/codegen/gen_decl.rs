@@ -1,5 +1,5 @@
 use crate::{
-    ast::decl::{Declaration, DeclarationKind},
+    ast::decl::{Declaration, DeclarationKind, FunctionSpecKind, StorageClassKind},
     codegen::CodeGen,
     ctype::{RecordKind, TypeKind, array_element, layout::compute_layout},
     diagnostic::map_builder_err,
@@ -7,8 +7,9 @@ use crate::{
 };
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use inkwell::{
+    module::Linkage,
     types::{AnyType, AnyTypeEnum, BasicType, BasicTypeEnum},
-    values::{AnyValue, BasicValueEnum},
+    values::{AnyValue, BasicValue, BasicValueEnum},
 };
 use std::{cell::RefCell, rc::Rc};
 
@@ -26,6 +27,7 @@ impl<'ctx> CodeGen<'ctx> {
                 parameter_decls,
                 body,
                 symtab,
+                function_specs,
                 ..
             } => {
                 if let Some(symtab) = symtab {
@@ -41,7 +43,24 @@ impl<'ctx> CodeGen<'ctx> {
                         &node.name,
                         self.to_llvm_type(Rc::clone(&node.r#type))?
                             .into_function_type(),
-                        None, //TODO 可能有其它链接方式
+                        if function_specs
+                            .iter()
+                            .any(|x| x.kind == FunctionSpecKind::Inline)
+                            || node
+                                .storage_classes
+                                .iter()
+                                .any(|x| x.kind == StorageClassKind::Static)
+                        {
+                            Some(Linkage::Internal)
+                        } else if node
+                            .storage_classes
+                            .iter()
+                            .any(|x| x.kind == StorageClassKind::Extern)
+                        {
+                            Some(Linkage::External)
+                        } else {
+                            Some(Linkage::External)
+                        },
                     );
                     self.symbol_values
                         .insert(symbol.as_ptr() as usize, function.as_any_value_enum());
@@ -105,7 +124,6 @@ impl<'ctx> CodeGen<'ctx> {
                     self.leave_scope();
                 }
             }
-            //TODO storage classes
             DeclarationKind::Var { initializer } => {
                 let r#type =
                     match BasicTypeEnum::try_from(self.to_llvm_type(Rc::clone(&node.r#type))?) {
@@ -140,50 +158,83 @@ impl<'ctx> CodeGen<'ctx> {
                     ),
                     None => None,
                 };
-                //全局变量不可能是vla
-                let value = if self.func_values.len() == 0 {
+
+                let value = if self.func_values.len() == 0
+                    || node.storage_classes.iter().any(|x| {
+                        x.kind == StorageClassKind::Static || x.kind == StorageClassKind::Extern
+                    }) {
                     let value = self.module.add_global(r#type, None, &node.name);
+
+                    value.set_thread_local(
+                        node.storage_classes
+                            .iter()
+                            .any(|x| x.kind == StorageClassKind::ThreadLocal),
+                    );
+
+                    if node
+                        .storage_classes
+                        .iter()
+                        .any(|x| x.kind == StorageClassKind::Static)
+                    {
+                        value.set_linkage(Linkage::Internal);
+                    } else if node
+                        .storage_classes
+                        .iter()
+                        .any(|x| x.kind == StorageClassKind::Extern)
+                    {
+                        value.set_linkage(Linkage::External);
+                    }
+
                     if let Some(init_value) = init_value {
-                        value.set_initializer(&init_value);
+                        if init_value.is_const() {
+                            value.set_initializer(&init_value);
+                        } else {
+                            return Err(Diagnostic::error()
+                                .with_message("not a constant")
+                                .with_label(Label::primary(
+                                    initializer.as_ref().unwrap().borrow().file_id,
+                                    initializer.as_ref().unwrap().borrow().span,
+                                )));
+                        }
                     }
                     value.as_any_value_enum()
+                } else if node.r#type.borrow().is_vla() {
+                    let len_expr = node.r#type.borrow().array_len_expr().unwrap();
+                    let size = self.visit_expr(Rc::clone(&len_expr))?.into_int_value();
+                    let element_type = array_element(Rc::clone(&node.r#type)).unwrap();
+                    map_builder_err(
+                        node.file_id,
+                        node.span,
+                        self.builder.build_array_alloca(
+                            match BasicTypeEnum::try_from(
+                                self.to_llvm_type(Rc::clone(&element_type))?,
+                            ) {
+                                Ok(t) => t,
+                                Err(_) => {
+                                    return Err(Diagnostic::error()
+                                        .with_message(format!(
+                                            "array element not has a basic type: '{}'",
+                                            element_type.borrow()
+                                        ))
+                                        .with_label(Label::primary(
+                                            element_type.borrow().file_id,
+                                            element_type.borrow().span,
+                                        )));
+                                }
+                            },
+                            size,
+                            &node.name,
+                        ),
+                    )?
+                    .as_any_value_enum()
                 } else {
-                    let value = if node.r#type.borrow().is_vla() {
-                        let len_expr = node.r#type.borrow().array_len_expr().unwrap();
-                        let size = self.visit_expr(Rc::clone(&len_expr))?.into_int_value();
-                        let element_type = array_element(Rc::clone(&node.r#type)).unwrap();
-                        map_builder_err(
-                            node.file_id,
-                            node.span,
-                            self.builder.build_array_alloca(
-                                match BasicTypeEnum::try_from(
-                                    self.to_llvm_type(Rc::clone(&element_type))?,
-                                ) {
-                                    Ok(t) => t,
-                                    Err(_) => {
-                                        return Err(Diagnostic::error()
-                                            .with_message(format!(
-                                                "array element not has a basic type: '{}'",
-                                                element_type.borrow()
-                                            ))
-                                            .with_label(Label::primary(
-                                                element_type.borrow().file_id,
-                                                element_type.borrow().span,
-                                            )));
-                                    }
-                                },
-                                size,
-                                &node.name,
-                            ),
-                        )?
-                    } else {
+                    let value = {
                         map_builder_err(
                             node.file_id,
                             node.span,
                             self.builder.build_alloca(r#type, &node.name),
                         )?
                     };
-                    //vla也不会有初始化列表
                     if let Some(init_value) = init_value {
                         map_builder_err(
                             node.file_id,

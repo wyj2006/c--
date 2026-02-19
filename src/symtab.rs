@@ -1,7 +1,7 @@
 use crate::{
     ast::{
         Attribute,
-        decl::{FunctionSpec, StorageClass},
+        decl::{FunctionSpec, StorageClass, StorageClassKind},
     },
     ctype::{RecordKind, Type, TypeKind, is_compatible},
     variant::Variant,
@@ -185,10 +185,12 @@ impl SymbolTable {
                 Some(pre_symbol) => {
                     let mut pre_symbol = pre_symbol.borrow_mut();
                     let symbol = symbol.borrow();
+
+                    let symbol_loc = symbol.define_loc.unwrap_or(symbol.declare_locs[0]);
+                    let pre_symbol_loc =
+                        pre_symbol.define_loc.unwrap_or(pre_symbol.declare_locs[0]);
+
                     if !is_compatible(Rc::clone(&pre_symbol.r#type), Rc::clone(&symbol.r#type)) {
-                        let symbol_loc = symbol.define_loc.unwrap_or(symbol.declare_locs[0]);
-                        let pre_symbol_loc =
-                            pre_symbol.define_loc.unwrap_or(pre_symbol.declare_locs[0]);
                         Err(Diagnostic::error()
                             .with_message(format!(
                                 "redefine '{name}' with incompatible type '{}' and '{}'",
@@ -211,6 +213,39 @@ impl SymbolTable {
                             .with_label(Label::primary(b.0, b.1).with_message("current defination"))
                             .with_label(
                                 Label::secondary(a.0, a.1).with_message("previous defination"),
+                            ))
+                    } else if match (&pre_symbol.kind, &symbol.kind) {
+                        (
+                            SymbolKind::Object {
+                                storage_classes: a, ..
+                            }
+                            | SymbolKind::Parameter {
+                                storage_classes: a, ..
+                            },
+                            SymbolKind::Object {
+                                storage_classes: b, ..
+                            }
+                            | SymbolKind::Parameter {
+                                storage_classes: b, ..
+                            },
+                        ) => match (
+                            a.iter().any(|x| x.kind == StorageClassKind::ThreadLocal),
+                            b.iter().any(|x| x.kind == StorageClassKind::ThreadLocal),
+                        ) {
+                            (true, false) | (false, true) => true,
+                            _ => false,
+                        },
+                        _ => false,
+                    } {
+                        Err(Diagnostic::error()
+                            .with_message(format!("'thread_local' must be at every declaration"))
+                            .with_label(
+                                Label::primary(symbol_loc.0, symbol_loc.1)
+                                    .with_message("current defination"),
+                            )
+                            .with_label(
+                                Label::secondary(pre_symbol_loc.0, pre_symbol_loc.1)
+                                    .with_message("previous defination"),
                             ))
                     } else {
                         pre_symbol.define_loc = if let Some(t) = symbol.define_loc {

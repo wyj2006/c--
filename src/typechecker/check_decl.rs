@@ -38,11 +38,137 @@ impl TypeChecker {
 
         let mut node = node.borrow_mut();
 
-        if node.storage_classes.len() > 1 {
+        //统一检查storage class
+
+        if node
+            .storage_classes
+            .iter()
+            .any(|x| x.kind == StorageClassKind::ThreadLocal)
+        {
+            if node.storage_classes.len() > 2 {
+                return Err(Diagnostic::error()
+                    .with_message(format!(
+                        "at most two storage classes specifier with 'thread_local' is allowed"
+                    ))
+                    .with_label(Label::primary(
+                        node.storage_classes[2].file_id,
+                        node.storage_classes[2].span,
+                    )));
+            } else if node.storage_classes.len() == 2
+                && let Some(t) = node.storage_classes.iter().find(|x| {
+                    x.kind != StorageClassKind::Static
+                        && x.kind != StorageClassKind::Extern
+                        && x.kind != StorageClassKind::ThreadLocal
+                })
+            {
+                return Err(Diagnostic::error()
+                    .with_message(format!("'thread_local' storage class specifier can only combine with 'static' or 'extern'"))
+                    .with_label(Label::primary(t.file_id, t.span)));
+            }
+        } else if node.storage_classes.len() > 1 {
             return Err(Diagnostic::error()
                 .with_message(format!("at most one storage class specifier is allowed"))
-                .with_label(Label::primary(node.file_id, node.span)));
+                .with_label(Label::primary(
+                    node.storage_classes[1].file_id,
+                    node.storage_classes[1].span,
+                )));
         }
+
+        if let Some(t) = node
+            .storage_classes
+            .iter()
+            .find(|x| x.kind == StorageClassKind::Auto)
+        {
+            if !matches!(node.kind, DeclarationKind::Var { .. }) {
+                return Err(Diagnostic::error()
+                    .with_message("'auto' can only apply to an object (except a parameter)")
+                    .with_label(Label::primary(t.file_id, t.span)));
+            } else if let None = self.cur_symtab.borrow().parent {
+                return Err(Diagnostic::error()
+                    .with_message("'auto' can only be used at the file scope")
+                    .with_label(Label::primary(t.file_id, t.span)));
+            }
+        }
+
+        if let Some(t) = node
+            .storage_classes
+            .iter()
+            .find(|x| x.kind == StorageClassKind::Register)
+        {
+            if !matches!(node.kind, DeclarationKind::Var { .. })
+                && !matches!(node.kind, DeclarationKind::Parameter)
+            {
+                return Err(Diagnostic::error()
+                    .with_message("'register' can only apply to an object or a parameter")
+                    .with_label(Label::primary(t.file_id, t.span)));
+            } else if let None = self.cur_symtab.borrow().parent {
+                return Err(Diagnostic::error()
+                    .with_message("'register' can only be used at the file scope")
+                    .with_label(Label::primary(t.file_id, t.span)));
+            }
+        }
+
+        if let Some(t) = node
+            .storage_classes
+            .iter()
+            .find(|x| x.kind == StorageClassKind::Static)
+        {
+            if !matches!(node.kind, DeclarationKind::Var { .. })
+                && !matches!(node.kind, DeclarationKind::Function { .. })
+            {
+                return Err(Diagnostic::error()
+                    .with_message(
+                        "'static' can only apply to an object (except a parameter) or a function",
+                    )
+                    .with_label(Label::primary(t.file_id, t.span)));
+            } else if node.r#type.borrow().is_vla() {
+                return Err(Diagnostic::error()
+                    .with_message("vla cannot have static duration")
+                    .with_label(Label::primary(t.file_id, t.span)));
+            }
+        }
+
+        if let Some(t) = node
+            .storage_classes
+            .iter()
+            .find(|x| x.kind == StorageClassKind::Extern)
+        {
+            if !matches!(node.kind, DeclarationKind::Var { .. })
+                && !matches!(node.kind, DeclarationKind::Function { .. })
+            {
+                return Err(Diagnostic::error()
+                    .with_message(
+                        "'extern' can only apply to an object (except a parameter) or a function",
+                    )
+                    .with_label(Label::primary(t.file_id, t.span)));
+            } else if node.r#type.borrow().is_vla() {
+                return Err(Diagnostic::error()
+                    .with_message("vla cannot have linkage")
+                    .with_label(Label::primary(t.file_id, t.span)));
+            }
+        }
+
+        if let Some(t) = node
+            .storage_classes
+            .iter()
+            .find(|x| x.kind == StorageClassKind::ThreadLocal)
+        {
+            if matches!(node.kind, DeclarationKind::Function { .. }) {
+                return Err(Diagnostic::error()
+                    .with_message("'thread_local' cannot apply to function")
+                    .with_label(Label::primary(t.file_id, t.span)));
+            } else if !node
+                .storage_classes
+                .iter()
+                .any(|x| x.kind == StorageClassKind::Static || x.kind == StorageClassKind::Extern)
+            {
+                return Err(Diagnostic::error()
+                    .with_message("'thread_local' must be with 'static' or 'extern'")
+                    .with_label(Label::primary(t.file_id, t.span)));
+            }
+        }
+
+        //检查storage class完成
 
         if node.r#type.borrow().has_alignas() {
             for storage_class in &node.storage_classes {
@@ -189,18 +315,6 @@ impl TypeChecker {
                         .with_message(format!("alignas cannot be applied to a parameter"))
                         .with_label(Label::primary(node.file_id, node.span)));
                 }
-                for storage_class in &node.storage_classes {
-                    if storage_class.kind != StorageClassKind::Register {
-                        return Err(Diagnostic::error()
-                            .with_message(format!(
-                                "only 'register' storage class specifier is allowed in parameter"
-                            ))
-                            .with_label(Label::primary(
-                                storage_class.file_id,
-                                storage_class.span,
-                            )));
-                    }
-                }
                 if node.name.len() > 0 && node.r#type.borrow().is_void() {
                     return Err(Diagnostic::error()
                         .with_message(format!("parameter cannot have a void type"))
@@ -315,17 +429,6 @@ impl TypeChecker {
                             "alignas cannot be applied to a member with bit-field"
                         ))
                         .with_label(Label::primary(node.file_id, node.span)));
-                }
-
-                if node.storage_classes.len() > 0 {
-                    return Err(Diagnostic::error()
-                        .with_message(format!(
-                            "member should not hava any storage class specifier"
-                        ))
-                        .with_label(Label::primary(
-                            node.storage_classes[0].file_id,
-                            node.storage_classes[0].span,
-                        )));
                 }
 
                 if !node.r#type.borrow().is_complete() {
