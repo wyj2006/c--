@@ -13,9 +13,13 @@ pub struct Layout {
     pub width: usize,
     pub offset: usize, //相对父Layout的偏移
     pub children: Vec<Layout>,
-    //相当于Designation的两种类型
-    pub index: Option<usize>,
-    pub name: Option<String>,
+    pub designation: Option<ConstDesignation>,
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum ConstDesignation {
+    Subscript(usize),
+    MemberAccess(String),
 }
 
 pub fn compute_layout(r#type: Rc<RefCell<Type>>) -> Option<Layout> {
@@ -36,7 +40,7 @@ pub fn compute_layout(r#type: Rc<RefCell<Type>>) -> Option<Layout> {
                     for i in 0..len {
                         children.push(Layout {
                             offset: i * d_offset,
-                            index: Some(i),
+                            designation: Some(ConstDesignation::Subscript(i)),
                             ..compute_layout(Rc::clone(element_type))?
                         });
                     }
@@ -45,8 +49,7 @@ pub fn compute_layout(r#type: Rc<RefCell<Type>>) -> Option<Layout> {
                         width: r#type.borrow().size()?,
                         offset: 0,
                         children,
-                        index: None,
-                        name: None,
+                        designation: None,
                     })
                 }
                 _ => None,
@@ -78,7 +81,9 @@ pub fn compute_layout(r#type: Rc<RefCell<Type>>) -> Option<Layout> {
                     bitfield_children.push(Layout {
                         width: bit_field,
                         offset: bitfield_offset,
-                        name: Some(member.borrow().name.clone()),
+                        designation: Some(ConstDesignation::MemberAccess(
+                            member.borrow().name.clone(),
+                        )),
                         ..compute_layout(Rc::clone(&member_type))?
                     });
                     bitfield_offset += bit_field;
@@ -134,6 +139,7 @@ pub fn compute_layout(r#type: Rc<RefCell<Type>>) -> Option<Layout> {
 
                 children.push(Layout {
                     offset,
+                    designation: Some(ConstDesignation::MemberAccess(member.borrow().name.clone())),
                     ..compute_layout(Rc::clone(member_type))?
                 });
 
@@ -144,8 +150,7 @@ pub fn compute_layout(r#type: Rc<RefCell<Type>>) -> Option<Layout> {
                 width: r#type.borrow().size()?,
                 offset: 0,
                 children,
-                index: None,
-                name: None,
+                designation: None,
             })
         }
         TypeKind::Record {
@@ -169,7 +174,9 @@ pub fn compute_layout(r#type: Rc<RefCell<Type>>) -> Option<Layout> {
                 if bit_field > 0 {
                     children.push(Layout {
                         width: bit_field,
-                        name: Some(member.borrow().name.clone()),
+                        designation: Some(ConstDesignation::MemberAccess(
+                            member.borrow().name.clone(),
+                        )),
                         ..compute_layout(Rc::clone(&member_type))?
                     });
                 }
@@ -178,15 +185,17 @@ pub fn compute_layout(r#type: Rc<RefCell<Type>>) -> Option<Layout> {
                     continue;
                 }
                 //处理当前成员
-                children.push(compute_layout(Rc::clone(member_type))?);
+                children.push(Layout {
+                    designation: Some(ConstDesignation::MemberAccess(member.borrow().name.clone())),
+                    ..compute_layout(Rc::clone(member_type))?
+                });
             }
             Some(Layout {
                 r#type: Rc::clone(&r#type),
                 width: r#type.borrow().size()?,
                 offset: 0,
                 children,
-                index: None,
-                name: None,
+                designation: None,
             })
         }
         TypeKind::Record { members: None, .. } => None,
@@ -195,8 +204,7 @@ pub fn compute_layout(r#type: Rc<RefCell<Type>>) -> Option<Layout> {
             width: r#type.borrow().size()?,
             offset: 0,
             children: vec![],
-            index: None,
-            name: None,
+            designation: None,
         }),
     }
 }

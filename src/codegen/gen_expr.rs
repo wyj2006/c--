@@ -1,7 +1,12 @@
 use crate::{
     ast::expr::{BinOpKind, CastMethod, Expr, ExprKind, UnaryOpKind},
     codegen::{CodeGen, any_to_basic_type, any_to_basic_value},
-    ctype::{RecordKind, TypeKind, cast::remove_qualifier, layout::compute_layout, pointee},
+    ctype::{
+        RecordKind, TypeKind,
+        cast::remove_qualifier,
+        layout::{ConstDesignation, compute_layout},
+        pointee,
+    },
     diagnostic::map_builder_err,
     symtab::{Namespace, SymbolKind},
     variant::Variant,
@@ -1024,8 +1029,46 @@ impl<'ctx> CodeGen<'ctx> {
                     _ => unreachable!(),
                 }
             }
-            ExprKind::CompoundLiteral { .. } => {
-                todo!()
+            //TODO storage_classes
+            ExprKind::CompoundLiteral { initializer, .. } => {
+                let ptr = map_builder_err(
+                    node.file_id,
+                    node.span,
+                    self.builder.build_alloca(
+                        match any_to_basic_type(self.to_llvm_type(Rc::clone(&node.r#type))?) {
+                            Some(t) => t,
+                            None => {
+                                return Err(Diagnostic::error()
+                                    .with_message("not a basic type")
+                                    .with_label(Label::primary(
+                                        node.r#type.borrow().file_id,
+                                        node.r#type.borrow().span,
+                                    )));
+                            }
+                        },
+                        "compoundliteral",
+                    ),
+                )?;
+                let value = self.visit_initializer(Rc::clone(initializer))?;
+                map_builder_err(
+                    node.file_id,
+                    node.span,
+                    self.builder.build_store(
+                        ptr,
+                        match any_to_basic_value(value) {
+                            Some(t) => t,
+                            None => {
+                                return Err(Diagnostic::error()
+                                    .with_message("not a basic value")
+                                    .with_label(Label::primary(
+                                        initializer.borrow().file_id,
+                                        initializer.borrow().span,
+                                    )));
+                            }
+                        },
+                    ),
+                )?;
+                Ok(ptr.as_any_value_enum())
             }
         }
     }
@@ -1134,7 +1177,7 @@ impl<'ctx> CodeGen<'ctx> {
 
                     let layout = &layout.children[*index];
                     for child in &layout.children {
-                        if let Some(t) = &child.name
+                        if let Some(ConstDesignation::MemberAccess(t)) = &child.designation
                             && *t == *name
                         {
                             let mask = self
@@ -1205,14 +1248,9 @@ impl<'ctx> CodeGen<'ctx> {
 
                     let layout = &layout.children[*index];
                     for child in &layout.children {
-                        if let Some(t) = &child.name
+                        if let Some(ConstDesignation::MemberAccess(t)) = &child.designation
                             && *t == *name
                         {
-                            let mask = self
-                                .context
-                                .i32_type()
-                                .const_int(!(((1 << child.width) - 1) << child.offset), false);
-
                             let old_value = map_builder_err(
                                 *file_id,
                                 *span,
@@ -1230,10 +1268,26 @@ impl<'ctx> CodeGen<'ctx> {
                                 *span,
                                 self.builder.build_and(
                                     old_value.into_int_value(),
-                                    mask,
+                                    self.context.i32_type().const_int(
+                                        !(((1 << child.width) - 1) << child.offset),
+                                        false,
+                                    ),
                                     "and_mask",
                                 ),
                             )?;
+                            //清除value的高位
+                            value = map_builder_err(
+                                *file_id,
+                                *span,
+                                self.builder.build_and(
+                                    value.into_int_value(),
+                                    self.context
+                                        .i32_type()
+                                        .const_int((1 << child.width) - 1, false),
+                                    "",
+                                ),
+                            )?
+                            .as_any_value_enum();
                             let shl = map_builder_err(
                                 *file_id,
                                 *span,

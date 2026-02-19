@@ -64,6 +64,14 @@ impl Type {
         self.kind.is_nullptr()
     }
 
+    pub fn is_record(&self) -> bool {
+        self.kind.is_record()
+    }
+
+    pub fn is_struct(&self) -> bool {
+        self.kind.is_struct()
+    }
+
     pub fn is_union(&self) -> bool {
         self.kind.is_union()
     }
@@ -262,6 +270,21 @@ impl TypeKind {
     pub fn is_nullptr(&self) -> bool {
         match self {
             TypeKind::Nullptr => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_record(&self) -> bool {
+        self.is_struct() || self.is_union()
+    }
+
+    pub fn is_struct(&self) -> bool {
+        match self {
+            TypeKind::Record {
+                kind: RecordKind::Struct,
+                ..
+            } => true,
+            TypeKind::Qualified { r#type, .. } => r#type.borrow().is_struct(),
             _ => false,
         }
     }

@@ -105,6 +105,10 @@ fn main() {
         }
     }
 
+    println!();
+    let module_string = codegen.module.print_to_string();
+    println!("{}", module_string.to_string());
+
     let mut path = Path::new(file_path).to_path_buf();
     path.set_extension("o");
     match target_machine.write_to_file(&codegen.module, FileType::Object, &path) {
@@ -116,7 +120,4 @@ fn main() {
             return;
         }
     }
-
-    println!();
-    println!("{}", codegen.module.print_to_string().to_string());
 }

@@ -1,6 +1,9 @@
 pub mod gen_decl;
 pub mod gen_expr;
+pub mod gen_init;
 pub mod gen_stmt;
+#[cfg(test)]
+pub mod tests;
 
 use crate::{
     ast::TranslationUnit,
@@ -303,7 +306,7 @@ impl<'ctx> CodeGen<'ctx> {
                 Some(16) => self.context.i128_type().as_any_type_enum(),
                 Some(t) => self
                     .context
-                    .custom_width_int_type(t.div_ceil(8) as u32)
+                    .custom_width_int_type((t * 8) as u32)
                     .as_any_type_enum(),
                 None => {
                     return Err(Diagnostic::error()
@@ -326,6 +329,10 @@ impl<'ctx> CodeGen<'ctx> {
         match &value {
             Variant::Bool(value) => Ok(match self.to_llvm_type(r#type)? {
                 AnyTypeEnum::IntType(t) => t.const_int(*value as u64, false).as_any_value_enum(),
+                AnyTypeEnum::FloatType(t) => unsafe {
+                    t.const_float_from_string(&value.to_string())
+                        .as_any_value_enum()
+                },
                 _ => self
                     .context
                     .bool_type()
@@ -333,12 +340,18 @@ impl<'ctx> CodeGen<'ctx> {
                     .as_any_value_enum(),
             }),
             Variant::Rational(value) => {
-                let value = BigDecimal::from(value.numer().clone())
-                    / BigDecimal::from(value.denom().clone());
+                let value = (BigDecimal::from(value.numer().clone())
+                    / BigDecimal::from(value.denom().clone()))
+                .to_string();
+                let dot_index = value.find(".").unwrap_or(value.len());
                 Ok(match self.to_llvm_type(r#type)? {
                     AnyTypeEnum::FloatType(t) => {
-                        unsafe { t.const_float_from_string(&value.to_string()) }.as_any_value_enum()
+                        unsafe { t.const_float_from_string(&value) }.as_any_value_enum()
                     }
+                    AnyTypeEnum::IntType(t) => t
+                        .const_int_from_string(&value[..dot_index], StringRadix::Decimal)
+                        .unwrap()
+                        .as_any_value_enum(),
                     _ => unsafe {
                         self.context
                             .f64_type()
@@ -352,6 +365,10 @@ impl<'ctx> CodeGen<'ctx> {
                     .const_int_from_string(&value.to_string(), StringRadix::Decimal)
                     .unwrap()
                     .as_any_value_enum(),
+                AnyTypeEnum::FloatType(t) => unsafe {
+                    t.const_float_from_string(&value.to_string())
+                        .as_any_value_enum()
+                },
                 _ => self
                     .context
                     .i32_type()

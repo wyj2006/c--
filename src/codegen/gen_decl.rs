@@ -1,6 +1,6 @@
 use crate::{
     ast::decl::{Declaration, DeclarationKind},
-    codegen::{CodeGen, any_to_basic_type},
+    codegen::{CodeGen, any_to_basic_type, any_to_basic_value},
     ctype::{RecordKind, TypeKind, layout::compute_layout},
     diagnostic::map_builder_err,
     symtab::{Namespace, SymbolKind},
@@ -105,9 +105,8 @@ impl<'ctx> CodeGen<'ctx> {
                     self.leave_scope();
                 }
             }
-            //TODO 初始化
             //TODO storage classes
-            DeclarationKind::Var { initializer: _ } => {
+            DeclarationKind::Var { initializer } => {
                 let r#type = match any_to_basic_type(self.to_llvm_type(Rc::clone(&node.r#type))?) {
                     Some(t) => t,
                     None => {
@@ -119,22 +118,48 @@ impl<'ctx> CodeGen<'ctx> {
                             )));
                     }
                 };
+                let init_value = match initializer {
+                    Some(initializer) => Some(
+                        match any_to_basic_value(self.visit_initializer(Rc::clone(initializer))?) {
+                            Some(t) => t,
+                            None => {
+                                return Err(Diagnostic::error()
+                                    .with_message("not a basic value")
+                                    .with_label(Label::primary(
+                                        initializer.borrow().file_id,
+                                        initializer.borrow().span,
+                                    )));
+                            }
+                        },
+                    ),
+                    None => None,
+                };
+                let value = if self.func_values.len() == 0 {
+                    let value = self.module.add_global(r#type, None, &node.name);
+                    if let Some(init_value) = init_value {
+                        value.set_initializer(&init_value);
+                    }
+                    value.as_any_value_enum()
+                } else {
+                    let value = map_builder_err(
+                        node.file_id,
+                        node.span,
+                        self.builder.build_alloca(r#type, &node.name),
+                    )?;
+                    if let Some(init_value) = init_value {
+                        map_builder_err(
+                            node.file_id,
+                            node.span,
+                            self.builder.build_store(value, init_value),
+                        )?;
+                    }
+                    value.as_any_value_enum()
+                };
                 self.symbol_values.insert(
                     self.lookup(Namespace::Ordinary, &node.name)
                         .unwrap()
                         .as_ptr() as usize,
-                    if self.func_values.len() == 0 {
-                        self.module
-                            .add_global(r#type, None, &node.name)
-                            .as_any_value_enum()
-                    } else {
-                        map_builder_err(
-                            node.file_id,
-                            node.span,
-                            self.builder.build_alloca(r#type, &node.name),
-                        )?
-                        .as_any_value_enum()
-                    },
+                    value,
                 );
             }
             DeclarationKind::Parameter => {
@@ -246,7 +271,7 @@ impl<'ctx> CodeGen<'ctx> {
                             &[self
                                 .context
                                 .custom_width_int_type(
-                                    node.r#type.borrow().size().unwrap().div_ceil(8) as u32,
+                                    (node.r#type.borrow().size().unwrap() * 8) as u32,
                                 )
                                 .as_basic_type_enum()],
                             false,

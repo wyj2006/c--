@@ -1,6 +1,7 @@
 use crate::ast::expr::{EncodePrefix, Expr, ExprKind};
 use crate::ast::{Designation, DesignationKind};
 use crate::ctype::cast::remove_qualifier;
+use crate::ctype::layout::ConstDesignation;
 use crate::ctype::{TypeKind, is_compatible};
 use crate::diagnostic::warning;
 use crate::typechecker::{Context, TypeChecker};
@@ -18,13 +19,7 @@ use std::{cell::RefCell, rc::Rc};
 struct DesignationNode {
     pub index: usize, //该节点是父节点的第几个子节点
     pub r#type: Rc<RefCell<Type>>,
-    pub designation: SimpleDesignation,
-}
-
-#[derive(Debug)]
-enum SimpleDesignation {
-    Subscript(usize),
-    MemberAccess(String),
+    pub designation: ConstDesignation,
 }
 
 impl DesignationNode {
@@ -42,7 +37,7 @@ impl DesignationNode {
                         Ok(Some(DesignationNode {
                             index,
                             r#type: Rc::clone(element_type),
-                            designation: SimpleDesignation::Subscript(index),
+                            designation: ConstDesignation::Subscript(index),
                         }))
                     } else {
                         Ok(None)
@@ -59,7 +54,7 @@ impl DesignationNode {
             } => Ok(Some(DesignationNode {
                 index,
                 r#type: Rc::clone(element_type),
-                designation: SimpleDesignation::Subscript(index),
+                designation: ConstDesignation::Subscript(index),
             })),
             TypeKind::Record {
                 members: Some(members),
@@ -69,7 +64,7 @@ impl DesignationNode {
                     Ok(Some(DesignationNode {
                         index,
                         r#type: Rc::clone(&member.borrow().r#type),
-                        designation: SimpleDesignation::MemberAccess(name.clone()),
+                        designation: ConstDesignation::MemberAccess(name.clone()),
                     }))
                 } else {
                     Ok(None)
@@ -83,10 +78,10 @@ impl DesignationNode {
     }
 }
 
-impl SimpleDesignation {
+impl ConstDesignation {
     pub fn to_designation(&self, file_id: usize, span: Span) -> Designation {
         match self {
-            SimpleDesignation::Subscript(index) => Designation::new(
+            ConstDesignation::Subscript(index) => Designation::new(
                 file_id,
                 span,
                 DesignationKind::Subscript(Rc::new(RefCell::new(Expr::new_const_int(
@@ -99,7 +94,7 @@ impl SimpleDesignation {
                     })),
                 )))),
             ),
-            SimpleDesignation::MemberAccess(name) => {
+            ConstDesignation::MemberAccess(name) => {
                 Designation::new(file_id, span, DesignationKind::MemberAccess(name.clone()))
             }
         }
@@ -111,6 +106,8 @@ impl TypeChecker {
         &self,
         mut i: usize,
         path: &mut Vec<DesignationNode>,
+        //如果ignore_union为true, 那么把union当成struct处理
+        ignore_union: bool,
     ) -> Result<(), Diagnostic<usize>> {
         while i < path.len() - 1 {
             path.pop();
@@ -120,7 +117,10 @@ impl TypeChecker {
                 && let Some(parent) = path.get(i - 1)
                 && let Some(child) = path.get(i)
             {
-                if let Some(t) = parent.child(child.index + 1)? {
+                if !ignore_union && parent.r#type.borrow().is_union() {
+                    path.remove(i);
+                    i -= 1;
+                } else if let Some(t) = parent.child(child.index + 1)? {
                     *path.get_mut(i).unwrap() = t;
                     break;
                 } else {
@@ -147,7 +147,7 @@ impl TypeChecker {
         let mut path = vec![DesignationNode {
             index: 0,
             r#type: Rc::clone(&r#type),
-            designation: SimpleDesignation::Subscript(0), //随便设置的
+            designation: ConstDesignation::Subscript(0), //随便设置的
         }];
 
         while let Some(t) = path.last().unwrap().child(0)? {
@@ -213,7 +213,7 @@ impl TypeChecker {
                             match (&a.kind, &b.kind) {
                                 (DesignationKind::Subscript(x), DesignationKind::Subscript(y)) => {
                                     if x.borrow().value != y.borrow().value {
-                                        self.next_designation(j, &mut path)?;
+                                        self.next_designation(j, &mut path, true)?;
                                     } else {
                                         i += 1;
                                     }
@@ -223,12 +223,12 @@ impl TypeChecker {
                                     DesignationKind::MemberAccess(y),
                                 ) => {
                                     if *x != *y {
-                                        self.next_designation(j, &mut path)?;
+                                        self.next_designation(j, &mut path, true)?;
                                     } else {
                                         i += 1;
                                     }
                                 }
-                                _ => self.next_designation(j, &mut path)?,
+                                _ => self.next_designation(j, &mut path, true)?,
                             }
                         }
                         if i < designations.len() {
@@ -277,7 +277,7 @@ impl TypeChecker {
 
                     match path.get(1) {
                         Some(DesignationNode {
-                            designation: SimpleDesignation::Subscript(index),
+                            designation: ConstDesignation::Subscript(index),
                             ..
                         }) => {
                             max_index = max_index.max(*index);
@@ -312,7 +312,7 @@ impl TypeChecker {
                             remove_qualifier(Rc::clone(&path.last().unwrap().r#type))
                         },
                     )?;
-                    self.next_designation(path.len() - 1, &mut path)?;
+                    self.next_designation(path.len() - 1, &mut path, false)?;
                 }
             }
             InitializerKind::Expr(expr) => {

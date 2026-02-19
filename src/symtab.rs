@@ -44,6 +44,7 @@ pub enum SymbolKind {
     },
     Enum,
     Object {
+        //TODO 常量
         storage_classes: Vec<StorageClass>,
     },
     Member {
