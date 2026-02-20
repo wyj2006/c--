@@ -91,73 +91,13 @@ pub fn usual_arith_cast(
         TypeKind::Decimal32 => 1,
         _ => 0,
     };
+    let real_float_rank = |x: &TypeKind| match x {
+        TypeKind::LongDouble => 3,
+        TypeKind::Double => 2,
+        TypeKind::Float => 1,
+        _ => 0,
+    };
     match (&a.borrow().kind, &b.borrow().kind) {
-        (
-            TypeKind::Decimal128 | TypeKind::Decimal64 | TypeKind::Decimal32,
-            TypeKind::Float | TypeKind::Double | TypeKind::LongDouble | TypeKind::Complex(..),
-        ) => Err(Diagnostic::error()
-            .with_message(format!(
-                "cannot mix operands of decimal floating and other floating types"
-            ))
-            .with_label(Label::primary(a.borrow().file_id, a.borrow().span))),
-        (
-            TypeKind::Float | TypeKind::Double | TypeKind::LongDouble | TypeKind::Complex(..),
-            TypeKind::Decimal128 | TypeKind::Decimal64 | TypeKind::Decimal32,
-        ) => Err(Diagnostic::error()
-            .with_message(format!(
-                "cannot mix operands of decimal floating and other floating types"
-            ))
-            .with_label(Label::primary(b.borrow().file_id, b.borrow().span))),
-        (x @ (TypeKind::Decimal128 | TypeKind::Decimal64 | TypeKind::Decimal32), y)
-        | (x, y @ (TypeKind::Decimal128 | TypeKind::Decimal64 | TypeKind::Decimal32)) => {
-            if decimal_rank(x) > decimal_rank(y) {
-                Ok((
-                    Rc::clone(&a),
-                    Rc::new(RefCell::new(Type {
-                        kind: x.clone(),
-                        ..b.borrow().clone()
-                    })),
-                ))
-            } else {
-                Ok((
-                    Rc::new(RefCell::new(Type {
-                        kind: y.clone(),
-                        ..a.borrow().clone()
-                    })),
-                    Rc::clone(&b),
-                ))
-            }
-        }
-        (x @ (TypeKind::LongDouble | TypeKind::Double | TypeKind::Float), y) => Ok((
-            Rc::clone(&a),
-            Rc::new(RefCell::new(Type {
-                kind: match y {
-                    TypeKind::Complex(Some(t)) => {
-                        TypeKind::Complex(Some(Rc::new(RefCell::new(Type {
-                            kind: x.clone(),
-                            ..t.borrow().clone()
-                        }))))
-                    }
-                    _ => x.clone(),
-                },
-                ..b.borrow().clone()
-            })),
-        )),
-        (x, y @ (TypeKind::LongDouble | TypeKind::Double | TypeKind::Float)) => Ok((
-            Rc::new(RefCell::new(Type {
-                kind: match x {
-                    TypeKind::Complex(Some(t)) => {
-                        TypeKind::Complex(Some(Rc::new(RefCell::new(Type {
-                            kind: y.clone(),
-                            ..t.borrow().clone()
-                        }))))
-                    }
-                    _ => y.clone(),
-                },
-                ..a.borrow().clone()
-            })),
-            Rc::clone(&b),
-        )),
         (x, y) if x.is_integer() && y.is_integer() => {
             let x = integer_promote(Rc::clone(&a));
             let y = integer_promote(Rc::clone(&b));
@@ -210,6 +150,86 @@ pub fn usual_arith_cast(
                     Ok((x, y))
                 }
             }
+        }
+        (
+            TypeKind::Decimal128 | TypeKind::Decimal64 | TypeKind::Decimal32,
+            TypeKind::Float | TypeKind::Double | TypeKind::LongDouble | TypeKind::Complex(..),
+        ) => Err(Diagnostic::error()
+            .with_message(format!(
+                "cannot mix operands of decimal floating and other floating types"
+            ))
+            .with_label(Label::primary(a.borrow().file_id, a.borrow().span))),
+        (
+            TypeKind::Float | TypeKind::Double | TypeKind::LongDouble | TypeKind::Complex(..),
+            TypeKind::Decimal128 | TypeKind::Decimal64 | TypeKind::Decimal32,
+        ) => Err(Diagnostic::error()
+            .with_message(format!(
+                "cannot mix operands of decimal floating and other floating types"
+            ))
+            .with_label(Label::primary(b.borrow().file_id, b.borrow().span))),
+        (x @ (TypeKind::Decimal128 | TypeKind::Decimal64 | TypeKind::Decimal32), y)
+        | (x, y @ (TypeKind::Decimal128 | TypeKind::Decimal64 | TypeKind::Decimal32)) => {
+            if decimal_rank(x) > decimal_rank(y) {
+                Ok((
+                    Rc::clone(&a),
+                    Rc::new(RefCell::new(Type {
+                        kind: x.clone(),
+                        ..b.borrow().clone()
+                    })),
+                ))
+            } else {
+                Ok((
+                    Rc::new(RefCell::new(Type {
+                        kind: y.clone(),
+                        ..a.borrow().clone()
+                    })),
+                    Rc::clone(&b),
+                ))
+            }
+        }
+        (x, y)
+            if (x.is_complex() || x.is_real_float() || x.is_integer())
+                && (y.is_complex() || y.is_real_float() || y.is_integer()) =>
+        {
+            let x_real_float = match x {
+                TypeKind::Complex(Some(t)) => &t.borrow().kind,
+                _ => x,
+            };
+            let y_real_float = match y {
+                TypeKind::Complex(Some(t)) => &t.borrow().kind,
+                _ => y,
+            };
+            let real_float = if real_float_rank(x) > real_float_rank(y) {
+                x_real_float
+            } else {
+                y_real_float
+            };
+            Ok((
+                Rc::new(RefCell::new(Type {
+                    kind: match x {
+                        TypeKind::Complex(Some(t)) => {
+                            TypeKind::Complex(Some(Rc::new(RefCell::new(Type {
+                                kind: real_float.clone(),
+                                ..t.borrow().clone()
+                            }))))
+                        }
+                        _ => real_float.clone(),
+                    },
+                    ..a.borrow().clone()
+                })),
+                Rc::new(RefCell::new(Type {
+                    kind: match y {
+                        TypeKind::Complex(Some(t)) => {
+                            TypeKind::Complex(Some(Rc::new(RefCell::new(Type {
+                                kind: real_float.clone(),
+                                ..t.borrow().clone()
+                            }))))
+                        }
+                        _ => real_float.clone(),
+                    },
+                    ..b.borrow().clone()
+                })),
+            ))
         }
         _ => Ok((Rc::clone(&a), Rc::clone(&b))),
     }

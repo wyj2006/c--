@@ -57,14 +57,7 @@ impl TypeChecker {
             Ok(Rc::clone(&source))
         }
         //尝试所有可能的转换方式
-        //TODO 复数
-        else if target_type.borrow().is_complex() && source_type.borrow().is_complex() {
-            Ok(Rc::new(RefCell::new(self.wrap_implicit_cast(
-                Rc::clone(&source),
-                target_type,
-                CastMethod::Nothing,
-            ))))
-        } else if is_compatible(
+        else if is_compatible(
             Rc::clone(&target_type),
             array_to_ptr(Rc::clone(source_type)),
         ) {
@@ -103,7 +96,7 @@ impl TypeChecker {
                 if source_type.borrow().size().unwrap() > target_type.borrow().size().unwrap() {
                     CastMethod::FloatTrunc
                 } else {
-                    CastMethod::FloatExtand
+                    CastMethod::FloatExtend
                 },
             ))))
         } else if target_type.borrow().is_integer() && source_type.borrow().is_real_float() {
@@ -134,7 +127,7 @@ impl TypeChecker {
                     if source_type.borrow().is_unsigned().unwrap() {
                         CastMethod::ZeroExtand
                     } else {
-                        CastMethod::SignedExtand
+                        CastMethod::SignedExtend
                     },
                 ))))
             } else {
@@ -144,6 +137,64 @@ impl TypeChecker {
                     CastMethod::IntTrunc,
                 ))))
             }
+        } else if target_type.borrow().is_bool() && source_type.borrow().is_scale() {
+            Ok(Rc::new(RefCell::new(self.wrap_implicit_cast(
+                Rc::clone(&source),
+                target_type,
+                CastMethod::ToBool,
+            ))))
+        } else if target_type.borrow().is_complex() && source_type.borrow().is_complex() {
+            Ok(Rc::new(RefCell::new(self.wrap_implicit_cast(
+                Rc::clone(&source),
+                target_type.clone(),
+                match (source_type.borrow().size(), target_type.borrow().size()) {
+                    (Some(a), Some(b)) => {
+                        if a > b {
+                            CastMethod::ComplexTrunc
+                        } else {
+                            CastMethod::ComplexExtend
+                        }
+                    }
+                    (None, _) => {
+                        return Err(Diagnostic::error()
+                            .with_message(format!("incomplete type: '{}'", source_type.borrow()))
+                            .with_label(Label::primary(
+                                source_type.borrow().file_id,
+                                source_type.borrow().span,
+                            )));
+                    }
+                    (_, None) => {
+                        return Err(Diagnostic::error()
+                            .with_message(format!("incomplete type: '{}'", target_type.borrow()))
+                            .with_label(Label::primary(
+                                target_type.borrow().file_id,
+                                target_type.borrow().span,
+                            )));
+                    }
+                },
+            ))))
+        } else if target_type.borrow().is_complex() && source_type.borrow().is_real_float() {
+            Ok(Rc::new(RefCell::new(self.wrap_implicit_cast(
+                Rc::clone(&source),
+                target_type,
+                CastMethod::FloatToComplex,
+            ))))
+        } else if target_type.borrow().is_real_float() && source_type.borrow().is_complex() {
+            Ok(Rc::new(RefCell::new(self.wrap_implicit_cast(
+                Rc::clone(&source),
+                target_type,
+                CastMethod::ComplexToFloat,
+            ))))
+        } else if target_type.borrow().is_complex() && source_type.borrow().is_integer()
+            || target_type.borrow().is_integer() && source_type.borrow().is_complex()
+        {
+            let new_source = match &target_type.borrow().kind {
+                TypeKind::Complex(Some(t)) => {
+                    self.try_implicit_cast(Rc::clone(&source), Rc::clone(t))?
+                }
+                _ => unreachable!(),
+            };
+            Ok(self.try_implicit_cast(new_source, target_type)?)
         } else {
             Err(Diagnostic::error()
                 .with_message(format!(
@@ -763,6 +814,37 @@ impl TypeChecker {
                     }));
                     node.value = Variant::Rational(value);
                 }
+                ExprKind::Image { imag_part } => {
+                    self.visit_expr(Rc::clone(imag_part))?;
+
+                    let r#type = Rc::new(RefCell::new(Type {
+                        kind: TypeKind::Complex(Some(match &*imag_part.borrow().r#type.borrow() {
+                            t if t.is_real_float() => Rc::clone(&imag_part.borrow().r#type),
+                            Type { file_id, span, .. } => Rc::new(RefCell::new(Type {
+                                kind: TypeKind::Double,
+                                ..Type::new(*file_id, *span)
+                            })),
+                        })),
+                        ..Type::new(node.file_id, node.span)
+                    }));
+                    let value = match &imag_part.borrow().value {
+                        Variant::Bool(t) => Variant::Complex(
+                            BigRational::from_float(0.).unwrap(),
+                            BigRational::from_u8(*t as u8).unwrap(),
+                        ),
+                        Variant::Int(t) => Variant::Complex(
+                            BigRational::from_float(0.).unwrap(),
+                            BigRational::from_integer(t.clone()),
+                        ),
+                        Variant::Rational(t) => {
+                            Variant::Complex(BigRational::from_float(0.).unwrap(), t.clone())
+                        }
+                        _ => Variant::Unknown,
+                    };
+
+                    node.value = value;
+                    node.r#type = r#type;
+                }
                 ExprKind::Cast { target, .. } => {
                     self.visit_expr(Rc::clone(target))?;
                     let target_type = Rc::clone(&node.r#type);
@@ -1138,7 +1220,7 @@ impl TypeChecker {
                                 let value = !operand.borrow().value.clone();
                                 node.value = value;
                                 node.r#type = Rc::new(RefCell::new(Type {
-                                    kind: TypeKind::Int,
+                                    kind: TypeKind::Bool, //标准里说的是int类型
                                     ..Type::new(node.file_id, node.span)
                                 }))
                             } else {

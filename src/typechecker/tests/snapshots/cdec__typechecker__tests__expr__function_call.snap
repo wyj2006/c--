@@ -12,5 +12,5 @@ TranslationUnit <(1, 1), (11, 1)>
         FunctionCall <(9, 6), (9, 9)> int  
           ImplicitCast <FuncToPtr> <(9, 5), (9, 6)> int(*)(long long)  
             Name f <(9, 5), (9, 6)> int(long long)  
-          ImplicitCast <SignedExtand> <(9, 7), (9, 8)> long long 1 
+          ImplicitCast <SignedExtend> <(9, 7), (9, 8)> long long 1 
             Integer 10 1 [] <(9, 7), (9, 8)> int 1

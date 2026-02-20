@@ -36,6 +36,9 @@ pub enum ExprKind {
         exponent: String,         //指数
         type_suffix: Vec<String>, //后缀, 全为小写
     },
+    Image {
+        imag_part: Rc<RefCell<Expr>>,
+    },
     String {
         prefix: EncodePrefix,
         text: String,
@@ -109,15 +112,20 @@ pub enum CastMethod {
     PtrToPtr,
     PtrToInt,
     IntToPtr,
-    FloatExtand,
+    FloatExtend,
     FloatTrunc,
     FloatToSInt,
     FloatToUInt,
     SIntToFloat,
     UIntToFloat,
-    SignedExtand,
+    SignedExtend,
     ZeroExtand,
     IntTrunc,
+    ComplexExtend,
+    ComplexTrunc,
+    ToBool,
+    FloatToComplex,
+    ComplexToFloat,
 }
 
 impl Display for CastMethod {
@@ -133,15 +141,20 @@ impl Display for CastMethod {
                 CastMethod::PtrToPtr => "PtrToPtr",
                 CastMethod::PtrToInt => "PtrToInt",
                 CastMethod::IntToPtr => "IntToPtr",
-                CastMethod::FloatExtand => "FloatExtand",
+                CastMethod::FloatExtend => "FloatExtend",
                 CastMethod::FloatTrunc => "FloatTrunc",
                 CastMethod::FloatToSInt => "FloatToSInt",
                 CastMethod::FloatToUInt => "FloatToUInt",
                 CastMethod::SIntToFloat => "SIntToFloat",
                 CastMethod::UIntToFloat => "UIntToFloat",
-                CastMethod::SignedExtand => "SignedExtand",
+                CastMethod::SignedExtend => "SignedExtend",
                 CastMethod::ZeroExtand => "ZeroExtand",
                 CastMethod::IntTrunc => "IntTrunc",
+                CastMethod::ComplexExtend => "ComplexExtend",
+                CastMethod::ComplexTrunc => "ComplexTrunc",
+                CastMethod::ToBool => "ToBool",
+                CastMethod::FloatToComplex => "FloatToComplex",
+                CastMethod::ComplexToFloat => "ComplexToFloat",
             }
         )
     }
@@ -306,7 +319,7 @@ impl Expr {
             ExprKind::CompoundLiteral { .. } => 100,
             ExprKind::Conditional { .. } => 35,
             ExprKind::False => 100,
-            ExprKind::Float { .. } => 100,
+            ExprKind::Float { .. } | ExprKind::Image { .. } => 100,
             ExprKind::FunctionCall { .. } => 95,
             ExprKind::GenericSelection { .. } => 100,
             ExprKind::Integer { .. } => 100,
@@ -367,6 +380,7 @@ impl Expr {
                 if *exp_base == 2 { "p" } else { "e" },
                 type_suffix.join("")
             ),
+            ExprKind::Image { imag_part } => format!("{}i", imag_part.borrow().unparse()),
             ExprKind::FunctionCall { target, arguments } => {
                 format!("{}({})", unparse_with_priority!(target, self), {
                     let mut args = vec![];

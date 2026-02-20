@@ -57,19 +57,20 @@ impl<'ctx> CodeGen<'ctx> {
         else if !(layout.r#type.borrow().is_array() || layout.r#type.borrow().is_record())
             && layout.children.len() > 0
         {
-            let mut values = vec![];
+            let mut bitfields = vec![];
             for child in layout.children {
                 let mut path = path.clone();
                 if let Some(t) = &child.designation {
                     path.push(t.clone());
                 }
                 if let Some(t) = init_values.get(&path) {
-                    values.push((t.into_int_value(), child.width, child.offset));
+                    bitfields.push((t.into_int_value(), child.width, child.offset));
                 }
             }
-            if values.iter().all(|x| x.0.is_const()) {
+
+            if bitfields.iter().all(|x| x.0.is_const()) {
                 let mut value = 0;
-                for (bitfield, width, offset) in values {
+                for (bitfield, width, offset) in bitfields {
                     value |= (bitfield.get_zero_extended_constant().unwrap() & ((1 << width) - 1))
                         << offset;
                 }
@@ -79,19 +80,13 @@ impl<'ctx> CodeGen<'ctx> {
                     .const_int(value, false)
                     .as_basic_value_enum())
             } else {
-                let ty = self
+                let mut value = self
                     .to_llvm_type(Rc::clone(&layout.r#type))?
-                    .into_int_type();
+                    .into_int_type()
+                    .const_int(0, false);
                 let file_id = layout.r#type.borrow().file_id;
                 let span = layout.r#type.borrow().span;
-                let ptr = map_builder_err(file_id, span, self.builder.build_alloca(ty, "init"))?;
-                map_builder_err(
-                    file_id,
-                    span,
-                    self.builder
-                        .build_store(ptr, self.context.i32_type().const_zero()),
-                )?;
-                for (bitfield, width, offset) in values {
+                for (bitfield, width, offset) in bitfields {
                     let mask = (1 << width) - 1;
                     let and = map_builder_err(
                         file_id,
@@ -111,26 +106,13 @@ impl<'ctx> CodeGen<'ctx> {
                             "shl",
                         ),
                     )?;
-                    let or = map_builder_err(
-                        file_id,
-                        span,
-                        self.builder.build_or(
-                            map_builder_err(file_id, span, self.builder.build_load(ty, ptr, ""))?
-                                .into_int_value(),
-                            shl,
-                            "or",
-                        ),
-                    )?;
-                    map_builder_err(file_id, span, self.builder.build_store(ptr, or))?;
+                    value =
+                        map_builder_err(file_id, span, self.builder.build_or(value, shl, "or"))?;
                 }
-                Ok(map_builder_err(
-                    file_id,
-                    span,
-                    self.builder.build_load(ty, ptr, ""),
-                )?)
+                Ok(value.as_basic_value_enum())
             }
         } else if layout.r#type.borrow().is_array() || layout.r#type.borrow().is_record() {
-            let mut values = vec![];
+            let mut fields = vec![];
             'outer: for child in layout.children {
                 let mut path = path.clone();
                 if let Some(t) = &child.designation {
@@ -139,43 +121,42 @@ impl<'ctx> CodeGen<'ctx> {
                 if layout.r#type.borrow().is_union() {
                     for designation in init_values.keys() {
                         if designation.starts_with(&path) {
-                            values.push(self.layout_to_value(child.clone(), path, init_values)?);
+                            fields.push(self.layout_to_value(child.clone(), path, init_values)?);
                             break 'outer;
                         }
                     }
                 } else {
-                    values.push(self.layout_to_value(child.clone(), path, init_values)?);
+                    fields.push(self.layout_to_value(child.clone(), path, init_values)?);
                 }
             }
-            if values.iter().all(|x| x.is_const()) {
+
+            if fields.iter().all(|x| x.is_const()) {
                 Ok(self
                     .context
-                    .const_struct(&values, false)
+                    .const_struct(&fields, false)
                     .as_basic_value_enum())
             } else {
-                let ty = self.context.struct_type(
-                    &values
-                        .iter()
-                        .map(|x| x.get_type())
-                        .collect::<Vec<BasicTypeEnum>>(),
-                    false,
-                );
                 let file_id = layout.r#type.borrow().file_id;
                 let span = layout.r#type.borrow().span;
-                let ptr = map_builder_err(file_id, span, self.builder.build_alloca(ty, ""))?;
-                for (i, value) in values.iter().enumerate() {
-                    let field_ptr = map_builder_err(
+                let mut value = self
+                    .context
+                    .struct_type(
+                        &fields
+                            .iter()
+                            .map(|x| x.get_type())
+                            .collect::<Vec<BasicTypeEnum>>(),
+                        false,
+                    )
+                    .const_zero();
+                for (i, field) in fields.iter().enumerate() {
+                    value = map_builder_err(
                         file_id,
                         span,
-                        self.builder.build_struct_gep(ty, ptr, i as u32, ""),
-                    )?;
-                    map_builder_err(file_id, span, self.builder.build_store(field_ptr, *value))?;
+                        self.builder.build_insert_value(value, *field, i as u32, ""),
+                    )?
+                    .into_struct_value();
                 }
-                Ok(map_builder_err(
-                    file_id,
-                    span,
-                    self.builder.build_load(ty, ptr, ""),
-                )?)
+                Ok(value.as_basic_value_enum())
             }
         } else {
             Ok(

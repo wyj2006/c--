@@ -92,6 +92,10 @@ impl Type {
     pub fn is_vla(&self) -> bool {
         self.kind.is_vla()
     }
+
+    pub fn is_bool(&self) -> bool {
+        self.kind.is_bool()
+    }
 }
 
 impl TypeKind {
@@ -337,6 +341,14 @@ impl TypeKind {
                 ..
             } => matches!(len_expr.borrow().value, Variant::Unknown),
             TypeKind::Qualified { r#type, .. } => r#type.borrow().is_vla(),
+            _ => false,
+        }
+    }
+
+    pub fn is_bool(&self) -> bool {
+        match self {
+            TypeKind::Bool => true,
+            TypeKind::Qualified { r#type, .. } => r#type.borrow().is_bool(),
             _ => false,
         }
     }

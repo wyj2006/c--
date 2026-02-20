@@ -17,9 +17,12 @@ use crate::{
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use inkwell::{
     FloatPredicate, IntPredicate,
+    builder::BuilderError,
     module::Linkage,
     types::BasicTypeEnum,
-    values::{AnyValue, AnyValueEnum, BasicValue, BasicValueEnum, InstructionOpcode, IntValue},
+    values::{
+        AnyValue, AnyValueEnum, BasicValue, BasicValueEnum, FloatValue, InstructionOpcode, IntValue,
+    },
 };
 use std::{cell::RefCell, rc::Rc, u64};
 
@@ -73,6 +76,7 @@ impl<'ctx> CodeGen<'ctx> {
             ExprKind::Char { .. }
             | ExprKind::Integer { .. }
             | ExprKind::Float { .. }
+            | ExprKind::Image { .. }
             | ExprKind::True
             | ExprKind::False
             | ExprKind::Nullptr
@@ -89,7 +93,10 @@ impl<'ctx> CodeGen<'ctx> {
                 unreachable!()
             }
             ExprKind::Cast { target, method, .. } => {
-                let target_value = if let CastMethod::LToRValue = *method {
+                let target_value = if match method {
+                    CastMethod::LToRValue | CastMethod::ToBool => true,
+                    _ => false,
+                } {
                     //避免重复生成target的代码
                     self.context
                         .i32_type()
@@ -124,6 +131,83 @@ impl<'ctx> CodeGen<'ctx> {
                         .as_any_value_enum())
                     }
                     CastMethod::LToRValue => Ok(self.build_load(Rc::clone(target))?),
+                    CastMethod::ComplexExtend | CastMethod::ComplexTrunc => {
+                        let complex_type = self
+                            .to_llvm_type(Rc::clone(&node.r#type))?
+                            .into_struct_type();
+                        let to_type = complex_type
+                            .get_field_type_at_index(0)
+                            .unwrap()
+                            .into_float_type();
+                        let (real, imag) = map_builder_err(
+                            node.file_id,
+                            node.span,
+                            self.extract_real_imag(target_value),
+                        )?;
+                        let op = match method {
+                            CastMethod::ComplexExtend => InstructionOpcode::FPExt,
+                            CastMethod::ComplexTrunc => InstructionOpcode::FPTrunc,
+                            _ => unreachable!(),
+                        };
+                        let cast_real = map_builder_err(
+                            node.file_id,
+                            node.span,
+                            self.builder.build_cast(op, real, to_type, "cast_real"),
+                        )?;
+                        let cast_imag = map_builder_err(
+                            node.file_id,
+                            node.span,
+                            self.builder.build_cast(op, imag, to_type, "cast_real"),
+                        )?;
+                        Ok(map_builder_err(
+                            node.file_id,
+                            node.span,
+                            self.builder.build_insert_value(
+                                map_builder_err(
+                                    node.file_id,
+                                    node.span,
+                                    self.builder.build_insert_value(
+                                        complex_type.const_named_struct(&[
+                                            to_type.const_zero().as_basic_value_enum(),
+                                            to_type.const_zero().as_basic_value_enum(),
+                                        ]),
+                                        cast_real,
+                                        0,
+                                        "",
+                                    ),
+                                )?,
+                                cast_imag,
+                                1,
+                                "",
+                            ),
+                        )?
+                        .as_any_value_enum())
+                    }
+                    CastMethod::ToBool => Ok(self.to_bool(Rc::clone(&target))?.as_any_value_enum()),
+                    CastMethod::FloatToComplex => {
+                        let complex_type = self
+                            .to_llvm_type(Rc::clone(&node.r#type))?
+                            .into_struct_type();
+                        Ok(map_builder_err(
+                            node.file_id,
+                            node.span,
+                            self.builder.build_insert_value(
+                                complex_type.const_zero(),
+                                target_value.into_float_value(),
+                                0,
+                                "",
+                            ),
+                        )?
+                        .as_any_value_enum())
+                    }
+                    CastMethod::ComplexToFloat => {
+                        let (real, _) = map_builder_err(
+                            node.file_id,
+                            node.span,
+                            self.extract_real_imag(target_value),
+                        )?;
+                        Ok(real.as_any_value_enum())
+                    }
                     _ => Ok(map_builder_err(
                         node.file_id,
                         node.span,
@@ -132,12 +216,12 @@ impl<'ctx> CodeGen<'ctx> {
                                 CastMethod::PtrToInt => InstructionOpcode::PtrToInt,
                                 CastMethod::IntToPtr => InstructionOpcode::IntToPtr,
                                 CastMethod::FloatTrunc => InstructionOpcode::FPTrunc,
-                                CastMethod::FloatExtand => InstructionOpcode::FPExt,
+                                CastMethod::FloatExtend => InstructionOpcode::FPExt,
                                 CastMethod::FloatToSInt => InstructionOpcode::FPToSI,
                                 CastMethod::FloatToUInt => InstructionOpcode::FPToUI,
                                 CastMethod::SIntToFloat => InstructionOpcode::SIToFP,
                                 CastMethod::UIntToFloat => InstructionOpcode::UIToFP,
-                                CastMethod::SignedExtand => InstructionOpcode::SExt,
+                                CastMethod::SignedExtend => InstructionOpcode::SExt,
                                 CastMethod::ZeroExtand => InstructionOpcode::ZExt,
                                 CastMethod::IntTrunc => InstructionOpcode::Trunc,
                                 _ => unreachable!(),
@@ -363,7 +447,55 @@ impl<'ctx> CodeGen<'ctx> {
                                     .build_float_neg(operand_value.into_float_value(), ""),
                             )?
                             .as_any_value_enum()),
-                            //TODO 复数和十进制浮点数
+                            t if t.is_complex() => {
+                                let operand_value = operand_value.into_struct_value();
+
+                                let real = map_builder_err(
+                                    node.file_id,
+                                    node.span,
+                                    self.builder.build_extract_value(operand_value, 0, "real"),
+                                )?
+                                .into_float_value();
+                                let imag = map_builder_err(
+                                    node.file_id,
+                                    node.span,
+                                    self.builder.build_extract_value(operand_value, 1, "imag"),
+                                )?
+                                .into_float_value();
+
+                                let neg_real = map_builder_err(
+                                    node.file_id,
+                                    node.span,
+                                    self.builder.build_float_neg(real, "neg_real"),
+                                )?;
+                                let neg_imag = map_builder_err(
+                                    node.file_id,
+                                    node.span,
+                                    self.builder.build_float_neg(imag, "neg_image"),
+                                )?;
+
+                                Ok(map_builder_err(
+                                    node.file_id,
+                                    node.span,
+                                    self.builder.build_insert_value(
+                                        map_builder_err(
+                                            node.file_id,
+                                            node.span,
+                                            self.builder.build_insert_value(
+                                                operand_value,
+                                                neg_imag,
+                                                1,
+                                                "",
+                                            ),
+                                        )?,
+                                        neg_real,
+                                        0,
+                                        "",
+                                    ),
+                                )?
+                                .as_any_value_enum())
+                            }
+                            //TODO 十进制浮点数
                             _ => todo!(),
                         }
                     }
@@ -710,7 +842,48 @@ impl<'ctx> CodeGen<'ctx> {
                             )?
                             .as_any_value_enum())
                         }
-                        //TODO 复数和十进制浮点数
+                        (a, b)
+                            if (a.is_complex() && b.is_real_float())
+                                || (b.is_complex() && a.is_real_float())
+                                || (a.is_complex() && b.is_complex()) =>
+                        {
+                            let (real1, imag1) = map_builder_err(
+                                left.borrow().file_id,
+                                left.borrow().span,
+                                self.extract_real_imag(left_value),
+                            )?;
+                            let (real2, imag2) = map_builder_err(
+                                right.borrow().file_id,
+                                right.borrow().span,
+                                self.extract_real_imag(right_value),
+                            )?;
+
+                            let op = match op {
+                                BinOpKind::Eq => FloatPredicate::OEQ,
+                                BinOpKind::Neq => FloatPredicate::ONE,
+                                _ => unreachable!(),
+                            };
+
+                            let cmp_real = map_builder_err(
+                                node.file_id,
+                                node.span,
+                                self.builder
+                                    .build_float_compare(op, real1, real2, "cmp_real"),
+                            )?;
+                            let cmp_imag = map_builder_err(
+                                node.file_id,
+                                node.span,
+                                self.builder
+                                    .build_float_compare(op, imag1, imag2, "cmp_imag"),
+                            )?;
+                            Ok(map_builder_err(
+                                node.file_id,
+                                node.span,
+                                self.builder.build_and(cmp_real, cmp_imag, ""),
+                            )?
+                            .as_any_value_enum())
+                        }
+                        //TODO 十进制浮点数
                         _ => todo!(),
                     }
                 }
@@ -765,7 +938,58 @@ impl<'ctx> CodeGen<'ctx> {
                             })?
                             .as_any_value_enum())
                         }
-                        //TODO 复数和十进制浮点数
+                        (a, b)
+                            if (a.is_complex() && b.is_real_float())
+                                || (b.is_complex() && a.is_real_float())
+                                || (a.is_complex() && b.is_complex()) =>
+                        {
+                            let complex_type = if a.is_complex() {
+                                left_value.into_struct_value()
+                            } else if b.is_complex() {
+                                right_value.into_struct_value()
+                            } else {
+                                unreachable!()
+                            };
+
+                            let (real1, imag1) = map_builder_err(
+                                left.borrow().file_id,
+                                left.borrow().span,
+                                self.extract_real_imag(left_value),
+                            )?;
+                            let (real2, imag2) = map_builder_err(
+                                right.borrow().file_id,
+                                right.borrow().span,
+                                self.extract_real_imag(right_value),
+                            )?;
+
+                            let add_real = map_builder_err(
+                                node.file_id,
+                                node.span,
+                                self.builder.build_float_add(real1, real2, "add_real"),
+                            )?;
+                            let add_imag = map_builder_err(
+                                node.file_id,
+                                node.span,
+                                self.builder.build_float_add(imag1, imag2, "add_imag"),
+                            )?;
+
+                            Ok(map_builder_err(
+                                node.file_id,
+                                node.span,
+                                (|| {
+                                    self.builder.build_insert_value(
+                                        self.builder
+                                            .build_insert_value(complex_type, add_real, 0, "")?
+                                            .into_struct_value(),
+                                        add_imag,
+                                        1,
+                                        "",
+                                    )
+                                })(),
+                            )?
+                            .as_any_value_enum())
+                        }
+                        //TODO 十进制浮点数
                         _ => todo!(),
                     }
                 }
@@ -813,7 +1037,58 @@ impl<'ctx> CodeGen<'ctx> {
                             })?
                             .as_any_value_enum())
                         }
-                        //TODO 复数和十进制浮点数
+                        (a, b)
+                            if (a.is_complex() && b.is_real_float())
+                                || (b.is_complex() && a.is_real_float())
+                                || (a.is_complex() && b.is_complex()) =>
+                        {
+                            let complex_type = if a.is_complex() {
+                                left_value.into_struct_value()
+                            } else if b.is_complex() {
+                                right_value.into_struct_value()
+                            } else {
+                                unreachable!()
+                            };
+
+                            let (real1, imag1) = map_builder_err(
+                                left.borrow().file_id,
+                                left.borrow().span,
+                                self.extract_real_imag(left_value),
+                            )?;
+                            let (real2, imag2) = map_builder_err(
+                                right.borrow().file_id,
+                                right.borrow().span,
+                                self.extract_real_imag(right_value),
+                            )?;
+
+                            let sub_real = map_builder_err(
+                                node.file_id,
+                                node.span,
+                                self.builder.build_float_sub(real1, real2, "sub_real"),
+                            )?;
+                            let sub_imag = map_builder_err(
+                                node.file_id,
+                                node.span,
+                                self.builder.build_float_sub(imag1, imag2, "sub_imag"),
+                            )?;
+
+                            Ok(map_builder_err(
+                                node.file_id,
+                                node.span,
+                                (|| {
+                                    self.builder.build_insert_value(
+                                        self.builder
+                                            .build_insert_value(complex_type, sub_real, 0, "")?
+                                            .into_struct_value(),
+                                        sub_imag,
+                                        1,
+                                        "",
+                                    )
+                                })(),
+                            )?
+                            .as_any_value_enum())
+                        }
+                        //TODO 十进制浮点数
                         _ => todo!(),
                     }
                 }
@@ -886,7 +1161,114 @@ impl<'ctx> CodeGen<'ctx> {
                             },
                         )?
                         .as_any_value_enum()),
-                        //TODO 复数和十进制浮点数
+                        (a, b)
+                            if (a.is_complex() && b.is_real_float())
+                                || (b.is_complex() && a.is_real_float())
+                                || (a.is_complex() && b.is_complex()) =>
+                        {
+                            let complex_type = if a.is_complex() {
+                                left_value.into_struct_value()
+                            } else if b.is_complex() {
+                                right_value.into_struct_value()
+                            } else {
+                                unreachable!()
+                            };
+
+                            let (real1, imag1) = map_builder_err(
+                                left.borrow().file_id,
+                                left.borrow().span,
+                                self.extract_real_imag(left_value),
+                            )?;
+                            let (real2, imag2) = map_builder_err(
+                                right.borrow().file_id,
+                                right.borrow().span,
+                                self.extract_real_imag(right_value),
+                            )?;
+
+                            let new_real = match op {
+                                BinOpKind::Mul => map_builder_err(
+                                    node.file_id,
+                                    node.span,
+                                    (|| {
+                                        self.builder.build_float_sub(
+                                            self.builder.build_float_mul(real1, real2, "")?,
+                                            self.builder.build_float_mul(imag1, imag2, "")?,
+                                            "new_real",
+                                        )
+                                    })(),
+                                )?,
+                                BinOpKind::Div => map_builder_err(
+                                    node.file_id,
+                                    node.span,
+                                    (|| {
+                                        self.builder.build_float_div(
+                                            self.builder.build_float_add(
+                                                self.builder.build_float_mul(real1, real2, "")?,
+                                                self.builder.build_float_mul(imag1, imag2, "")?,
+                                                "",
+                                            )?,
+                                            self.builder.build_float_add(
+                                                self.builder.build_float_mul(real2, real2, "")?,
+                                                self.builder.build_float_mul(imag2, imag2, "")?,
+                                                "",
+                                            )?,
+                                            "new_real",
+                                        )
+                                    })(),
+                                )?,
+                                _ => unreachable!(),
+                            };
+                            let new_imag = match op {
+                                BinOpKind::Mul => map_builder_err(
+                                    node.file_id,
+                                    node.span,
+                                    (|| {
+                                        self.builder.build_float_add(
+                                            self.builder.build_float_mul(real1, imag2, "")?,
+                                            self.builder.build_float_mul(real2, imag1, "")?,
+                                            "new_imag",
+                                        )
+                                    })(),
+                                )?,
+                                BinOpKind::Div => map_builder_err(
+                                    node.file_id,
+                                    node.span,
+                                    (|| {
+                                        self.builder.build_float_div(
+                                            self.builder.build_float_sub(
+                                                self.builder.build_float_mul(imag1, real2, "")?,
+                                                self.builder.build_float_mul(real1, imag2, "")?,
+                                                "",
+                                            )?,
+                                            self.builder.build_float_add(
+                                                self.builder.build_float_mul(real2, real2, "")?,
+                                                self.builder.build_float_mul(imag2, imag2, "")?,
+                                                "",
+                                            )?,
+                                            "new_imag",
+                                        )
+                                    })(),
+                                )?,
+                                _ => unreachable!(),
+                            };
+
+                            Ok(map_builder_err(
+                                node.file_id,
+                                node.span,
+                                (|| {
+                                    self.builder.build_insert_value(
+                                        self.builder
+                                            .build_insert_value(complex_type, new_real, 0, "")?
+                                            .into_struct_value(),
+                                        new_imag,
+                                        1,
+                                        "",
+                                    )
+                                })(),
+                            )?
+                            .as_any_value_enum())
+                        }
+                        //TODO 十进制浮点数
                         _ => todo!(),
                     }
                 }
@@ -1165,7 +1547,35 @@ impl<'ctx> CodeGen<'ctx> {
                 ),
             )?),
             t if t.is_nullptr() => Ok(self.context.i32_type().const_int(0, false)),
-            //TODO 复数和十进制浮点数
+            t if t.is_complex() => {
+                let (real, imag) = map_builder_err(file_id, span, self.extract_real_imag(value))?;
+                let bool_real = map_builder_err(
+                    file_id,
+                    span,
+                    self.builder.build_float_compare(
+                        FloatPredicate::ONE,
+                        real,
+                        real.get_type().const_float(0.),
+                        "bool_real",
+                    ),
+                )?;
+                let bool_imag = map_builder_err(
+                    file_id,
+                    span,
+                    self.builder.build_float_compare(
+                        FloatPredicate::ONE,
+                        imag,
+                        imag.get_type().const_float(0.),
+                        "bool_imag",
+                    ),
+                )?;
+                Ok(map_builder_err(
+                    file_id,
+                    span,
+                    self.builder.build_and(bool_real, bool_imag, ""),
+                )?)
+            }
+            //TODO 十进制浮点数
             _ => todo!(),
         }
     }
@@ -1373,5 +1783,27 @@ impl<'ctx> CodeGen<'ctx> {
                 .build_store(ptr, BasicValueEnum::try_from(value).unwrap()),
         )?;
         Ok(())
+    }
+
+    //提取复数的实部和虚部, 需要保证传入的是正确的类型
+    pub fn extract_real_imag(
+        &self,
+        a: AnyValueEnum<'ctx>,
+    ) -> Result<(FloatValue<'ctx>, FloatValue<'ctx>), BuilderError> {
+        match a {
+            AnyValueEnum::FloatValue(t) => Ok((t, t.get_type().const_float(0.))),
+            AnyValueEnum::StructValue(t) => Ok((
+                self.builder
+                    .build_extract_value(t, 0, "real")?
+                    .into_float_value(),
+                self.builder
+                    .build_extract_value(t, 1, "imag")?
+                    .into_float_value(),
+            )),
+            _ => Ok((
+                self.context.f64_type().const_float(0.),
+                self.context.f64_type().const_float(0.),
+            )),
+        }
     }
 }

@@ -340,6 +340,7 @@ impl Print for Expr {
                     exponent,
                     type_suffix,
                 } => &format!("Float {base} {digits} {exp_base} {exponent} {type_suffix:?}"),
+                ExprKind::Image { .. } => &format!("Image"),
                 ExprKind::Integer {
                     base,
                     text,
@@ -438,6 +439,9 @@ impl Print for Expr {
             }
             ExprKind::SizeOf { decls, .. } | ExprKind::Alignof { decls, .. } => {
                 lines.extend(decls.print_line(indent));
+            }
+            ExprKind::Image { imag_part } => {
+                lines.extend(imag_part.print_line(indent));
             }
             _ => {}
         }

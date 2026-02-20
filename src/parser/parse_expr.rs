@@ -560,12 +560,34 @@ impl CParser {
     pub fn parse_constant(&self, rule: Pair<Rule>) -> Result<Rc<RefCell<Expr>>, Diagnostic<usize>> {
         for rule in rule.into_inner() {
             match rule.as_rule() {
+                Rule::image_constant => return self.parse_image_constant(rule),
                 Rule::floating_constant => return self.parse_floating_constant(rule),
                 Rule::integer_constant => return self.parse_integer_constant(rule),
                 Rule::character_constant => return self.parse_character_constant(rule),
                 Rule::predefined_constant => return self.parse_predefined_constant(rule),
                 _ => unreachable!(),
             }
+        }
+        unreachable!()
+    }
+
+    pub fn parse_image_constant(
+        &self,
+        rule: Pair<Rule>,
+    ) -> Result<Rc<RefCell<Expr>>, Diagnostic<usize>> {
+        let span = rule.as_span();
+        for rule in rule.into_inner() {
+            return Ok(Rc::new(RefCell::new(Expr::new(
+                self.file_id,
+                from_pest_span(span),
+                ExprKind::Image {
+                    imag_part: match rule.as_rule() {
+                        Rule::floating_constant => self.parse_floating_constant(rule)?,
+                        Rule::integer_constant => self.parse_integer_constant(rule)?,
+                        _ => unreachable!(),
+                    },
+                },
+            ))));
         }
         unreachable!()
     }

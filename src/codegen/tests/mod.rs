@@ -1,4 +1,5 @@
 pub mod bitfield;
+pub mod complex;
 pub mod init;
 pub mod storage;
 

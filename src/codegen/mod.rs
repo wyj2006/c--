@@ -9,9 +9,8 @@ use crate::{
     ast::TranslationUnit,
     ctype::{Type, TypeKind, array_element},
     symtab::{Namespace, Symbol, SymbolTable},
-    variant::Variant,
+    variant::{Variant, to_decimal},
 };
-use bigdecimal::BigDecimal;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use inkwell::{
     AddressSpace,
@@ -19,8 +18,8 @@ use inkwell::{
     builder::Builder,
     context::Context,
     module::Module,
-    types::{AnyType, AnyTypeEnum, StringRadix},
-    values::{AnyValue, AnyValueEnum, FunctionValue, IntValue},
+    types::{AnyType, AnyTypeEnum, BasicType, StringRadix},
+    values::{AnyValue, AnyValueEnum, BasicValue, FunctionValue, IntValue},
 };
 use num::ToPrimitive;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
@@ -94,8 +93,18 @@ impl<'ctx> CodeGen<'ctx> {
             TypeKind::Float => self.context.f32_type().as_any_type_enum(),
             TypeKind::Double => self.context.f64_type().as_any_type_enum(),
             TypeKind::LongDouble => self.context.f128_type().as_any_type_enum(),
-            //TODO 复数和十进制浮点数
-            TypeKind::Complex(..) => todo!(),
+            TypeKind::Complex(r#type) => {
+                let t = if let Some(t) = r#type {
+                    match self.to_llvm_type(Rc::clone(t))? {
+                        AnyTypeEnum::FloatType(t) => t.as_basic_type_enum(),
+                        _ => self.context.f64_type().as_basic_type_enum(),
+                    }
+                } else {
+                    self.context.f64_type().as_basic_type_enum()
+                };
+                self.context.struct_type(&[t, t], false).as_any_type_enum()
+            }
+            //TODO 十进制浮点数
             TypeKind::Decimal32 => todo!(),
             TypeKind::Decimal64 => todo!(),
             TypeKind::Decimal128 => todo!(),
@@ -344,9 +353,7 @@ impl<'ctx> CodeGen<'ctx> {
                     .as_any_value_enum(),
             }),
             Variant::Rational(value) => {
-                let value = (BigDecimal::from(value.numer().clone())
-                    / BigDecimal::from(value.denom().clone()))
-                .to_string();
+                let value = to_decimal(value).to_string();
                 let dot_index = value.find(".").unwrap_or(value.len());
                 Ok(match self.to_llvm_type(r#type)? {
                     AnyTypeEnum::FloatType(t) => {
@@ -480,6 +487,27 @@ impl<'ctx> CodeGen<'ctx> {
                             )));
                     }
                 })
+            }
+            Variant::Complex(a, b) => {
+                let t = match &r#type.borrow().kind {
+                    TypeKind::Complex(Some(t)) => match self.to_llvm_type(Rc::clone(t))? {
+                        AnyTypeEnum::FloatType(t) => t,
+                        _ => self.context.f64_type(),
+                    },
+                    _ => self.context.f64_type(),
+                };
+                Ok(self
+                    .context
+                    .const_struct(
+                        &[
+                            unsafe { t.const_float_from_string(&to_decimal(a).to_string()) }
+                                .as_basic_value_enum(),
+                            unsafe { t.const_float_from_string(&to_decimal(b).to_string()) }
+                                .as_basic_value_enum(),
+                        ],
+                        false,
+                    )
+                    .as_any_value_enum())
             }
             Variant::Unknown => Err(Diagnostic::error()
                 .with_message(format!("unkown value for type"))

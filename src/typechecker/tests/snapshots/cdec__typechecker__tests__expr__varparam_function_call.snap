@@ -17,9 +17,9 @@ TranslationUnit <(1, 1), (10, 1)>
             Name printf <(8, 5), (8, 11)> void(char*,...)  
           ImplicitCast <ArrayToPtr> <(8, 12), (8, 25)> const char* [72, 101, 108, 108, 111, 44, 87, 111, 114, 108, 100, 0] 
             String Default "Hello,World" <(8, 12), (8, 25)> const char[12] [72, 101, 108, 108, 111, 44, 87, 111, 114, 108, 100, 0] lvalue
-          ImplicitCast <FloatExtand> <(8, 26), (8, 27)> double  
+          ImplicitCast <FloatExtend> <(8, 26), (8, 27)> double  
             ImplicitCast <LToRValue> <(8, 26), (8, 27)> float  
               Name a <(8, 26), (8, 27)> float  lvalue
-          ImplicitCast <SignedExtand> <(8, 28), (8, 29)> int  
+          ImplicitCast <SignedExtend> <(8, 28), (8, 29)> int  
             ImplicitCast <LToRValue> <(8, 28), (8, 29)> char  
               Name b <(8, 28), (8, 29)> const char  lvalue

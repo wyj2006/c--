@@ -60,6 +60,18 @@ int main()
 );
 
 typechecker_test_template!(
+    image_literal,
+    "int main()
+{
+    1i;
+    2.5i;
+    1+2.5i;
+    2.5+2.5i;
+}
+"
+);
+
+typechecker_test_template!(
     generic_selection,
     "
 int main()

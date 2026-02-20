@@ -385,6 +385,9 @@ pub fn is_compatible(a: Rc<RefCell<Type>>, b: Rc<RefCell<Type>>) -> bool {
                 true
             }
         }
+        (TypeKind::Complex(Some(a)), TypeKind::Complex(Some(b))) => {
+            is_compatible(Rc::clone(a), Rc::clone(b))
+        }
         (a, b) => discriminant(a) == discriminant(b),
     }
 }
