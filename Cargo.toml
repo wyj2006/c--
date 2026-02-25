@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 bigdecimal = "0.4.10"
 chrono = "0.4.42"
+clap = { version = "4.5.60", features = ["derive"] }
 codespan = "0.13.1"
 codespan-reporting = "0.13.1"
 indexmap = "2.13.0"
@@ -19,3 +20,12 @@ pest_derive = { version = "2.8.5", features = ["grammar-extras"] }
 version = "0.8.0"
 default-features = false
 features = ["llvm21-1","target-x86"]
+
+[workspace]
+members = ["linker"]
+
+[profile.dev]
+overflow-checks = false
+
+[workspace.dependencies]
+clap = { version = "4.5.60", features = ["derive"] }

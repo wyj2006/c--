@@ -62,6 +62,7 @@ pub enum TypeKind {
         qualifiers: Vec<TypeQual>,
         r#type: Rc<RefCell<Type>>,
     },
+    //TODO 原子类型
     Atomic(Rc<RefCell<Type>>),
     Typedef {
         name: String,
@@ -89,6 +90,7 @@ pub enum TypeKind {
         len_expr: Option<Rc<RefCell<Expr>>>,
     },
     Pointer(Rc<RefCell<Type>>),
+    //TODO 类型推导
     Auto(Option<Rc<RefCell<Type>>>),
     Nullptr,
     Error,

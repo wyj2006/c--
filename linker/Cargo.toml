@@ -1,0 +1,10 @@
+[package]
+name = "linker"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.102"
+clap = { workspace = true, features = ["derive"] }
+indexmap = "2.13.0"
+object = { version = "0.38.1", features = ["all"] }

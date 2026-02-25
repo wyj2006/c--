@@ -15,6 +15,7 @@ use crate::{
     file_map::{FileMap, source_map},
 };
 use ast::printer::Print;
+use clap::Parser;
 use codespan_reporting::diagnostic::Diagnostic;
 use inkwell::{
     OptimizationLevel,
@@ -32,8 +33,17 @@ lazy_static! {
     pub static ref files: Mutex<FileMap> = Mutex::new(FileMap::new());
 }
 
+#[derive(Parser)]
+pub struct Cli {
+    pub input: String,
+    #[arg(short, long)]
+    pub output: Option<String>,
+}
+
 fn main() {
-    let file_path = "test.txt";
+    let cli = Cli::parse();
+
+    let file_path = &cli.input;
     let file_content = fs::read_to_string(&file_path).unwrap();
 
     let source_id = files
@@ -109,8 +119,13 @@ fn main() {
     let module_string = codegen.module.print_to_string();
     println!("{}", module_string.to_string());
 
-    let mut path = Path::new(file_path).to_path_buf();
-    path.set_extension("o");
+    let path = if let Some(t) = cli.output {
+        Path::new(&t).to_path_buf()
+    } else {
+        let mut path = Path::new(file_path).to_path_buf();
+        path.set_extension("o");
+        path
+    };
     match target_machine.write_to_file(&codegen.module, FileType::Object, &path) {
         Ok(_) => {}
         Err(e) => {
