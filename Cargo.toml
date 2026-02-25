@@ -19,7 +19,10 @@ pest_derive = { version = "2.8.5", features = ["grammar-extras"] }
 [dependencies.inkwell]
 version = "0.8.0"
 default-features = false
-features = ["llvm21-1","target-x86"]
+features = [
+    "llvm21-1",
+    "target-x86",
+]
 
 [workspace]
 members = ["linker"]

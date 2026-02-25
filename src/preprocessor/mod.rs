@@ -27,7 +27,7 @@ use std::{fs, usize};
 
 lazy_static! {
     pub static ref user_macro: RwLock<HashMap<String, Macro>> = RwLock::new(HashMap::new());
-    pub static ref include_path: RwLock<Vec<String>> = RwLock::new(Vec::new());
+    pub static ref include_paths: RwLock<Vec<PathBuf>> = RwLock::new(Vec::new());
 }
 
 #[derive(Parser)]
@@ -336,7 +336,7 @@ impl Preprocessor {
     }
 
     pub fn get_possible_filepath(&self, header_name: &str) -> Vec<PathBuf> {
-        let mut search_path = include_path
+        let mut search_path = include_paths
             .read()
             .unwrap()
             .iter()
