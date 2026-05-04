@@ -161,7 +161,7 @@ impl<'ctx> CodeGen<'ctx> {
                                 )));
                         }
                     },
-                    Variant::Unknown => {
+                    t if t.is_unknown() => {
                         return Ok(self
                             .context
                             .ptr_type(AddressSpace::default())

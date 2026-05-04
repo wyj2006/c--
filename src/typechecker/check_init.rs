@@ -73,6 +73,30 @@ impl DesignationNode {
             TypeKind::Record { members: None, .. } => Err(Diagnostic::error()
                 .with_message(format!("incomplete type: '{}'", r#type.to_string()))
                 .with_label(Label::primary(r#type.file_id, r#type.span))),
+            TypeKind::Qualified { r#type, .. }
+            | TypeKind::Atomic(r#type)
+            | TypeKind::Typedef {
+                r#type: Some(r#type),
+                ..
+            }
+            | TypeKind::Auto(Some(r#type))
+            | TypeKind::Typeof {
+                r#type: Some(r#type),
+                ..
+            } => DesignationNode {
+                index,
+                r#type: Rc::clone(&r#type),
+                designation: ConstDesignation::Subscript(0), //无实际意义
+            }
+            .child(index),
+            TypeKind::Typeof {
+                expr: Some(expr), ..
+            } => DesignationNode {
+                index,
+                r#type: Rc::clone(&expr.borrow().r#type),
+                designation: ConstDesignation::Subscript(0), //无实际意义
+            }
+            .child(index),
             _ => Ok(None),
         }
     }
@@ -168,6 +192,8 @@ impl TypeChecker {
         node.r#type = Rc::clone(&r#type);
 
         let mut max_index: usize = 0; //用于补全数组类型
+
+        let mut has_side_effects = false;
 
         match &node.kind {
             InitializerKind::Braced(initializers) => {
@@ -312,11 +338,13 @@ impl TypeChecker {
                             remove_qualifier(Rc::clone(&path.last().unwrap().r#type))
                         },
                     )?;
+                    has_side_effects |= initializer.borrow().has_side_effects;
                     self.next_designation(path.len() - 1, &mut path, false)?;
                 }
             }
             InitializerKind::Expr(expr) => {
                 self.visit_expr(Rc::clone(expr))?;
+                has_side_effects |= expr.borrow().has_side_effects;
 
                 let mut string_prefix = None;
                 let mut string_array = None;
@@ -386,7 +414,6 @@ impl TypeChecker {
                         }
                     }
                 } else {
-                    let value = expr.borrow().value.clone();
                     match &mut node.kind {
                         InitializerKind::Expr(expr) => {
                             *expr = self.try_implicit_cast(
@@ -396,10 +423,11 @@ impl TypeChecker {
                         }
                         _ => {}
                     }
-                    node.value = value;
                 }
             }
         }
+
+        node.has_side_effects = has_side_effects;
 
         //补全数组类型
         let file_id = r#type.borrow().file_id;

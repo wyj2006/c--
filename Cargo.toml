@@ -24,6 +24,10 @@ features = [
     "target-x86",
 ]
 
+[features]
+default = []
+use_llvm = []
+
 [workspace]
 members = ["linker"]
 

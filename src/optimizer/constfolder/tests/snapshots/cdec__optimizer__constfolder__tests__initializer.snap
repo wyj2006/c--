@@ -1,0 +1,27 @@
+---
+source: src/optimizer/constfolder/tests/mod.rs
+expression: "ast.print_line(0).join(\"\\n\")"
+---
+TranslationUnit <(1, 1), (12, 1)>
+  RecordDecl <(2, 9), (5, 2)> <unnamed struct (2, 9)> struct <unnamed struct (2, 9)> 
+    MemberDecl <(3, 9), (3, 14)> a int 
+      Integer 10 3 [] <(3, 13), (3, 14)> int 3  
+    MemberDecl <(4, 9), (4, 14)> b int 
+      Integer 10 4 [] <(4, 13), (4, 14)> int 4  
+  TypeDecl <(5, 3), (5, 4)> A struct <unnamed struct (2, 9)> typedef
+  RecordDecl <(7, 9), (9, 2)> <unnamed struct (7, 9)> struct <unnamed struct (7, 9)> 
+    MemberDecl <(8, 7), (8, 8)> c A:struct <unnamed struct (2, 9)> 
+  TypeDecl <(9, 3), (9, 4)> B struct <unnamed struct (7, 9)> typedef
+  FunctionDecl  <(11, 5), (11, 12)> main int() 
+    Compound <(11, 12), (11, 36)>
+      DeclStmt <(11, 14), (11, 34)>
+        VarDecl <(11, 16), (11, 18)> x B:struct <unnamed struct (7, 9)> 
+          Initializer <(11, 20), (11, 33)> B:struct <unnamed struct (7, 9)> [[17]] 
+            Initializer <(11, 26), (11, 32)> A:struct <unnamed struct (2, 9)> [17] 
+              Designation <(11, 21), (11, 25)> c
+              Initializer <(11, 27), (11, 28)> int 1 
+                Designation <(11, 27), (11, 28)> a
+                Integer 10 1 [] <(11, 27), (11, 28)> int 1  
+              Initializer <(11, 30), (11, 31)> int 2 
+                Designation <(11, 30), (11, 31)> b
+                Integer 10 2 [] <(11, 30), (11, 31)> int 2

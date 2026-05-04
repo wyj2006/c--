@@ -18,7 +18,9 @@ pub struct Expr {
     pub r#type: Rc<RefCell<Type>>,
     pub value: Variant,
     pub is_lvalue: bool,
+    ///表达式对应的Symbol或者修改的Symbol
     pub symbol: Option<Rc<RefCell<Symbol>>>,
+    pub has_side_effects: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -264,6 +266,7 @@ impl Expr {
             value: Variant::default(),
             is_lvalue: false,
             symbol: None,
+            has_side_effects: true,
         }
     }
 
@@ -275,6 +278,7 @@ impl Expr {
         Expr {
             r#type,
             value: Variant::Int(value.clone()),
+            has_side_effects: false,
             ..Expr::new(
                 file_id,
                 span,

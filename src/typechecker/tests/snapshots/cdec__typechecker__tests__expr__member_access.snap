@@ -10,6 +10,6 @@ TranslationUnit <(1, 1), (7, 1)>
           MemberDecl <(4, 18), (4, 19)> a int 
         VarDecl <(4, 22), (4, 23)> a struct A 
       ExprStmt <(5, 5), (5, 8)>
-        ImplicitCast <LToRValue> <(5, 6), (5, 8)> int  
-          MemberAccess . a <(5, 6), (5, 8)> int  lvalue
+        ImplicitCast <LToRValue> <(5, 6), (5, 8)> int   
+          MemberAccess . a <(5, 6), (5, 8)> int  lvalue 
             Name a <(5, 5), (5, 6)> struct A  lvalue

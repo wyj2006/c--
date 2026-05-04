@@ -89,6 +89,7 @@ pub struct Initializer {
     pub kind: InitializerKind,
     pub r#type: Rc<RefCell<Type>>,
     pub value: Variant,
+    pub has_side_effects: bool,
 }
 
 impl Initializer {
@@ -101,6 +102,7 @@ impl Initializer {
             kind,
             r#type: Rc::new(RefCell::new(Type::new(file_id, span))),
             value: Variant::Unknown,
+            has_side_effects: true,
         }
     }
 }

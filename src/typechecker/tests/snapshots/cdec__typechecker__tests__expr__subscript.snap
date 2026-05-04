@@ -10,16 +10,16 @@ TranslationUnit <(1, 1), (9, 1)>
       DeclStmt <(5, 5), (5, 14)>
         VarDecl <(5, 9), (5, 13)> b int[3] 
       ExprStmt <(6, 5), (6, 9)>
-        ImplicitCast <LToRValue> <(6, 6), (6, 9)> int  
-          Subscript <(6, 6), (6, 9)> int  lvalue
-            ImplicitCast <ArrayToPtr> <(6, 5), (6, 6)> int*  
-              Name b <(6, 5), (6, 6)> int[3]  lvalue
-            ImplicitCast <LToRValue> <(6, 7), (6, 8)> int  
-              Name a <(6, 7), (6, 8)> int  lvalue
+        ImplicitCast <LToRValue> <(6, 6), (6, 9)> int   
+          Subscript <(6, 6), (6, 9)> int  lvalue 
+            ImplicitCast <ArrayToPtr> <(6, 5), (6, 6)> int*   
+              Name b <(6, 5), (6, 6)> int[3]  lvalue 
+            ImplicitCast <LToRValue> <(6, 7), (6, 8)> int   
+              Name a <(6, 7), (6, 8)> int  lvalue 
       ExprStmt <(7, 5), (7, 11)>
-        ImplicitCast <LToRValue> <(7, 6), (7, 11)> char  
-          Subscript <(7, 6), (7, 11)> const char  lvalue
-            ImplicitCast <LToRValue> <(7, 5), (7, 6)> int  
-              Name a <(7, 5), (7, 6)> int  lvalue
-            ImplicitCast <ArrayToPtr> <(7, 7), (7, 10)> const char* [49, 0] 
+        ImplicitCast <LToRValue> <(7, 6), (7, 11)> char   
+          Subscript <(7, 6), (7, 11)> const char  lvalue 
+            ImplicitCast <LToRValue> <(7, 5), (7, 6)> int   
+              Name a <(7, 5), (7, 6)> int  lvalue 
+            ImplicitCast <ArrayToPtr> <(7, 7), (7, 10)> const char*   
               String Default "1" <(7, 7), (7, 10)> const char[2] [49, 0] lvalue

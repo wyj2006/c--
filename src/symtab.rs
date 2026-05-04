@@ -2,9 +2,9 @@ use crate::{
     ast::{
         Attribute,
         decl::{FunctionSpec, StorageClass, StorageClassKind},
+        stmt::Stmt,
     },
     ctype::{RecordKind, Type, TypeKind, is_compatible},
-    variant::Variant,
 };
 use codespan::Span;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -39,14 +39,13 @@ pub struct Symbol {
 
 #[derive(Debug, Clone)]
 pub enum SymbolKind {
-    Label,
+    Label(/*label的声明语句*/ Option<Rc<RefCell<Stmt>>>),
     Record {
         kind: RecordKind,
     },
     Enum,
     Object {
         storage_classes: Vec<StorageClass>,
-        init_value: Variant,
     },
     Member {
         bit_field: Option<usize>,

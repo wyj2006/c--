@@ -1,5 +1,4 @@
 use crate::ctype::{RecordKind, Type, TypeKind, TypeQual};
-use crate::variant::Variant;
 use num::BigInt;
 use num::pow::Pow;
 use std::rc::Rc;
@@ -89,6 +88,10 @@ impl Type {
         self.kind.is_const()
     }
 
+    pub fn is_volatile(&self) -> bool {
+        self.kind.is_volatile()
+    }
+
     pub fn is_vla(&self) -> bool {
         self.kind.is_vla()
     }
@@ -97,6 +100,8 @@ impl Type {
         self.kind.is_bool()
     }
 }
+
+//TODO typedef auto这类类型的判断
 
 impl TypeKind {
     pub fn is_integer(&self) -> bool {
@@ -334,12 +339,19 @@ impl TypeKind {
         }
     }
 
+    pub fn is_volatile(&self) -> bool {
+        match self {
+            TypeKind::Qualified { qualifiers, .. } => qualifiers.contains(&TypeQual::Volatile),
+            _ => false,
+        }
+    }
+
     pub fn is_vla(&self) -> bool {
         match self {
             TypeKind::Array {
                 len_expr: Some(len_expr),
                 ..
-            } => matches!(len_expr.borrow().value, Variant::Unknown),
+            } => len_expr.borrow().value.is_unknown(),
             TypeKind::Qualified { r#type, .. } => r#type.borrow().is_vla(),
             _ => false,
         }

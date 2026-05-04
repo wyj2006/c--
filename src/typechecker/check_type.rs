@@ -1,3 +1,5 @@
+use crate::ctype::array_element;
+use crate::optimizer::constfolder::ConstFolder;
 use crate::typechecker::TypeChecker;
 use crate::{
     ast::{
@@ -11,6 +13,7 @@ use crate::{
 };
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use num::ToPrimitive;
+use std::collections::HashMap;
 use std::{cell::RefCell, rc::Rc};
 
 impl TypeChecker {
@@ -166,6 +169,8 @@ impl TypeChecker {
                     self.check_type(element_type)?;
                     if let Some(len_expr) = len_expr {
                         self.visit_expr(Rc::clone(&len_expr))?;
+                        ConstFolder::new().visit_expr(Rc::clone(len_expr), HashMap::new())?;
+
                         match &len_expr.borrow().value {
                             Variant::Int(value) => match value.to_u32() {
                                 Some(_) => {}
@@ -179,7 +184,7 @@ impl TypeChecker {
                                 }
                             },
                             //VLA的情况
-                            Variant::Unknown => {
+                            t if t.is_unknown() => {
                                 if !len_expr.borrow().r#type.borrow().is_integer() {
                                     return Err(Diagnostic::error()
                                         .with_message(format!(
@@ -232,6 +237,42 @@ impl TypeChecker {
                                 )).with_label(Label::primary(r#type.borrow().file_id, r#type.borrow().span)));
                         }
                     }
+
+                    if qualifiers.contains(&TypeQual::Volatile) && r#type.borrow().is_array() {
+                        //数组类型及其元素类型始终被认为是具有相同 volatile 限定的
+                        let Some(element_type) = array_element(Rc::clone(r#type)) else {
+                            unreachable!();
+                        };
+                        if let TypeKind::Qualified { qualifiers, r#type } =
+                            &element_type.borrow().kind
+                        {
+                            if !qualifiers.contains(&TypeQual::Volatile) {
+                                let mut qualifiers = qualifiers.clone();
+                                qualifiers.push(TypeQual::Volatile);
+                                element_type.replace(Type {
+                                    kind: TypeKind::Qualified {
+                                        qualifiers,
+                                        r#type: Rc::clone(&r#type),
+                                    },
+                                    ..Type::new(
+                                        element_type.borrow().file_id,
+                                        element_type.borrow().span,
+                                    )
+                                });
+                            }
+                        } else {
+                            element_type.replace(Type {
+                                kind: TypeKind::Qualified {
+                                    qualifiers: vec![TypeQual::Volatile],
+                                    r#type: Rc::clone(&element_type),
+                                },
+                                ..Type::new(
+                                    element_type.borrow().file_id,
+                                    element_type.borrow().span,
+                                )
+                            });
+                        }
+                    }
                 }
                 TypeKind::Typeof { r#type, expr, .. } => {
                     if let Some(t) = r#type {
@@ -249,6 +290,8 @@ impl TypeChecker {
                     ..
                 } => {
                     self.visit_expr(Rc::clone(width_expr))?;
+                    ConstFolder::new().visit_expr(Rc::clone(width_expr), HashMap::new())?;
+
                     match &width_expr.borrow().value {
                         Variant::Int(value) => match value.to_usize() {
                             Some(t) => {
@@ -310,6 +353,8 @@ impl TypeChecker {
                     expr: Some(expr),
                 } => {
                     self.visit_expr(Rc::clone(expr))?;
+                    ConstFolder::new().visit_expr(Rc::clone(expr), HashMap::new())?;
+
                     match &expr.borrow().value {
                         Variant::Int(value) => match value.to_usize() {
                             Some(_) => {}

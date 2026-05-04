@@ -3,6 +3,7 @@ pub mod codegen;
 pub mod ctype;
 pub mod diagnostic;
 pub mod file_map;
+pub mod optimizer;
 pub mod parser;
 pub mod preprocessor;
 pub mod symtab;
@@ -14,6 +15,7 @@ use crate::{
     codegen::CodeGen,
     diagnostic::print_diag,
     file_map::{FileMap, source_map},
+    optimizer::constfolder::ConstFolder,
     preprocessor::{
         include_paths,
         token::{Token, to_string},
@@ -26,6 +28,7 @@ use inkwell::{
     OptimizationLevel,
     context::Context,
     memory_buffer::MemoryBuffer,
+    module::Module,
     targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine},
 };
 use lazy_static::lazy_static;
@@ -71,6 +74,9 @@ pub struct Cli {
     pub compile_and_assemble: bool,
     #[arg(short = 'O')]
     pub optimization_level: Option<u32>,
+    #[arg(long)]
+    /// Constant folding and propagation
+    pub fold_constant: bool,
 }
 
 fn get_output(cli: &Cli, input_path: &String, extension: &str) -> PathBuf {
@@ -128,7 +134,7 @@ fn gen_code<'ctx>(
     context: &'ctx Context,
     target_machine: &TargetMachine,
     file_type: FileType,
-) -> Result<(CodeGen<'ctx>, MemoryBuffer), Diagnostic<usize>> {
+) -> Result<(Module<'ctx>, MemoryBuffer), Diagnostic<usize>> {
     let module = context.create_module(name);
     module.set_triple(&target_machine.get_triple());
 
@@ -141,7 +147,7 @@ fn gen_code<'ctx>(
             Diagnostic::error().with_message(format!("cannot generate object file: {e}"))
         })?;
 
-    Ok((codegen, buffer))
+    Ok((codegen.module, buffer))
 }
 
 fn do_frontend(
@@ -152,7 +158,7 @@ fn do_frontend(
     let mut output_path = None;
     let mut option_ast = None;
     let mut option_symtab = None;
-    let mut option_ir = None;
+    let mut option_ir: Option<String> = None;
 
     match (|| {
         let tokens = preprocess(input_path)?;
@@ -170,25 +176,6 @@ fn do_frontend(
         let symtab = analyze(Rc::clone(&ast))?;
         option_symtab = Some(Rc::clone(&symtab));
 
-        let context = Context::create();
-        let (codegen, buffer) = gen_code(
-            &input_path,
-            Rc::clone(&ast),
-            &context,
-            target_machine,
-            if cli.compile_only {
-                FileType::Assembly
-            } else {
-                FileType::Object
-            },
-        )?;
-        option_ir = Some(codegen.module.to_string());
-
-        if cli.compile_only {
-            write(&get_output(&cli, &input_path, ".s"), buffer.as_slice())?;
-            return Ok(None);
-        }
-
         let output_path = if cli.compile_and_assemble {
             get_output(&cli, &input_path, ".o")
         } else {
@@ -197,7 +184,33 @@ fn do_frontend(
             path.set_extension("o");
             path
         };
-        write(&output_path, buffer.as_slice())?;
+
+        if cli.fold_constant {
+            ConstFolder::new().fold(Rc::clone(&ast))?;
+        }
+
+        if cfg!(feature = "use_llvm") {
+            let context = Context::create();
+            let (module, buffer) = gen_code(
+                &input_path,
+                Rc::clone(&ast),
+                &context,
+                target_machine,
+                if cli.compile_only {
+                    FileType::Assembly
+                } else {
+                    FileType::Object
+                },
+            )?;
+            option_ir = Some(module.to_string());
+
+            if cli.compile_only {
+                write(&get_output(&cli, &input_path, ".s"), buffer.as_slice())?;
+                return Ok(None);
+            }
+
+            write(&output_path, buffer.as_slice())?;
+        }
 
         if cli.compile_and_assemble {
             return Ok(None);

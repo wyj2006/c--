@@ -10,10 +10,10 @@ TranslationUnit <(1, 1), (10, 1)>
       DeclStmt <(5, 5), (5, 11)>
         VarDecl <(5, 9), (5, 10)> a int 
       ExprStmt <(6, 5), (6, 14)>
-        SizeOf  <(6, 5), (6, 14)> <error>  
-          Name a <(6, 12), (6, 13)> int  lvalue
+        SizeOf  <(6, 5), (6, 14)> unsigned long long 4  
+          Name a <(6, 12), (6, 13)> int  lvalue 
       ExprStmt <(7, 5), (7, 14)>
-        SizeOf A:int <(7, 5), (7, 14)> <error>  
+        SizeOf A:int <(7, 5), (7, 14)> unsigned long long 4  
       ExprStmt <(8, 5), (8, 13)>
-        SizeOf  <(8, 5), (8, 11)> unsigned long long 4 
+        SizeOf  <(8, 5), (8, 11)> unsigned long long 4  
           Name a <(8, 12), (8, 13)> int  lvalue

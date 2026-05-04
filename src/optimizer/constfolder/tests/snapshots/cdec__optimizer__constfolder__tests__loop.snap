@@ -1,0 +1,46 @@
+---
+source: src/optimizer/constfolder/tests/mod.rs
+expression: "ast.print_line(0).join(\"\\n\")"
+---
+TranslationUnit <(1, 1), (11, 1)>
+  FunctionDecl  <(2, 5), (3, 1)> main int() 
+    Compound <(3, 1), (10, 2)>
+      DeclStmt <(4, 5), (4, 15)>
+        VarDecl <(4, 9), (4, 11)> a int 
+          Initializer <(4, 13), (4, 14)> int 5 
+            Integer 10 5 [] <(4, 13), (4, 14)> int 5  
+      DeclStmt <(5, 5), (5, 11)>
+        VarDecl <(5, 9), (5, 10)> b int 
+      While <(6, 5), (6, 19)>
+        ImplicitCast <LToRValue> <(6, 12), (6, 13)> int   
+          Name b <(6, 12), (6, 13)> int  lvalue 
+        ExprStmt <(6, 15), (6, 18)>
+          UnaryOp PostfixInc <(6, 16), (6, 18)> int   has_side_effects
+            Name a <(6, 15), (6, 16)> int  lvalue 
+      DeclStmt <(7, 5), (7, 19)>
+        VarDecl <(7, 9), (7, 11)> c int 
+          Initializer <(7, 13), (7, 18)> int  
+            BinOp Add <(7, 15), (7, 16)> int   
+              ImplicitCast <LToRValue> <(7, 13), (7, 14)> int   
+                Name a <(7, 13), (7, 14)> int  lvalue 
+              Integer 10 5 [] <(7, 17), (7, 18)> int 5  
+      For <(8, 5), (8, 35)>
+        BinOp Assign <(8, 10), (8, 15)> int 6  has_side_effects
+          Name a <(8, 10), (8, 11)> int  lvalue 
+          Integer 10 6 [] <(8, 14), (8, 15)> int 6  
+        BinOp Le <(8, 19), (8, 21)> bool   
+          ImplicitCast <LToRValue> <(8, 17), (8, 18)> int   
+            Name a <(8, 17), (8, 18)> int  lvalue 
+          Integer 10 10 [] <(8, 22), (8, 24)> int 10  
+        UnaryOp PostfixInc <(8, 27), (8, 29)> int   has_side_effects
+          Name a <(8, 26), (8, 27)> int  lvalue 
+        ExprStmt <(8, 31), (8, 34)>
+          UnaryOp PostfixInc <(8, 32), (8, 34)> int   has_side_effects
+            Name b <(8, 31), (8, 32)> int  lvalue 
+      ExprStmt <(9, 5), (9, 14)>
+        BinOp Assign <(9, 5), (9, 14)> int   has_side_effects
+          Name c <(9, 5), (9, 6)> int  lvalue 
+          BinOp Add <(9, 11), (9, 12)> int   
+            ImplicitCast <LToRValue> <(9, 9), (9, 10)> int   
+              Name b <(9, 9), (9, 10)> int  lvalue 
+            Integer 10 7 [] <(9, 13), (9, 14)> int 7

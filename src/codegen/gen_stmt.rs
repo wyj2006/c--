@@ -34,7 +34,7 @@ impl<'ctx> CodeGen<'ctx> {
                     self.visit_stmt(Rc::clone(stmt))?;
                 }
             }
-            StmtKind::Break => {
+            StmtKind::Break(..) => {
                 map_builder_err(
                     node.file_id,
                     node.span,
@@ -46,7 +46,7 @@ impl<'ctx> CodeGen<'ctx> {
                     .append_basic_block(*self.func_values.last().unwrap(), "unreach");
                 self.builder.position_at_end(unreach_block);
             }
-            StmtKind::Continue => {
+            StmtKind::Continue(..) => {
                 map_builder_err(
                     node.file_id,
                     node.span,
@@ -353,7 +353,9 @@ impl<'ctx> CodeGen<'ctx> {
                     ),
                 )?;
             }
-            StmtKind::Switch { condition, body } => {
+            StmtKind::Switch {
+                condition, body, ..
+            } => {
                 let cond_block = self.builder.get_insert_block().unwrap();
                 let condition_value = self.visit_expr(Rc::clone(condition))?;
 

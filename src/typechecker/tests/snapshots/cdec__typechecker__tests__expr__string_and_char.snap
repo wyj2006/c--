@@ -6,22 +6,22 @@ TranslationUnit <(1, 1), (13, 1)>
   FunctionDecl  <(2, 5), (3, 1)> main int() 
     Compound <(3, 1), (12, 2)>
       ExprStmt <(4, 5), (4, 8)>
-        Char Default "猫" <(4, 5), (4, 8)> const int 15174827 
+        Char Default "猫" <(4, 5), (4, 8)> const int 15174827  
       ExprStmt <(5, 5), (5, 9)>
-        Char UTF16 "猫" <(5, 5), (5, 9)> const unsigned short 29483 
+        Char UTF16 "猫" <(5, 5), (5, 9)> const unsigned short 29483  
       ExprStmt <(6, 5), (6, 9)>
-        Char UTF32 "猫" <(6, 5), (6, 9)> const unsigned int 29483 
+        Char UTF32 "猫" <(6, 5), (6, 9)> const unsigned int 29483  
       ExprStmt <(7, 5), (7, 9)>
-        Char Wide "猫" <(7, 5), (7, 9)> const int 29483 
+        Char Wide "猫" <(7, 5), (7, 9)> const int 29483  
       ExprStmt <(8, 5), (8, 9)>
-        ImplicitCast <ArrayToPtr> <(8, 5), (8, 9)> const char* [231, 140, 171, 230, 136, 145, 0] 
-          String Default "猫我" <(8, 5), (8, 9)> const char[7] [231, 140, 171, 230, 136, 145, 0] lvalue
+        ImplicitCast <ArrayToPtr> <(8, 5), (8, 9)> const char*   
+          String Default "猫我" <(8, 5), (8, 9)> const char[7] [231, 140, 171, 230, 136, 145, 0] lvalue 
       ExprStmt <(9, 5), (9, 10)>
-        ImplicitCast <ArrayToPtr> <(9, 5), (9, 10)> const unsigned short* [29483, 25105, 0] 
-          String UTF16 "猫我" <(9, 5), (9, 10)> const unsigned short[3] [29483, 25105, 0] lvalue
+        ImplicitCast <ArrayToPtr> <(9, 5), (9, 10)> const unsigned short*   
+          String UTF16 "猫我" <(9, 5), (9, 10)> const unsigned short[3] [29483, 25105, 0] lvalue 
       ExprStmt <(10, 5), (10, 10)>
-        ImplicitCast <ArrayToPtr> <(10, 5), (10, 10)> const unsigned int* [29483, 25105, 0] 
-          String UTF32 "猫我" <(10, 5), (10, 10)> const unsigned int[3] [29483, 25105, 0] lvalue
+        ImplicitCast <ArrayToPtr> <(10, 5), (10, 10)> const unsigned int*   
+          String UTF32 "猫我" <(10, 5), (10, 10)> const unsigned int[3] [29483, 25105, 0] lvalue 
       ExprStmt <(11, 5), (11, 10)>
-        ImplicitCast <ArrayToPtr> <(11, 5), (11, 10)> const int* [29483, 25105, 0] 
+        ImplicitCast <ArrayToPtr> <(11, 5), (11, 10)> const int*   
           String Wide "猫我" <(11, 5), (11, 10)> const int[3] [29483, 25105, 0] lvalue

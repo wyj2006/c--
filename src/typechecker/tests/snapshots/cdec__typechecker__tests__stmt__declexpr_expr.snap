@@ -8,5 +8,5 @@ TranslationUnit <(1, 1), (6, 1)>
       DeclStmt <(3, 5), (3, 11)>
         VarDecl <(3, 9), (3, 10)> a int 
       ExprStmt <(4, 5), (4, 7)>
-        ImplicitCast <LToRValue> <(4, 5), (4, 6)> int  
+        ImplicitCast <LToRValue> <(4, 5), (4, 6)> int   
           Name a <(4, 5), (4, 6)> int  lvalue

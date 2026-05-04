@@ -3,6 +3,7 @@ use crate::{
     ast::decl::{Declaration, DeclarationKind, StorageClassKind},
     ctype::{RecordKind, Type, TypeKind, as_parameter_type},
     diagnostic::warning,
+    optimizer::constfolder::ConstFolder,
     preprocessor::expressions::has_c_attribute,
     symtab::{Namespace, Symbol, SymbolKind, SymbolTable},
     typechecker::Context,
@@ -11,7 +12,7 @@ use crate::{
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use indexmap::IndexMap;
 use num::{BigInt, ToPrimitive};
-use std::{cell::RefCell, ptr::addr_of, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, ptr::addr_of, rc::Rc};
 
 impl TypeChecker {
     pub fn visit_declaration(
@@ -208,7 +209,6 @@ impl TypeChecker {
                     name: node.name.clone(),
                     kind: SymbolKind::Object {
                         storage_classes: node.storage_classes.clone(),
-                        init_value: Variant::Unknown,
                     },
                     r#type: Rc::clone(&node.r#type),
                     attributes: node.attributes.clone(),
@@ -220,14 +220,6 @@ impl TypeChecker {
 
                 if let Some(initializer) = initializer {
                     self.visit_initializer(Rc::clone(initializer), Rc::clone(&node.r#type))?;
-
-                    if node.r#type.borrow().is_const() {
-                        let SymbolKind::Object { init_value, .. } = &mut symbol.borrow_mut().kind
-                        else {
-                            unreachable!();
-                        };
-                        *init_value = initializer.borrow().value.clone();
-                    }
                 }
             }
             DeclarationKind::Function {
@@ -299,7 +291,21 @@ impl TypeChecker {
                 }
 
                 self.func_types.pop();
-                self.func_symtabs.pop();
+                let t = self.func_symtabs.pop().unwrap();
+                for (name, symbol) in t
+                    .borrow()
+                    .namespaces
+                    .get(&Namespace::Label)
+                    .unwrap_or(&IndexMap::new())
+                {
+                    if let None = symbol.borrow().define_loc {
+                        let (file_id, span) = symbol.borrow().declare_locs[0];
+                        return Err(Diagnostic::error()
+                            .with_message(format!("label '{name}' is undefined"))
+                            .with_label(Label::primary(file_id, span)));
+                    }
+                }
+
                 match &mut node.kind {
                     DeclarationKind::Function { symtab, .. } => {
                         *symtab = Some(self.leave_scope());
@@ -420,6 +426,10 @@ impl TypeChecker {
                 }
             }
             DeclarationKind::Member { bit_field } => {
+                if let Some(bit_field) = bit_field {
+                    ConstFolder::new().visit_expr(Rc::clone(bit_field), HashMap::new())?;
+                }
+
                 let bit_field = bit_field.clone();
                 if let Some(_) = bit_field
                     && node.r#type.borrow().has_alignas()
@@ -585,10 +595,13 @@ impl TypeChecker {
             }
             DeclarationKind::Enumerator { value } => {
                 let mut const_value = match value {
-                    Some(t) => match &t.borrow().value {
-                        Variant::Int(value) => Some(value.clone()),
-                        _ => None,
-                    },
+                    Some(t) => {
+                        ConstFolder::new().visit_expr(Rc::clone(t), HashMap::new())?;
+                        match &t.borrow().value {
+                            Variant::Int(value) => Some(value.clone()),
+                            _ => None,
+                        }
+                    }
                     None => None,
                 };
 
@@ -647,6 +660,7 @@ impl TypeChecker {
             }
             DeclarationKind::StaticAssert { expr } => {
                 self.visit_expr(Rc::clone(expr))?;
+                ConstFolder::new().visit_expr(Rc::clone(expr), HashMap::new())?;
                 match &expr.borrow().value {
                     Variant::Int(value) => {
                         if *value == BigInt::ZERO {

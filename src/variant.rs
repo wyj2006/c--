@@ -52,6 +52,14 @@ impl Variant {
             _ => Variant::Unknown,
         }
     }
+
+    pub fn is_unknown(&self) -> bool {
+        match self {
+            Variant::Unknown => true,
+            Variant::Array(t) => t.iter().any(|x| x.is_unknown()),
+            _ => false,
+        }
+    }
 }
 
 macro_rules! impl_ord {
@@ -63,7 +71,7 @@ macro_rules! impl_ord {
                     (Variant::Rational(a), Variant::Rational(b)) => {
                         Variant::Bool(*a $op *b)
                     }
-                    (Variant::Bool(a), Variant::Bool(b)) => Variant::Bool(*a $op *b),
+                    (Variant::Bool(a), x)|(x, Variant::Bool(a)) =>Variant::Int(BigInt::from(*a)).$name(x),
                     (a @ Variant::Nullptr, b @ Variant::Nullptr) => Variant::Bool(*a $op *b),
                     (Variant::Complex(a1,b1),Variant::Complex(a2,b2))=>Variant::Bool(*a1 $op *a2 && *b1 $op *b2),
                     _ => Variant::Unknown,
@@ -111,7 +119,39 @@ impl Display for Variant {
     }
 }
 
-impl Not for Variant {
+#[macro_export]
+macro_rules! forward_impl_binop {
+    (impl $imp:ident for $res:ty, $method:ident) => {
+        impl $imp<$res> for $res {
+            type Output = $res;
+
+            #[inline]
+            fn $method(self, other: $res) -> $res {
+                $imp::$method(&self, &other)
+            }
+        }
+
+        impl $imp<$res> for &$res {
+            type Output = $res;
+
+            #[inline]
+            fn $method(self, other: $res) -> $res {
+                $imp::$method(self, &other)
+            }
+        }
+
+        impl $imp<&$res> for $res {
+            type Output = $res;
+
+            #[inline]
+            fn $method(self, other: &$res) -> $res {
+                $imp::$method(&self, other)
+            }
+        }
+    };
+}
+
+impl Not for &Variant {
     type Output = Variant;
 
     fn not(self) -> Self::Output {
@@ -122,13 +162,21 @@ impl Not for Variant {
     }
 }
 
-impl Neg for Variant {
+impl Not for Variant {
+    type Output = Variant;
+
+    fn not(self) -> Self::Output {
+        (&self).not()
+    }
+}
+
+impl Neg for &Variant {
     type Output = Variant;
 
     fn neg(self) -> Self::Output {
         match self {
             Variant::Int(value) => Variant::Int(-value),
-            Variant::Bool(value) => Variant::Int(-BigInt::from(value)),
+            Variant::Bool(value) => Variant::Int(-BigInt::from(*value)),
             Variant::Rational(value) => Variant::Rational(-value),
             Variant::Complex(a, b) => Variant::Complex(-a, -b),
             _ => Variant::Unknown,
@@ -136,10 +184,18 @@ impl Neg for Variant {
     }
 }
 
-impl Add for Variant {
+impl Neg for Variant {
     type Output = Variant;
 
-    fn add(self, rhs: Self) -> Self::Output {
+    fn neg(self) -> Self::Output {
+        (&self).neg()
+    }
+}
+
+impl Add<&Variant> for &Variant {
+    type Output = Variant;
+
+    fn add(self, rhs: &Variant) -> Self::Output {
         match (self, rhs) {
             (Variant::Int(a), Variant::Int(b)) => Variant::Int(a + b),
             (Variant::Rational(a), Variant::Rational(b)) => Variant::Rational(a + b),
@@ -147,57 +203,63 @@ impl Add for Variant {
                 Variant::Complex(a1 + a2, b1 + b2)
             }
             (Variant::Int(a), Variant::Rational(b)) | (Variant::Rational(b), Variant::Int(a)) => {
-                Variant::Rational(BigRational::from_integer(a) + b)
+                Variant::Rational(BigRational::from_integer(a.clone()) + b)
             }
             (Variant::Int(x), Variant::Complex(a, b))
-            | (Variant::Complex(a, b), Variant::Int(x)) => Variant::Complex(a + x, b),
+            | (Variant::Complex(a, b), Variant::Int(x)) => Variant::Complex(a + x, b.clone()),
             (Variant::Rational(x), Variant::Complex(a, b))
-            | (Variant::Complex(a, b), Variant::Rational(x)) => Variant::Complex(a + x, b),
-            (Variant::Bool(a), x) | (x, Variant::Bool(a)) => Variant::Int(BigInt::from(a)) + x,
+            | (Variant::Complex(a, b), Variant::Rational(x)) => Variant::Complex(a + x, b.clone()),
+            (Variant::Bool(a), x) | (x, Variant::Bool(a)) => Variant::Int(BigInt::from(*a)) + x,
             _ => Variant::Unknown,
         }
     }
 }
 
-impl Sub for Variant {
+forward_impl_binop!(impl Add for Variant,add);
+
+impl Sub<&Variant> for &Variant {
     type Output = Variant;
 
-    fn sub(self, rhs: Self) -> Self::Output {
+    fn sub(self, rhs: &Variant) -> Self::Output {
         self + rhs.neg()
     }
 }
 
-impl Mul for Variant {
+forward_impl_binop!(impl Sub for Variant,sub);
+
+impl Mul<&Variant> for &Variant {
     type Output = Variant;
 
-    fn mul(self, rhs: Self) -> Self::Output {
+    fn mul(self, rhs: &Variant) -> Self::Output {
         match (self, rhs) {
             (Variant::Int(a), Variant::Int(b)) => Variant::Int(a * b),
             (Variant::Rational(a), Variant::Rational(b)) => Variant::Rational(a * b),
-            (Variant::Complex(ref a1, ref b1), Variant::Complex(ref a2, ref b2)) => {
+            (Variant::Complex(a1, b1), Variant::Complex(a2, b2)) => {
                 Variant::Complex(a1 * a2 - b1 * b2, a1 * b2 + a2 * b1)
             }
             (Variant::Int(a), Variant::Rational(b)) | (Variant::Rational(b), Variant::Int(a)) => {
                 Variant::Rational(b * a)
             }
-            (Variant::Int(ref x), Variant::Complex(a, b))
-            | (Variant::Complex(a, b), Variant::Int(ref x)) => Variant::Complex(a * x, b * x),
-            (Variant::Rational(ref x), Variant::Complex(a, b))
-            | (Variant::Complex(a, b), Variant::Rational(ref x)) => Variant::Complex(a * x, b * x),
-            (Variant::Bool(a), x) | (x, Variant::Bool(a)) => Variant::Int(BigInt::from(a)) * x,
+            (Variant::Int(x), Variant::Complex(a, b))
+            | (Variant::Complex(a, b), Variant::Int(x)) => Variant::Complex(a * x, b * x),
+            (Variant::Rational(x), Variant::Complex(a, b))
+            | (Variant::Complex(a, b), Variant::Rational(x)) => Variant::Complex(a * x, b * x),
+            (Variant::Bool(a), x) | (x, Variant::Bool(a)) => Variant::Int(BigInt::from(*a)) * x,
             _ => Variant::Unknown,
         }
     }
 }
 
-impl Div for Variant {
+forward_impl_binop!(impl Mul for Variant,mul);
+
+impl Div<&Variant> for &Variant {
     type Output = Variant;
 
-    fn div(self, rhs: Self) -> Self::Output {
+    fn div(self, rhs: &Variant) -> Self::Output {
         match (self, rhs) {
             (Variant::Int(a), Variant::Int(b)) => Variant::Int(a / b),
             (Variant::Rational(a), Variant::Rational(b)) => Variant::Rational(a / b),
-            (Variant::Complex(ref a1, ref b1), Variant::Complex(ref a2, ref b2)) => {
+            (Variant::Complex(a1, b1), Variant::Complex(a2, b2)) => {
                 /*
                 (a1+b1*i)/(a2+b2*i)
                 =(a1+b1*i)*(a2-b2*i)/(a2*a2+b2*b2)
@@ -209,100 +271,138 @@ impl Div for Variant {
                 )
             }
             (Variant::Int(a), Variant::Rational(b)) => {
-                Variant::Rational(BigRational::from_integer(a) / b)
+                Variant::Rational(BigRational::from_integer(a.clone()) / b)
             }
             (Variant::Rational(b), Variant::Int(a)) => Variant::Rational(b / a),
-            (Variant::Complex(a, b), Variant::Int(ref x)) => Variant::Complex(a / x, b / x),
+            (Variant::Complex(a, b), Variant::Int(x)) => Variant::Complex(a / x, b / x),
             //x/(a+b*i)=x*(a-b*i)/(a*a+b*b)=(x*a-x*b*i)/(a*a+b*b)
-            (Variant::Int(ref x), Variant::Complex(ref a, ref b)) => {
+            (Variant::Int(x), Variant::Complex(a, b)) => {
                 Variant::Complex(a * x / (a * a + b * b), -b * x / (a * a + b * b))
             }
-            (Variant::Complex(a, b), Variant::Rational(ref x)) => Variant::Complex(a / x, b / x),
-            (Variant::Rational(ref x), Variant::Complex(ref a, ref b)) => {
+            (Variant::Complex(a, b), Variant::Rational(x)) => Variant::Complex(a / x, b / x),
+            (Variant::Rational(x), Variant::Complex(a, b)) => {
                 Variant::Complex(a * x / (a * a + b * b), -b * x / (a * a + b * b))
             }
-            (Variant::Bool(a), x) => Variant::Int(BigInt::from(a)) / x,
-            (x, Variant::Bool(a)) => x / Variant::Int(BigInt::from(a)),
+            (Variant::Bool(a), x) => Variant::Int(BigInt::from(*a)) / x,
+            (x, Variant::Bool(a)) => x / Variant::Int(BigInt::from(*a)),
             _ => Variant::Unknown,
         }
     }
 }
 
-impl Rem for Variant {
+forward_impl_binop!(impl Div for Variant,div);
+
+impl Rem<&Variant> for &Variant {
     type Output = Variant;
 
-    fn rem(self, rhs: Self) -> Self::Output {
+    fn rem(self, rhs: &Variant) -> Self::Output {
         match (self, rhs) {
             (Variant::Int(a), Variant::Int(b)) => Variant::Int(a % b),
             (Variant::Rational(a), Variant::Rational(b)) => Variant::Rational(a % b),
             (Variant::Int(a), Variant::Rational(b)) => {
-                Variant::Rational(BigRational::from_integer(a) % b)
+                Variant::Rational(BigRational::from_integer(a.clone()) % b)
             }
             (Variant::Rational(b), Variant::Int(a)) => {
-                Variant::Rational(b % BigRational::from_integer(a))
+                Variant::Rational(b % BigRational::from_integer(a.clone()))
             }
-            (Variant::Bool(a), x) => Variant::Int(BigInt::from(a)) % x,
-            (x, Variant::Bool(a)) => x % Variant::Int(BigInt::from(a)),
+            (Variant::Bool(a), x) => Variant::Int(BigInt::from(*a)) % x,
+            (x, Variant::Bool(a)) => x % Variant::Int(BigInt::from(*a)),
             _ => Variant::Unknown,
         }
     }
 }
 
-impl BitAnd for Variant {
+forward_impl_binop!(impl Rem for Variant,rem);
+
+impl BitAnd<&Variant> for &Variant {
     type Output = Variant;
 
-    fn bitand(self, rhs: Self) -> Self::Output {
+    fn bitand(self, rhs: &Variant) -> Self::Output {
         match (self, rhs) {
             (Variant::Int(a), Variant::Int(b)) => Variant::Int(a & b),
-            (Variant::Bool(a), x) | (x, Variant::Bool(a)) => Variant::Int(BigInt::from(a)) & x,
+            (Variant::Bool(a), x) | (x, Variant::Bool(a)) => Variant::Int(BigInt::from(*a)) & x,
             _ => Variant::Unknown,
         }
     }
 }
 
-impl BitOr for Variant {
+forward_impl_binop!(impl BitAnd for Variant,bitand);
+
+impl BitOr<&Variant> for &Variant {
     type Output = Variant;
 
-    fn bitor(self, rhs: Self) -> Self::Output {
+    fn bitor(self, rhs: &Variant) -> Self::Output {
         match (self, rhs) {
             (Variant::Int(a), Variant::Int(b)) => Variant::Int(a | b),
-            (Variant::Bool(a), x) | (x, Variant::Bool(a)) => Variant::Int(BigInt::from(a)) | x,
+            (Variant::Bool(a), x) | (x, Variant::Bool(a)) => Variant::Int(BigInt::from(*a)) | x,
             _ => Variant::Unknown,
         }
     }
 }
 
-impl BitXor for Variant {
+forward_impl_binop!(impl BitOr for Variant,bitor);
+
+impl BitXor<&Variant> for &Variant {
     type Output = Variant;
 
-    fn bitxor(self, rhs: Self) -> Self::Output {
+    fn bitxor(self, rhs: &Variant) -> Self::Output {
         match (self, rhs) {
             (Variant::Int(a), Variant::Int(b)) => Variant::Int(a ^ b),
-            (Variant::Bool(a), x) | (x, Variant::Bool(a)) => Variant::Int(BigInt::from(a)) ^ x,
+            (Variant::Bool(a), x) | (x, Variant::Bool(a)) => Variant::Int(BigInt::from(*a)) ^ x,
             _ => Variant::Unknown,
         }
     }
 }
 
-impl Shl for Variant {
+forward_impl_binop!(impl BitXor for Variant,bitxor);
+
+impl Shl<&Variant> for &Variant {
     type Output = Variant;
 
-    fn shl(self, rhs: Self) -> Self::Output {
+    fn shl(self, rhs: &Variant) -> Self::Output {
         match (self, rhs) {
+            (Variant::Int(a), Variant::Int(b)) => {
+                if let Some(t) = b.to_isize() {
+                    Variant::Int(a << t)
+                } else if let Some(t) = b.to_usize() {
+                    Variant::Int(a << t)
+                } else {
+                    Variant::Unknown
+                }
+            }
+            (Variant::Bool(a), _) if *a == false => Variant::Int(BigInt::ZERO),
+            (Variant::Bool(a), x) => Variant::Int(BigInt::from(*a)).shl(x),
+            (x, Variant::Bool(a)) => x.shl(Variant::Int(BigInt::from(*a))),
             _ => Variant::Unknown,
         }
     }
 }
 
-impl Shr for Variant {
+forward_impl_binop!(impl Shl for Variant,shl);
+
+impl Shr<&Variant> for &Variant {
     type Output = Variant;
 
-    fn shr(self, rhs: Self) -> Self::Output {
+    fn shr(self, rhs: &Variant) -> Self::Output {
         match (self, rhs) {
+            (Variant::Int(a), Variant::Int(b)) => {
+                if let Some(t) = b.to_isize() {
+                    Variant::Int(a >> t)
+                } else if let Some(t) = b.to_usize() {
+                    Variant::Int(a >> t)
+                } else {
+                    Variant::Unknown
+                }
+            }
+            (Variant::Bool(a), _) if *a == false => Variant::Int(BigInt::ZERO),
+            (Variant::Bool(a), x) => Variant::Int(BigInt::from(*a)).shr(x),
+            (x, Variant::Bool(a)) => x.shr(Variant::Int(BigInt::from(*a))),
             _ => Variant::Unknown,
         }
     }
 }
+
+forward_impl_binop!(impl Shr for Variant,shr);
 
 pub fn to_decimal(a: &BigRational) -> BigDecimal {
     BigDecimal::from(a.numer().clone()) / BigDecimal::from(a.denom().clone())

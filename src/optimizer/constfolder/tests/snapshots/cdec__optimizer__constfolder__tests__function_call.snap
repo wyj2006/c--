@@ -1,0 +1,24 @@
+---
+source: src/optimizer/constfolder/tests/mod.rs
+expression: "ast.print_line(0).join(\"\\n\")"
+---
+TranslationUnit <(1, 1), (10, 1)>
+  FunctionDecl  <(2, 6), (2, 10)> f void() 
+    Compound <(2, 10), (2, 12)>
+  FunctionDecl  <(4, 5), (5, 1)> main int() 
+    Compound <(5, 1), (9, 2)>
+      DeclStmt <(6, 5), (6, 15)>
+        VarDecl <(6, 9), (6, 11)> a int 
+          Initializer <(6, 13), (6, 14)> int 1 
+            Integer 10 1 [] <(6, 13), (6, 14)> int 1  
+      ExprStmt <(7, 5), (7, 8)>
+        FunctionCall <(7, 6), (7, 8)> void   
+          ImplicitCast <FuncToPtr> <(7, 5), (7, 6)> void(*)()   
+            Name f <(7, 5), (7, 6)> void()   
+      DeclStmt <(8, 5), (8, 19)>
+        VarDecl <(8, 9), (8, 11)> b int 
+          Initializer <(8, 13), (8, 18)> int  
+            BinOp Add <(8, 15), (8, 16)> int   
+              ImplicitCast <LToRValue> <(8, 13), (8, 14)> int   
+                Name a <(8, 13), (8, 14)> int  lvalue 
+              Integer 10 2 [] <(8, 17), (8, 18)> int 2

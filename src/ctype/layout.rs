@@ -1,9 +1,10 @@
 use crate::{
-    ast::expr::Expr,
+    ast::{Designation, DesignationKind, expr::Expr},
     ctype::{RecordKind, Type, TypeKind},
     symtab::SymbolKind,
     variant::Variant,
 };
+use codespan_reporting::diagnostic::{Diagnostic, Label};
 use num::ToPrimitive;
 use std::{cell::RefCell, rc::Rc};
 
@@ -20,6 +21,36 @@ pub struct Layout {
 pub enum ConstDesignation {
     Subscript(usize),
     MemberAccess(String),
+}
+
+impl ConstDesignation {
+    pub fn from_designation(
+        designations: &Vec<Designation>,
+    ) -> Result<Vec<ConstDesignation>, Diagnostic<usize>> {
+        let mut result = vec![];
+        for designation in designations {
+            result.push(match &designation.kind {
+                DesignationKind::Subscript(t) => {
+                    ConstDesignation::Subscript(match &t.borrow().value {
+                        Variant::Int(t) => match t.to_usize() {
+                            Some(t) => t,
+                            None => Err(Diagnostic::error()
+                                .with_message(format!("invalid integer: {t}"))
+                                .with_label(Label::primary(
+                                    designation.file_id,
+                                    designation.span,
+                                )))?,
+                        },
+                        _ => Err(Diagnostic::error()
+                            .with_message(format!("subscript must be an integer"))
+                            .with_label(Label::primary(designation.file_id, designation.span)))?,
+                    })
+                }
+                DesignationKind::MemberAccess(t) => ConstDesignation::MemberAccess(t.clone()),
+            });
+        }
+        Ok(result)
+    }
 }
 
 pub fn compute_layout(r#type: Rc<RefCell<Type>>) -> Option<Layout> {
@@ -199,6 +230,20 @@ pub fn compute_layout(r#type: Rc<RefCell<Type>>) -> Option<Layout> {
             })
         }
         TypeKind::Record { members: None, .. } => None,
+        TypeKind::Qualified { r#type, .. }
+        | TypeKind::Atomic(r#type)
+        | TypeKind::Typedef {
+            r#type: Some(r#type),
+            ..
+        }
+        | TypeKind::Auto(Some(r#type))
+        | TypeKind::Typeof {
+            r#type: Some(r#type),
+            ..
+        } => compute_layout(Rc::clone(r#type)),
+        TypeKind::Typeof {
+            expr: Some(expr), ..
+        } => compute_layout(Rc::clone(&expr.borrow().r#type)),
         _ => Some(Layout {
             r#type: Rc::clone(&r#type),
             width: r#type.borrow().size()?,

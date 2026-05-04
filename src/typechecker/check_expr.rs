@@ -32,7 +32,7 @@ impl TypeChecker {
     ) -> Expr {
         Expr {
             r#type,
-            value: expr.borrow().value.clone(),
+            has_side_effects: expr.borrow().has_side_effects,
             ..Expr::new(
                 expr.borrow().file_id,
                 expr.borrow().span,
@@ -344,16 +344,6 @@ impl TypeChecker {
             } => {
                 *expr = new_expr;
                 *r#type = new_type;
-
-                match (expr, r#type) {
-                    //在消歧义的时候就已经完成了检查
-                    (Some(_), None) | (None, Some(_)) => {
-                        // sizeof不是左值, 函数, 数组, 肯定不需要函数末的转换
-                        self.contexts.pop();
-                        return Ok(());
-                    }
-                    _ => {}
-                }
             }
             _ => {}
         }
@@ -412,6 +402,7 @@ impl TypeChecker {
                             kind = TypeKind::Int;
                         }
                     }
+                    node.has_side_effects = false;
                     node.r#type = Rc::new(RefCell::new(Type {
                         kind: TypeKind::Qualified {
                             qualifiers: vec![TypeQual::Const],
@@ -486,15 +477,13 @@ impl TypeChecker {
                         },
                         ..Type::new(node.file_id, node.span)
                     }));
+                    node.has_side_effects = false;
                     node.value = Variant::Array(array);
                     node.is_lvalue = true;
                 }
                 ExprKind::Name(name) => {
                     if let Some(t) = &self.cur_symtab.borrow().lookup(Namespace::Ordinary, name) {
                         match &t.borrow().kind {
-                            SymbolKind::EnumConst { value } => {
-                                node.value = Variant::Int(value.clone())
-                            }
                             SymbolKind::Function { .. } => {
                                 for attribute in &t.borrow().attributes {
                                     match &attribute.borrow().kind {
@@ -523,11 +512,12 @@ impl TypeChecker {
                                     }
                                 }
                             }
-                            SymbolKind::Object { init_value, .. } => {
-                                //如果不是常量, 那么init_value将会是Unkown
-                                node.value = init_value.clone();
-                            }
                             _ => {}
+                        }
+                        if t.borrow().r#type.borrow().is_volatile() {
+                            node.has_side_effects = true;
+                        } else {
+                            node.has_side_effects = false;
                         }
                         node.symbol = Some(Rc::clone(t));
                         node.r#type = Rc::clone(&t.borrow().r#type);
@@ -547,6 +537,7 @@ impl TypeChecker {
                     }
                 }
                 ExprKind::True => {
+                    node.has_side_effects = false;
                     node.value = Variant::Bool(true);
                     node.r#type = Rc::new(RefCell::new(Type {
                         kind: TypeKind::Bool,
@@ -554,6 +545,7 @@ impl TypeChecker {
                     }));
                 }
                 ExprKind::False => {
+                    node.has_side_effects = false;
                     node.value = Variant::Bool(false);
                     node.r#type = Rc::new(RefCell::new(Type {
                         kind: TypeKind::Bool,
@@ -561,6 +553,7 @@ impl TypeChecker {
                     }));
                 }
                 ExprKind::Nullptr => {
+                    node.has_side_effects = false;
                     node.value = Variant::Nullptr;
                     node.r#type = Rc::new(RefCell::new(Type {
                         kind: TypeKind::Nullptr,
@@ -734,6 +727,7 @@ impl TypeChecker {
                             .with_label(Label::primary(node.file_id, node.span)));
                     }
 
+                    node.has_side_effects = false;
                     node.value = Variant::Int(value.clone());
                 }
                 ExprKind::Float {
@@ -813,6 +807,7 @@ impl TypeChecker {
                         ..Type::new(node.file_id, node.span)
                     }));
                     node.value = Variant::Rational(value);
+                    node.has_side_effects = false;
                 }
                 ExprKind::Image { imag_part } => {
                     self.visit_expr(Rc::clone(imag_part))?;
@@ -844,11 +839,12 @@ impl TypeChecker {
 
                     node.value = value;
                     node.r#type = r#type;
+                    node.has_side_effects = false;
                 }
                 ExprKind::Cast { target, .. } => {
                     self.visit_expr(Rc::clone(target))?;
                     let target_type = Rc::clone(&node.r#type);
-                    let value = target.borrow().value.clone();
+                    let has_side_effects = target.borrow().has_side_effects;
                     let symbol = target.borrow().symbol.clone();
 
                     if !(match node.r#type.borrow().kind {
@@ -888,8 +884,7 @@ impl TypeChecker {
                             _ => unreachable!(),
                         }
                     }
-
-                    node.value = value;
+                    node.has_side_effects = has_side_effects;
                     node.symbol = symbol;
                 }
                 ExprKind::GenericSelection {
@@ -918,8 +913,8 @@ impl TypeChecker {
                         let expr = Rc::clone(&assocs.get(i).unwrap().borrow().expr);
                         self.visit_expr(Rc::clone(&expr))?;
                         node.r#type = expr.borrow().r#type.clone();
-                        node.value = expr.borrow().value.clone();
                         node.symbol = expr.borrow().symbol.clone();
+                        node.has_side_effects = expr.borrow().has_side_effects;
 
                         match &mut node.kind {
                             ExprKind::GenericSelection { assocs, .. } => {
@@ -934,9 +929,14 @@ impl TypeChecker {
                     }
                 }
                 ExprKind::FunctionCall { target, arguments } => {
+                    let mut has_side_effects = false;
+
                     self.visit_expr(Rc::clone(target))?;
+                    has_side_effects |= target.borrow().has_side_effects;
+
                     for argument in arguments {
                         self.visit_expr(Rc::clone(argument))?;
+                        has_side_effects |= argument.borrow().has_side_effects;
                     }
 
                     let mut func_type = None;
@@ -1070,44 +1070,37 @@ impl TypeChecker {
                                 target.borrow().span,
                             )));
                     }
+                    node.has_side_effects = has_side_effects;
                 }
                 ExprKind::Subscript { target, index } => {
                     self.visit_expr(Rc::clone(target))?;
                     self.visit_expr(Rc::clone(index))?;
+                    let has_side_effects =
+                        target.borrow().has_side_effects || index.borrow().has_side_effects;
 
-                    let mut value = Variant::Unknown;
-                    let mut i = Variant::Unknown;
                     let mut r#type = None;
                     match (
                         &target.borrow().r#type.borrow().kind,
                         &index.borrow().r#type.borrow().kind,
                     ) {
                         (TypeKind::Pointer(pointee), x) if x.is_integer() => {
-                            value = target.borrow().value.clone();
-                            i = index.borrow().value.clone();
                             r#type = Some(Rc::clone(pointee));
                         }
                         (x, TypeKind::Pointer(pointee)) if x.is_integer() => {
-                            value = index.borrow().value.clone();
-                            i = target.borrow().value.clone();
                             r#type = Some(Rc::clone(pointee));
                         }
                         (TypeKind::Array { element_type, .. }, x) if x.is_integer() => {
-                            value = target.borrow().value.clone();
-                            i = index.borrow().value.clone();
                             r#type = Some(Rc::clone(element_type));
                         }
                         (x, TypeKind::Array { element_type, .. }) if x.is_integer() => {
-                            value = index.borrow().value.clone();
-                            i = target.borrow().value.clone();
                             r#type = Some(Rc::clone(element_type));
                         }
                         _ => {}
                     }
                     if let Some(t) = r#type {
+                        node.has_side_effects = has_side_effects;
                         node.r#type = t;
                         node.is_lvalue = true;
-                        node.value = value.get(&i).clone();
                     } else {
                         return Err(Diagnostic::error().with_message(format!(
                                 "subscripted value must be a pointer or array and index must be an integer"
@@ -1120,6 +1113,7 @@ impl TypeChecker {
                     name,
                 } => {
                     self.visit_expr(Rc::clone(target))?;
+                    let has_side_effects = target.borrow().has_side_effects;
 
                     let is_lvalue;
                     let target_type;
@@ -1211,18 +1205,19 @@ impl TypeChecker {
                             )));
                     }
                     node.is_lvalue = is_lvalue;
+                    node.has_side_effects = has_side_effects;
                 }
                 ExprKind::UnaryOp { op, operand } => {
                     self.visit_expr(Rc::clone(operand))?;
+                    let mut has_side_effects = operand.borrow().has_side_effects;
+
                     match op {
                         UnaryOpKind::Not => {
                             if operand.borrow().r#type.borrow().is_scale() {
-                                let value = !operand.borrow().value.clone();
-                                node.value = value;
                                 node.r#type = Rc::new(RefCell::new(Type {
                                     kind: TypeKind::Bool, //标准里说的是int类型
                                     ..Type::new(node.file_id, node.span)
-                                }))
+                                }));
                             } else {
                                 return Err(Diagnostic::error()
                                     .with_message(format!(
@@ -1239,10 +1234,6 @@ impl TypeChecker {
                             if operand.borrow().r#type.borrow().is_arithmetic() {
                                 let promote_type =
                                     integer_promote(Rc::clone(&operand.borrow().r#type));
-                                let mut value = operand.borrow().value.clone();
-                                if let UnaryOpKind::Negative = op {
-                                    value = -value;
-                                }
 
                                 match &mut node.kind {
                                     ExprKind::UnaryOp { operand, .. } => {
@@ -1254,7 +1245,6 @@ impl TypeChecker {
                                     _ => {}
                                 }
 
-                                node.value = value;
                                 node.r#type = promote_type;
                             } else {
                                 return Err(Diagnostic::error()
@@ -1272,7 +1262,6 @@ impl TypeChecker {
                             if operand.borrow().r#type.borrow().is_integer() {
                                 let promote_type =
                                     integer_promote(Rc::clone(&operand.borrow().r#type));
-                                let value = !operand.borrow().value.clone();
 
                                 match &mut node.kind {
                                     ExprKind::UnaryOp { operand, .. } => {
@@ -1284,7 +1273,6 @@ impl TypeChecker {
                                     _ => {}
                                 }
 
-                                node.value = value;
                                 node.r#type = promote_type;
                             } else {
                                 return Err(Diagnostic::error()
@@ -1302,7 +1290,10 @@ impl TypeChecker {
                         | UnaryOpKind::PostfixInc
                         | UnaryOpKind::PrefixDec
                         | UnaryOpKind::PostfixDec => {
+                            has_side_effects = true;
                             let r#type = Rc::clone(&operand.borrow().r#type);
+                            let symbol = operand.borrow().symbol.clone();
+
                             if !operand.borrow().is_lvalue || !r#type.borrow().can_modify() {
                                 return Err(Diagnostic::error()
                                     .with_message(format!("invalid operand"))
@@ -1324,16 +1315,8 @@ impl TypeChecker {
                                         operand.borrow().span,
                                     )));
                             } else {
-                                let value = if let UnaryOpKind::PrefixInc
-                                | UnaryOpKind::PostfixInc = op
-                                {
-                                    operand.borrow().value.clone() + Variant::Int(BigInt::from(1))
-                                } else {
-                                    operand.borrow().value.clone() - Variant::Int(BigInt::from(1))
-                                };
-
-                                node.value = value;
                                 node.r#type = r#type;
+                                node.symbol = symbol;
                             }
                         }
                         UnaryOpKind::AddressOf => {
@@ -1422,10 +1405,14 @@ impl TypeChecker {
                             }
                         }
                     }
+
+                    node.has_side_effects = has_side_effects;
                 }
                 ExprKind::BinOp { op, left, right } => {
                     self.visit_expr(Rc::clone(left))?;
                     self.visit_expr(Rc::clone(right))?;
+                    let mut has_side_effects =
+                        left.borrow().has_side_effects || right.borrow().has_side_effects;
 
                     match op {
                         BinOpKind::And | BinOpKind::Or => {
@@ -1448,15 +1435,6 @@ impl TypeChecker {
                                         right.borrow().span,
                                     )));
                             } else {
-                                let (x, y) =
-                                    (left.borrow().value.clone(), right.borrow().value.clone());
-                                let value = match op {
-                                    BinOpKind::And => x.and(&y),
-                                    BinOpKind::Or => x.or(&y),
-                                    _ => unreachable!(),
-                                };
-
-                                node.value = value;
                                 node.r#type = Rc::new(RefCell::new(Type {
                                     kind: TypeKind::Bool, //标准里说的是int类型
                                     ..Type::new(node.file_id, node.span)
@@ -1471,17 +1449,6 @@ impl TypeChecker {
                                     Rc::clone(&left.borrow().r#type),
                                     Rc::clone(&right.borrow().r#type),
                                 )?;
-
-                                let (x, y) =
-                                    (left.borrow().value.clone(), right.borrow().value.clone());
-                                let value = match op {
-                                    BinOpKind::Lt => x.lt(&y),
-                                    BinOpKind::Le => x.le(&y),
-                                    BinOpKind::Gt => x.gt(&y),
-                                    BinOpKind::Ge => x.ge(&y),
-                                    _ => unreachable!(),
-                                };
-                                node.value = value;
 
                                 match &mut node.kind {
                                     ExprKind::BinOp { left, right, .. } => {
@@ -1527,15 +1494,6 @@ impl TypeChecker {
                                     Rc::clone(&left.borrow().r#type),
                                     Rc::clone(&right.borrow().r#type),
                                 )?;
-
-                                let (x, y) =
-                                    (left.borrow().value.clone(), right.borrow().value.clone());
-                                let value = match op {
-                                    BinOpKind::Eq => x.eq(&y),
-                                    BinOpKind::Neq => x.neq(&y),
-                                    _ => unreachable!(),
-                                };
-                                node.value = value;
 
                                 match &mut node.kind {
                                     ExprKind::BinOp { left, right, .. } => {
@@ -1612,15 +1570,6 @@ impl TypeChecker {
                                     Rc::clone(&right.borrow().r#type),
                                 )?;
 
-                                let (x, y) =
-                                    (left.borrow().value.clone(), right.borrow().value.clone());
-                                let value = match op {
-                                    BinOpKind::Add => x + y,
-                                    BinOpKind::Sub => x - y,
-                                    _ => unreachable!(),
-                                };
-                                node.value = value;
-
                                 match &mut node.kind {
                                     ExprKind::BinOp { left, right, .. } => {
                                         *left =
@@ -1685,16 +1634,6 @@ impl TypeChecker {
                                     Rc::clone(&right.borrow().r#type),
                                 )?;
 
-                                let (x, y) =
-                                    (left.borrow().value.clone(), right.borrow().value.clone());
-                                let value = match op {
-                                    BinOpKind::Mul => x * y,
-                                    BinOpKind::Div => x / y,
-                                    BinOpKind::Mod => x % y,
-                                    _ => unreachable!(),
-                                };
-                                node.value = value;
-
                                 match &mut node.kind {
                                     ExprKind::BinOp { left, right, .. } => {
                                         *left =
@@ -1729,16 +1668,6 @@ impl TypeChecker {
                                     Rc::clone(&right.borrow().r#type),
                                 )?;
 
-                                let (x, y) =
-                                    (left.borrow().value.clone(), right.borrow().value.clone());
-                                let value = match op {
-                                    BinOpKind::BitAnd => x & y,
-                                    BinOpKind::BitOr => x | y,
-                                    BinOpKind::BitXOr => x ^ y,
-                                    _ => unreachable!(),
-                                };
-                                node.value = value;
-
                                 match &mut node.kind {
                                     ExprKind::BinOp { left, right, .. } => {
                                         *left =
@@ -1771,15 +1700,6 @@ impl TypeChecker {
                                 let a = integer_promote(Rc::clone(&left.borrow().r#type));
                                 let b = integer_promote(Rc::clone(&right.borrow().r#type));
 
-                                let (x, y) =
-                                    (left.borrow().value.clone(), right.borrow().value.clone());
-                                let value = match op {
-                                    BinOpKind::LShift => x << y,
-                                    BinOpKind::RShift => x >> y,
-                                    _ => unreachable!(),
-                                };
-                                node.value = value;
-
                                 match &mut node.kind {
                                     ExprKind::BinOp { left, right, .. } => {
                                         *left =
@@ -1806,10 +1726,12 @@ impl TypeChecker {
                             }
                         }
                         BinOpKind::Assign => {
+                            has_side_effects = true;
+                            let symbol = left.borrow().symbol.clone();
+
                             if left.borrow().is_lvalue && left.borrow().r#type.borrow().can_modify()
                             {
                                 let r#type = remove_qualifier(Rc::clone(&left.borrow().r#type));
-                                let value = right.borrow().value.clone();
 
                                 match &mut node.kind {
                                     ExprKind::BinOp { left, right, .. } => {
@@ -1821,7 +1743,7 @@ impl TypeChecker {
                                     _ => unreachable!(),
                                 }
 
-                                node.value = value;
+                                node.symbol = symbol;
                                 node.r#type = r#type;
                             } else if !left.borrow().r#type.borrow().is_complete() {
                                 return Err(Diagnostic::error()
@@ -1850,6 +1772,7 @@ impl TypeChecker {
                         | BinOpKind::BitAndAssign
                         | BinOpKind::BitOrAssign
                         | BinOpKind::BitXOrAssign => {
+                            has_side_effects = true;
                             //表达式 lhs @= rhs 与 lhs = lhs @ ( rhs ) 完全相同
                             let eq_expr = Rc::new(RefCell::new(Expr::new(
                                 node.file_id,
@@ -1888,17 +1811,15 @@ impl TypeChecker {
                                 _ => unreachable!(),
                             }
 
-                            node.value = eq_expr.borrow().value.clone();
                             node.r#type = r#type;
                         }
                         BinOpKind::Comma => {
                             let r#type = Rc::clone(&right.borrow().r#type);
-                            let value = right.borrow().value.clone();
-
-                            node.value = value;
                             node.r#type = r#type;
                         }
                     }
+
+                    node.has_side_effects = has_side_effects;
                 }
                 ExprKind::Conditional {
                     condition,
@@ -1908,16 +1829,9 @@ impl TypeChecker {
                     self.visit_expr(Rc::clone(condition))?;
                     self.visit_expr(Rc::clone(true_expr))?;
                     self.visit_expr(Rc::clone(false_expr))?;
-
-                    let value = if let Some(t) = condition.borrow().value.bool() {
-                        if t {
-                            true_expr.borrow().value.clone()
-                        } else {
-                            false_expr.borrow().value.clone()
-                        }
-                    } else {
-                        Variant::Unknown
-                    };
+                    let has_side_effects = condition.borrow().has_side_effects
+                        || true_expr.borrow().has_side_effects
+                        || false_expr.borrow().has_side_effects;
 
                     if true_expr.borrow().r#type.borrow().is_arithmetic()
                         && false_expr.borrow().r#type.borrow().is_arithmetic()
@@ -2014,7 +1928,7 @@ impl TypeChecker {
                                 "the operand of conditional expression must have an arithmetic or void type or is a pointer"
                             )).with_label(Label::primary(true_expr.borrow().file_id,true_expr.borrow().span).with_message("the true-expression")).with_label(Label::primary(false_expr.borrow().file_id,false_expr.borrow().span).with_message("the false-expression")));
                     }
-                    node.value = value;
+                    node.has_side_effects = has_side_effects;
                 }
                 ExprKind::SizeOf {
                     r#type: Some(_),
@@ -2045,6 +1959,7 @@ impl TypeChecker {
                                 )));
                         }
                     }
+                    node.has_side_effects = false;
                     node.value = value;
                     node.r#type = Rc::new(RefCell::new(Type {
                         kind: TypeKind::ULongLong,
@@ -2073,6 +1988,7 @@ impl TypeChecker {
                                 )));
                         }
                     }
+                    node.has_side_effects = false;
                     node.value = value;
                     node.r#type = Rc::new(RefCell::new(Type {
                         kind: TypeKind::ULongLong,
@@ -2136,6 +2052,7 @@ impl TypeChecker {
                         }
                     }
 
+                    node.has_side_effects = false;
                     node.r#type = Rc::new(RefCell::new(Type {
                         kind: TypeKind::ULongLong,
                         ..Type::new(node.file_id, node.span)
@@ -2160,6 +2077,9 @@ impl TypeChecker {
                         }
                     }
                     self.visit_initializer(Rc::clone(&initializer), Rc::clone(&node.r#type))?;
+
+                    let has_side_effects = initializer.borrow().has_side_effects;
+                    node.has_side_effects = has_side_effects;
 
                     node.is_lvalue = true;
                 }

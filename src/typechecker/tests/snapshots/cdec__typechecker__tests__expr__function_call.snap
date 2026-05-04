@@ -9,8 +9,8 @@ TranslationUnit <(1, 1), (11, 1)>
   FunctionDecl  <(7, 5), (8, 1)> main int() 
     Compound <(8, 1), (10, 2)>
       ExprStmt <(9, 5), (9, 9)>
-        FunctionCall <(9, 6), (9, 9)> int  
-          ImplicitCast <FuncToPtr> <(9, 5), (9, 6)> int(*)(long long)  
-            Name f <(9, 5), (9, 6)> int(long long)  
-          ImplicitCast <SignedExtend> <(9, 7), (9, 8)> long long 1 
+        FunctionCall <(9, 6), (9, 9)> int   
+          ImplicitCast <FuncToPtr> <(9, 5), (9, 6)> int(*)(long long)   
+            Name f <(9, 5), (9, 6)> int(long long)   
+          ImplicitCast <SignedExtend> <(9, 7), (9, 8)> long long   
             Integer 10 1 [] <(9, 7), (9, 8)> int 1

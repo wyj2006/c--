@@ -2,7 +2,7 @@ WHITESPACE = _{ " " | "\t" | NEWLINE }
 identifier = ${ !(keyword ~ !identifier_continue) ~ identifier_start ~ identifier_continue* }
 COMMENT    = _{ "//" ~ (!(NEWLINE | EOI) ~ ANY)* ~ NEWLINE? | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 
-prefix      = _{ positve | negative | bit_not | not | dereference | addressof | prefix_increment | prefix_decrement | cast | sizeof }
+prefix      = _{ prefix_increment | prefix_decrement | positve | negative | bit_not | not | dereference | addressof | cast | sizeof }
 positve     =  { "+" }
 negative    =  { "-" }
 bit_not     =  { "~" }
@@ -15,7 +15,7 @@ sizeof           = { "sizeof" }
 prefix_increment = { "++" }
 prefix_decrement = { "--" }
 
-infix   = _{ add | sub | mul | div | mod | lshift | rshift | lt | le | gt | ge | eq | neq | and | or | bit_and | bit_xor | bit_or }
+infix   = _{ and | or | le | ge | eq | neq | lshift | rshift | add | sub | mul | div | mod | lt | gt | bit_and | bit_xor | bit_or }
 add     =  { "+" }
 sub     =  { "-" }
 mul     =  { "*" }

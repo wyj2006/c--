@@ -8,16 +8,16 @@ TranslationUnit <(1, 1), (16, 1)>
       DeclStmt <(4, 5), (4, 22)>
         VarDecl <(4, 20), (4, 21)> a int 
       ExprStmt <(5, 5), (5, 26)>
-        ImplicitCast <LToRValue> <(5, 5), (5, 26)> struct A  
-          CompoundLiteral  struct A <(5, 5), (5, 26)> struct A  lvalue
+        ImplicitCast <LToRValue> <(5, 5), (5, 26)> struct A   
+          CompoundLiteral  struct A <(5, 5), (5, 26)> struct A  lvalue 
             RecordDecl <(5, 6), (5, 22)> A struct A 
               MemberDecl <(5, 19), (5, 20)> a int 
-            Initializer <(5, 23), (5, 26)> struct A 
-              Initializer <(5, 24), (5, 25)> int 1
+            Initializer <(5, 23), (5, 26)> struct A  
+              Initializer <(5, 24), (5, 25)> int  
                 Designation <(5, 24), (5, 25)> a
-                Integer 10 1 [] <(5, 24), (5, 25)> int 1 
+                Integer 10 1 [] <(5, 24), (5, 25)> int 1  
       ExprStmt <(6, 5), (6, 29)>
-        SizeOf struct B <(6, 5), (6, 29)> unsigned long long 4 
+        SizeOf struct B <(6, 5), (6, 29)> unsigned long long 4  
           RecordDecl <(6, 12), (6, 28)> B struct B 
             MemberDecl <(6, 25), (6, 26)> a int 
       DeclStmt <(7, 5), (7, 30)>
@@ -26,21 +26,21 @@ TranslationUnit <(1, 1), (16, 1)>
       DeclStmt <(8, 5), (8, 16)>
         VarDecl <(8, 14), (8, 15)> b struct C 
       ExprStmt <(9, 5), (9, 8)>
-        ImplicitCast <LToRValue> <(9, 6), (9, 8)> int  
-          MemberAccess . a <(9, 6), (9, 8)> int  lvalue
-            Name b <(9, 5), (9, 6)> struct C  lvalue
+        ImplicitCast <LToRValue> <(9, 6), (9, 8)> int   
+          MemberAccess . a <(9, 6), (9, 8)> int  lvalue 
+            Name b <(9, 5), (9, 6)> struct C  lvalue 
       DeclStmt <(10, 5), (10, 31)>
         RecordDecl <(10, 13), (10, 29)> D struct D 
           MemberDecl <(10, 26), (10, 27)> a int 
       DeclStmt <(11, 5), (11, 16)>
         VarDecl <(11, 14), (11, 15)> c struct D 
       ExprStmt <(12, 5), (12, 8)>
-        ImplicitCast <LToRValue> <(12, 6), (12, 8)> int  
-          MemberAccess . a <(12, 6), (12, 8)> int  lvalue
-            Name c <(12, 5), (12, 6)> struct D  lvalue
+        ImplicitCast <LToRValue> <(12, 6), (12, 8)> int   
+          MemberAccess . a <(12, 6), (12, 8)> int  lvalue 
+            Name c <(12, 5), (12, 6)> struct D  lvalue 
       DeclStmt <(13, 5), (13, 16)>
         VarDecl <(13, 14), (13, 15)> d struct A 
       ExprStmt <(14, 5), (14, 8)>
-        ImplicitCast <LToRValue> <(14, 6), (14, 8)> int  
-          MemberAccess . a <(14, 6), (14, 8)> int  lvalue
+        ImplicitCast <LToRValue> <(14, 6), (14, 8)> int   
+          MemberAccess . a <(14, 6), (14, 8)> int  lvalue 
             Name d <(14, 5), (14, 6)> struct A  lvalue

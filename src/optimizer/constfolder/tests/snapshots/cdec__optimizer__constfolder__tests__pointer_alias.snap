@@ -1,0 +1,29 @@
+---
+source: src/optimizer/constfolder/tests/mod.rs
+expression: "ast.print_line(0).join(\"\\n\")"
+---
+TranslationUnit <(1, 1), (9, 1)>
+  FunctionDecl  <(2, 5), (3, 1)> main int() 
+    Compound <(3, 1), (8, 2)>
+      DeclStmt <(4, 5), (4, 15)>
+        VarDecl <(4, 9), (4, 11)> x int 
+          Initializer <(4, 13), (4, 14)> int 5 
+            Integer 10 5 [] <(4, 13), (4, 14)> int 5  
+      DeclStmt <(5, 5), (5, 17)>
+        VarDecl <(5, 9), (5, 12)> p int* 
+          Initializer <(5, 14), (5, 16)> int*  
+            UnaryOp AddressOf <(5, 14), (5, 15)> int*   
+              Name x <(5, 15), (5, 16)> int 5 lvalue 
+      ExprStmt <(6, 5), (6, 12)>
+        BinOp Assign <(6, 5), (6, 12)> int   has_side_effects
+          UnaryOp Dereference <(6, 5), (6, 6)> int  lvalue 
+            ImplicitCast <LToRValue> <(6, 6), (6, 7)> int*   
+              Name p <(6, 6), (6, 7)> int*  lvalue 
+          Integer 10 10 [] <(6, 10), (6, 12)> int 10  
+      DeclStmt <(7, 5), (7, 19)>
+        VarDecl <(7, 9), (7, 11)> y int 
+          Initializer <(7, 13), (7, 18)> int  
+            BinOp Add <(7, 15), (7, 16)> int   
+              ImplicitCast <LToRValue> <(7, 13), (7, 14)> int   
+                Name x <(7, 13), (7, 14)> int  lvalue 
+              Integer 10 1 [] <(7, 17), (7, 18)> int 1

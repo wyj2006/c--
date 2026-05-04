@@ -8,7 +8,7 @@ TranslationUnit <(1, 1), (7, 1)>
       DeclStmt <(4, 5), (4, 12)>
         VarDecl <(4, 9), (4, 11)> a int* 
       ExprStmt <(5, 5), (5, 7)>
-        ImplicitCast <LToRValue> <(5, 5), (5, 6)> int  
-          UnaryOp Dereference <(5, 5), (5, 6)> int  lvalue
-            ImplicitCast <LToRValue> <(5, 6), (5, 7)> int*  
+        ImplicitCast <LToRValue> <(5, 5), (5, 6)> int   
+          UnaryOp Dereference <(5, 5), (5, 6)> int  lvalue 
+            ImplicitCast <LToRValue> <(5, 6), (5, 7)> int*   
               Name a <(5, 6), (5, 7)> int*  lvalue

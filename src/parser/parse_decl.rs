@@ -19,6 +19,8 @@ impl CParser {
         &self,
         mut decls: Vec<Rc<RefCell<Declaration>>>,
     ) -> Vec<Rc<RefCell<Declaration>>> {
+        //struct A; 是前向声明
+        //而 struct A a; 不是前向声明
         let mut may_forward_decl = true;
         for decl in &decls {
             match decl.borrow().kind {

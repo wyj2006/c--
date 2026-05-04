@@ -10,7 +10,10 @@ use codespan_reporting::diagnostic::Diagnostic;
 
 use crate::{
     ast::{
-        InitializerKind, TranslationUnit, decl::DeclarationKind, expr::ExprKind, stmt::StmtKind,
+        InitializerKind, TranslationUnit,
+        decl::DeclarationKind,
+        expr::ExprKind,
+        stmt::{Stmt, StmtKind},
     },
     ctype::Type,
     symtab::SymbolTable,
@@ -35,7 +38,7 @@ pub enum Context {
     //使用XXXKind避免重复借用
     Expr(ExprKind),
     Decl(DeclarationKind),
-    Stmt(StmtKind),
+    Stmt(StmtKind, Rc<RefCell<Stmt>>),
     Init(InitializerKind),
     Typeof,
 }

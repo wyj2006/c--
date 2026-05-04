@@ -1,47 +1,15 @@
 use crate::{
-    ast::{Designation, DesignationKind, Initializer, InitializerKind},
+    ast::{Initializer, InitializerKind},
     codegen::CodeGen,
     ctype::layout::{ConstDesignation, Layout, compute_layout},
     diagnostic::map_builder_err,
-    variant::Variant,
 };
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use inkwell::{
     types::BasicTypeEnum,
     values::{AnyValue, AnyValueEnum, BasicValue, BasicValueEnum},
 };
-use num::ToPrimitive;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
-
-impl ConstDesignation {
-    pub fn from_designation(
-        designations: &Vec<Designation>,
-    ) -> Result<Vec<ConstDesignation>, Diagnostic<usize>> {
-        let mut result = vec![];
-        for designation in designations {
-            result.push(match &designation.kind {
-                DesignationKind::Subscript(t) => {
-                    ConstDesignation::Subscript(match &t.borrow().value {
-                        Variant::Int(t) => match t.to_usize() {
-                            Some(t) => t,
-                            None => Err(Diagnostic::error()
-                                .with_message(format!("invalid integer: {t}"))
-                                .with_label(Label::primary(
-                                    designation.file_id,
-                                    designation.span,
-                                )))?,
-                        },
-                        _ => Err(Diagnostic::error()
-                            .with_message(format!("subscript must be an integer"))
-                            .with_label(Label::primary(designation.file_id, designation.span)))?,
-                    })
-                }
-                DesignationKind::MemberAccess(t) => ConstDesignation::MemberAccess(t.clone()),
-            });
-        }
-        Ok(result)
-    }
-}
 
 impl<'ctx> CodeGen<'ctx> {
     pub fn layout_to_value(

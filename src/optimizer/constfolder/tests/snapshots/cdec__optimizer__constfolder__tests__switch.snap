@@ -1,0 +1,42 @@
+---
+source: src/optimizer/constfolder/tests/mod.rs
+expression: "ast.print_line(0).join(\"\\n\")"
+---
+TranslationUnit <(1, 1), (13, 1)>
+  FunctionDecl  <(2, 5), (3, 1)> main int() 
+    Compound <(3, 1), (12, 2)>
+      DeclStmt <(4, 5), (4, 22)>
+        VarDecl <(4, 9), (4, 11)> a int 
+          Initializer <(4, 13), (4, 14)> int 1 
+            Integer 10 1 [] <(4, 13), (4, 14)> int 1  
+        VarDecl <(4, 16), (4, 18)> b int 
+          Initializer <(4, 20), (4, 21)> int 2 
+            Integer 10 2 [] <(4, 20), (4, 21)> int 2  
+      DeclStmt <(5, 5), (5, 11)>
+        VarDecl <(5, 9), (5, 10)> c int 
+      Switch <(6, 5), (10, 6)>
+        ImplicitCast <LToRValue> <(6, 13), (6, 14)> int   
+          Name c <(6, 13), (6, 14)> int  lvalue 
+        Compound <(7, 5), (10, 6)>
+          Case <(8, 5), (8, 12)>
+            Integer 10 1 [] <(8, 10), (8, 11)> int 1  
+          ExprStmt <(8, 13), (8, 18)>
+            BinOp Assign <(8, 13), (8, 18)> int 1  has_side_effects
+              Name a <(8, 13), (8, 14)> int 1 lvalue 
+              Integer 10 1 [] <(8, 17), (8, 18)> int 1  
+          Break <(8, 20), (8, 26)>
+          Case <(9, 5), (9, 12)>
+            Integer 10 2 [] <(9, 10), (9, 11)> int 2  
+          ExprStmt <(9, 13), (9, 18)>
+            BinOp Assign <(9, 13), (9, 18)> int 2  has_side_effects
+              Name b <(9, 13), (9, 14)> int 2 lvalue 
+              Integer 10 2 [] <(9, 17), (9, 18)> int 2  
+          Break <(9, 20), (9, 26)>
+      ExprStmt <(11, 5), (11, 14)>
+        BinOp Assign <(11, 5), (11, 14)> int 3  has_side_effects
+          Name c <(11, 5), (11, 6)> int  lvalue 
+          BinOp Add <(11, 11), (11, 12)> int 3  
+            ImplicitCast <LToRValue> <(11, 9), (11, 10)> int 1  
+              Name a <(11, 9), (11, 10)> int 1 lvalue 
+            ImplicitCast <LToRValue> <(11, 13), (11, 14)> int 2  
+              Name b <(11, 13), (11, 14)> int 2 lvalue

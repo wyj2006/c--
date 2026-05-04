@@ -6,7 +6,6 @@ use super::{
     TranslationUnit,
 };
 use crate::files;
-use crate::variant::Variant;
 use codespan::Span;
 use codespan_reporting::files::Files;
 use std::{cell::RefCell, rc::Rc};
@@ -179,13 +178,18 @@ impl Print for Declaration {
 impl Print for Initializer {
     fn display(&self) -> String {
         format!(
-            "Initializer {} {} {}",
+            "Initializer {} {} {} {}",
             format_location(self.file_id, self.span),
             self.r#type.borrow(),
-            if let Variant::Unknown = self.value {
+            if self.value.is_unknown() {
                 "".to_string()
             } else {
                 self.value.to_string()
+            },
+            if self.has_side_effects {
+                "has_side_effects"
+            } else {
+                ""
             }
         )
     }
@@ -209,10 +213,10 @@ impl Print for Stmt {
         format!(
             "{} {}",
             match &self.kind {
-                StmtKind::Break => "Break",
+                StmtKind::Break(..) => "Break",
                 StmtKind::Case { .. } => "Case",
                 StmtKind::Compound(_) => "Compound",
-                StmtKind::Continue => "Continue",
+                StmtKind::Continue(..) => "Continue",
                 StmtKind::Default(_) => "Default",
                 StmtKind::DoWhile {
                     condition: _,
@@ -288,7 +292,9 @@ impl Print for Stmt {
                 lines.extend(t.print_line(indent));
             }
             StmtKind::Return { expr } => lines.extend(expr.print_line(indent)),
-            StmtKind::Switch { condition, body } => {
+            StmtKind::Switch {
+                condition, body, ..
+            } => {
                 lines.extend(condition.print_line(indent));
                 lines.extend(body.print_line(indent));
             }
@@ -306,7 +312,7 @@ impl Print for Stmt {
 impl Print for Expr {
     fn display(&self) -> String {
         format!(
-            "{} {} {} {} {}",
+            "{} {} {} {} {} {}",
             match &self.kind {
                 ExprKind::Alignof { r#type, .. } => &format!("Alignof {}", r#type.borrow()),
                 ExprKind::BinOp { op, .. } => &format!("BinOp {:?}", op),
@@ -375,12 +381,17 @@ impl Print for Expr {
             },
             format_location(self.file_id, self.span),
             self.r#type.borrow().to_string(),
-            if let Variant::Unknown = self.value {
+            if self.value.is_unknown() {
                 String::new()
             } else {
                 self.value.to_string()
             },
-            if self.is_lvalue { "lvalue" } else { "" }
+            if self.is_lvalue { "lvalue" } else { "" },
+            if self.has_side_effects {
+                "has_side_effects"
+            } else {
+                ""
+            }
         )
     }
 

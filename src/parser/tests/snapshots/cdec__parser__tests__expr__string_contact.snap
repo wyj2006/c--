@@ -6,4 +6,4 @@ TranslationUnit <(1, 1), (6, 1)>
   FunctionDecl  <(2, 5), (3, 1)> main int() 
     Compound <(3, 1), (5, 2)>
       ExprStmt <(4, 5), (4, 12)>
-        String Default "ff" <(4, 5), (4, 12)> <error>
+        String Default "ff" <(4, 5), (4, 12)> <error>   has_side_effects

@@ -40,6 +40,7 @@ pub enum StmtKind {
     Switch {
         condition: Rc<RefCell<Expr>>,
         body: Rc<RefCell<Stmt>>,
+        cases_or_default: Vec<Rc<RefCell<Stmt>>>,
     },
     While {
         condition: Rc<RefCell<Expr>>,
@@ -57,8 +58,8 @@ pub enum StmtKind {
         body: Rc<RefCell<Stmt>>,
     },
     Goto(String),
-    Continue,
-    Break,
+    Continue(Option<Rc<RefCell<Stmt>>>),
+    Break(Option<Rc<RefCell<Stmt>>>),
     Return {
         expr: Option<Rc<RefCell<Expr>>>,
     },

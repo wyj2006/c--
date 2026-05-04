@@ -8,12 +8,12 @@ TranslationUnit <(1, 1), (7, 1)>
       DeclStmt <(4, 5), (4, 11)>
         VarDecl <(4, 9), (4, 10)> a int 
       ExprStmt <(5, 5), (5, 39)>
-        GenericSelection <(5, 5), (5, 39)> int 2 
-          ImplicitCast <LToRValue> <(5, 14), (5, 15)> int  
-            Name a <(5, 14), (5, 15)> int  lvalue
+        GenericSelection <(5, 5), (5, 39)> int   
+          ImplicitCast <LToRValue> <(5, 14), (5, 15)> int   
+            Name a <(5, 14), (5, 15)> int  lvalue 
           GenericAssoc <(5, 16), (5, 22)> char 
-            Integer 10 1 [] <(5, 21), (5, 22)> <error>  
+            Integer 10 1 [] <(5, 21), (5, 22)> <error>   has_side_effects
           GenericAssoc <(5, 23), (5, 28)> int selected
-            Integer 10 2 [] <(5, 27), (5, 28)> int 2 
+            Integer 10 2 [] <(5, 27), (5, 28)> int 2  
           GenericAssoc <(5, 29), (5, 38)>  
-            Integer 10 3 [] <(5, 37), (5, 38)> <error>
+            Integer 10 3 [] <(5, 37), (5, 38)> <error>   has_side_effects

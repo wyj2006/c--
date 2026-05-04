@@ -46,6 +46,17 @@ impl<'ctx> CodeGen<'ctx> {
                     .with_label(Label::primary(node.borrow().file_id, node.borrow().span))),
             };
         }
+        //没有副作用就直接使用计算好的值
+        if !node.borrow().has_side_effects {
+            match self.to_llvm_value(
+                node.borrow().value.clone(),
+                Rc::clone(&node.borrow().r#type),
+            ) {
+                Ok(t) => return Ok(t),
+                Err(_) => {}
+            };
+        }
+
         let node = node.borrow();
         match &node.kind {
             ExprKind::Name(name) => {

@@ -25,6 +25,8 @@ pub struct Type {
     pub kind: TypeKind,
 }
 
+//TODO 使用TypeKind::Error代替Option
+
 #[derive(Debug, Clone)]
 pub enum TypeKind {
     Void,

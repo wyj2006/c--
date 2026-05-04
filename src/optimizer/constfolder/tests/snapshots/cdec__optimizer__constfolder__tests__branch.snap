@@ -1,0 +1,67 @@
+---
+source: src/optimizer/constfolder/tests/mod.rs
+expression: "ast.print_line(0).join(\"\\n\")"
+---
+TranslationUnit <(1, 1), (20, 1)>
+  FunctionDecl  <(2, 5), (3, 1)> main int() 
+    Compound <(3, 1), (19, 2)>
+      DeclStmt <(4, 5), (4, 15)>
+        VarDecl <(4, 9), (4, 11)> a int 
+          Initializer <(4, 13), (4, 14)> int 5 
+            Integer 10 5 [] <(4, 13), (4, 14)> int 5  
+      DeclStmt <(5, 5), (5, 11)>
+        VarDecl <(5, 9), (5, 10)> b int 
+      If <(6, 5), (9, 15)>
+        ImplicitCast <LToRValue> <(6, 9), (6, 10)> int   
+          Name b <(6, 9), (6, 10)> int  lvalue 
+        ExprStmt <(7, 9), (7, 14)>
+          BinOp Assign <(7, 9), (7, 14)> int 6  has_side_effects
+            Name a <(7, 9), (7, 10)> int 5 lvalue 
+            Integer 10 6 [] <(7, 13), (7, 14)> int 6  
+        ExprStmt <(9, 9), (9, 14)>
+          BinOp Assign <(9, 9), (9, 14)> int 7  has_side_effects
+            Name a <(9, 9), (9, 10)> int 5 lvalue 
+            Integer 10 7 [] <(9, 13), (9, 14)> int 7  
+      DeclStmt <(10, 5), (10, 19)>
+        VarDecl <(10, 9), (10, 11)> c int 
+          Initializer <(10, 13), (10, 18)> int  
+            BinOp Add <(10, 15), (10, 16)> int   
+              ImplicitCast <LToRValue> <(10, 13), (10, 14)> int   
+                Name a <(10, 13), (10, 14)> int  lvalue 
+              Integer 10 8 [] <(10, 17), (10, 18)> int 8  
+      ExprStmt <(11, 5), (11, 10)>
+        BinOp Assign <(11, 5), (11, 10)> int 9  has_side_effects
+          Name a <(11, 5), (11, 6)> int  lvalue 
+          Integer 10 9 [] <(11, 9), (11, 10)> int 9  
+      If <(12, 5), (15, 15)>
+        ImplicitCast <LToRValue> <(12, 9), (12, 10)> int   
+          Name b <(12, 9), (12, 10)> int  lvalue 
+        ExprStmt <(13, 9), (13, 14)>
+          BinOp Assign <(13, 9), (13, 14)> int 9  has_side_effects
+            Name a <(13, 9), (13, 10)> int 9 lvalue 
+            Integer 10 9 [] <(13, 13), (13, 14)> int 9  
+        ExprStmt <(15, 9), (15, 14)>
+          BinOp Assign <(15, 9), (15, 14)> int 9  has_side_effects
+            Name a <(15, 9), (15, 10)> int 9 lvalue 
+            Integer 10 9 [] <(15, 13), (15, 14)> int 9  
+      ExprStmt <(16, 5), (16, 14)>
+        BinOp Assign <(16, 5), (16, 14)> int 18  has_side_effects
+          Name c <(16, 5), (16, 6)> int  lvalue 
+          BinOp Add <(16, 11), (16, 12)> int 18  
+            ImplicitCast <LToRValue> <(16, 9), (16, 10)> int 9  
+              Name a <(16, 9), (16, 10)> int 9 lvalue 
+            Integer 10 9 [] <(16, 13), (16, 14)> int 9  
+      If <(17, 5), (18, 5)>
+        ImplicitCast <LToRValue> <(17, 9), (17, 10)> int   
+          Name b <(17, 9), (17, 10)> int  lvalue 
+        ExprStmt <(17, 12), (17, 18)>
+          BinOp Assign <(17, 12), (17, 18)> int 10  has_side_effects
+            Name a <(17, 12), (17, 13)> int 9 lvalue 
+            Integer 10 10 [] <(17, 16), (17, 18)> int 10  
+      ExprStmt <(18, 5), (18, 15)>
+        BinOp Assign <(18, 5), (18, 15)> int   has_side_effects
+          Name c <(18, 5), (18, 6)> int 18 lvalue 
+          BinOp Add <(18, 11), (18, 12)> int   
+            ImplicitCast <LToRValue> <(18, 9), (18, 10)> int   
+              Name a <(18, 9), (18, 10)> int  lvalue 
+            Integer 10 11 [] <(18, 13), (18, 15)> int 11

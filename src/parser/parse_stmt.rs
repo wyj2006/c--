@@ -228,7 +228,11 @@ impl CParser {
                     else_body,
                 }
             } else {
-                StmtKind::Switch { condition, body }
+                StmtKind::Switch {
+                    condition,
+                    body,
+                    cases_or_default: vec![],
+                }
             },
             ..Stmt::new(self.file_id, from_pest_span(span))
         })))
@@ -301,9 +305,9 @@ impl CParser {
             kind: if str.starts_with("goto") {
                 StmtKind::Goto(name)
             } else if str.starts_with("continue") {
-                StmtKind::Continue
+                StmtKind::Continue(None)
             } else if str.starts_with("break") {
-                StmtKind::Break
+                StmtKind::Break(None)
             } else {
                 StmtKind::Return { expr }
             },

@@ -19,7 +19,7 @@ use std::{cell::RefCell, rc::Rc};
 impl TypeChecker {
     pub fn visit_stmt(&mut self, node: Rc<RefCell<Stmt>>) -> Result<(), Diagnostic<usize>> {
         self.contexts
-            .push(Context::Stmt(node.borrow().kind.clone()));
+            .push(Context::Stmt(node.borrow().kind.clone(), Rc::clone(&node)));
 
         let mut errs = Vec::new(); //消歧义时产生的错误
         //消歧义
@@ -78,7 +78,6 @@ impl TypeChecker {
             _ => {}
         }
 
-        //给复合语句使用
         let rc_node = Rc::clone(&node);
 
         let mut node = node.borrow_mut();
@@ -154,16 +153,30 @@ impl TypeChecker {
                     }));
             }
             StmtKind::Goto(name) => {
-                if let None = self
-                    .func_symtabs
-                    .last()
-                    .unwrap()
-                    .borrow()
-                    .lookup(Namespace::Label, name)
-                {
-                    return Err(Diagnostic::error()
-                        .with_message(format!("label '{name}' is undefined"))
-                        .with_label(Label::primary(node.file_id, node.span)));
+                //label可能在goto后声明
+                match self.func_symtabs.last_mut() {
+                    Some(t) => t.borrow_mut().add(
+                        Namespace::Label,
+                        Rc::new(RefCell::new(Symbol {
+                            define_loc: None,
+                            declare_locs: vec![(node.file_id, node.span)],
+                            name: name.clone(),
+                            kind: SymbolKind::Label(None),
+                            r#type: Rc::new(RefCell::new(Type {
+                                kind: TypeKind::Pointer(Rc::new(RefCell::new(Type {
+                                    kind: TypeKind::Void,
+                                    ..Type::new(node.file_id, node.span)
+                                }))),
+                                ..Type::new(node.file_id, node.span)
+                            })),
+                            attributes: node.attributes.clone(),
+                        })),
+                    )?,
+                    None => {
+                        return Err(Diagnostic::error()
+                            .with_message(format!("label must in a function"))
+                            .with_label(Label::primary(node.file_id, node.span)));
+                    }
                 }
             }
             StmtKind::If {
@@ -198,9 +211,12 @@ impl TypeChecker {
                             define_loc: Some((node.file_id, node.span)),
                             declare_locs: vec![(node.file_id, node.span)],
                             name: name.clone(),
-                            kind: SymbolKind::Label,
+                            kind: SymbolKind::Label(Some(Rc::clone(&rc_node))),
                             r#type: Rc::new(RefCell::new(Type {
-                                kind: TypeKind::Void,
+                                kind: TypeKind::Pointer(Rc::new(RefCell::new(Type {
+                                    kind: TypeKind::Void,
+                                    ..Type::new(node.file_id, node.span)
+                                }))),
                                 ..Type::new(node.file_id, node.span)
                             })),
                             attributes: node.attributes.clone(),
@@ -245,7 +261,9 @@ impl TypeChecker {
                     _ => {}
                 }
             }
-            StmtKind::Switch { condition, body } => {
+            StmtKind::Switch {
+                condition, body, ..
+            } => {
                 self.enter_scope();
 
                 self.visit_expr(Rc::clone(condition))?;
@@ -260,15 +278,39 @@ impl TypeChecker {
 
                 self.visit_stmt(Rc::clone(body))?;
 
+                match self.contexts.last() {
+                    Some(Context::Stmt(
+                        StmtKind::Switch {
+                            cases_or_default: t,
+                            ..
+                        },
+                        ..,
+                    )) => match &mut node.kind {
+                        StmtKind::Switch {
+                            cases_or_default, ..
+                        } => *cases_or_default = t.clone(),
+                        _ => unreachable!(),
+                    },
+                    _ => {}
+                }
+
                 node.symtab = Some(self.leave_scope());
             }
             StmtKind::Case { expr, stmt } => {
                 let mut condition_type = None;
-                for context in &self.contexts {
+                for context in self.contexts.iter_mut().rev() {
                     match context {
-                        Context::Stmt(StmtKind::Switch { condition, .. }) => {
+                        Context::Stmt(
+                            StmtKind::Switch {
+                                condition,
+                                cases_or_default,
+                                ..
+                            },
+                            ..,
+                        ) => {
                             condition_type = Some(Rc::clone(&condition.borrow().r#type));
-                            //不break, 以保证获得的condition_type是正确的
+                            cases_or_default.push(Rc::clone(&rc_node));
+                            break;
                         }
                         _ => {}
                     }
@@ -304,14 +346,29 @@ impl TypeChecker {
                 }
             }
             StmtKind::Default(stmt) => {
-                if !self.contexts.iter().any(|context| match context {
-                    Context::Stmt(StmtKind::Switch { .. }) => true,
-                    _ => false,
-                }) {
+                let mut in_switch = false;
+                for context in self.contexts.iter_mut().rev() {
+                    match context {
+                        Context::Stmt(
+                            StmtKind::Switch {
+                                cases_or_default, ..
+                            },
+                            ..,
+                        ) => {
+                            cases_or_default.push(Rc::clone(&rc_node));
+                            in_switch = true;
+                            break;
+                        }
+                        _ => {}
+                    }
+                }
+
+                if !in_switch {
                     return Err(Diagnostic::error()
                         .with_message(format!("default statement must in a switch statement"))
                         .with_label(Label::primary(node.file_id, node.span)));
                 }
+
                 if let Some(t) = stmt {
                     self.visit_stmt(Rc::clone(t))?;
                 }
@@ -350,16 +407,28 @@ impl TypeChecker {
 
                 node.symtab = Some(self.leave_scope());
             }
-            StmtKind::Break => {
-                if !self.contexts.iter().any(|context| match context {
-                    Context::Stmt(
-                        StmtKind::While { .. }
-                        | StmtKind::DoWhile { .. }
-                        | StmtKind::For { .. }
-                        | StmtKind::Switch { .. },
-                    ) => true,
-                    _ => false,
-                }) {
+            StmtKind::Break(..) => {
+                let mut in_loop = false;
+                for context in self.contexts.iter().rev() {
+                    match context {
+                        Context::Stmt(
+                            StmtKind::While { .. }
+                            | StmtKind::DoWhile { .. }
+                            | StmtKind::For { .. }
+                            | StmtKind::Switch { .. },
+                            n,
+                        ) => {
+                            match &mut node.kind {
+                                StmtKind::Break(t) => *t = Some(Rc::clone(n)),
+                                _ => unreachable!(),
+                            }
+                            in_loop = true;
+                            break;
+                        }
+                        _ => {}
+                    }
+                }
+                if !in_loop {
                     return Err(Diagnostic::error()
                         .with_message(format!(
                             "break statement must in a loop or a switch statement"
@@ -367,13 +436,27 @@ impl TypeChecker {
                         .with_label(Label::primary(node.file_id, node.span)));
                 }
             }
-            StmtKind::Continue => {
-                if !self.contexts.iter().any(|context| match context {
-                    Context::Stmt(
-                        StmtKind::While { .. } | StmtKind::DoWhile { .. } | StmtKind::For { .. },
-                    ) => true,
-                    _ => false,
-                }) {
+            StmtKind::Continue(..) => {
+                let mut in_loop = false;
+                for context in self.contexts.iter().rev() {
+                    match context {
+                        Context::Stmt(
+                            StmtKind::While { .. }
+                            | StmtKind::DoWhile { .. }
+                            | StmtKind::For { .. },
+                            n,
+                        ) => {
+                            match &mut node.kind {
+                                StmtKind::Continue(t) => *t = Some(Rc::clone(n)),
+                                _ => unreachable!(),
+                            }
+                            in_loop = true;
+                            break;
+                        }
+                        _ => {}
+                    }
+                }
+                if !in_loop {
                     return Err(Diagnostic::error()
                         .with_message(format!("continue statement must in a loop"))
                         .with_label(Label::primary(node.file_id, node.span)));
