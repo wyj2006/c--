@@ -1,6 +1,7 @@
 use crate::{
     ast::{Designation, DesignationKind, expr::Expr},
     ctype::{RecordKind, Type, TypeKind},
+    match_inner_type,
     symtab::SymbolKind,
     variant::Variant,
 };
@@ -230,26 +231,16 @@ pub fn compute_layout(r#type: Rc<RefCell<Type>>) -> Option<Layout> {
             })
         }
         TypeKind::Record { members: None, .. } => None,
-        TypeKind::Qualified { r#type, .. }
-        | TypeKind::Atomic(r#type)
-        | TypeKind::Typedef {
-            r#type: Some(r#type),
-            ..
-        }
-        | TypeKind::Auto(Some(r#type))
-        | TypeKind::Typeof {
-            r#type: Some(r#type),
-            ..
-        } => compute_layout(Rc::clone(r#type)),
-        TypeKind::Typeof {
-            expr: Some(expr), ..
-        } => compute_layout(Rc::clone(&expr.borrow().r#type)),
-        _ => Some(Layout {
-            r#type: Rc::clone(&r#type),
-            width: r#type.borrow().size()?,
-            offset: 0,
-            children: vec![],
-            designation: None,
-        }),
+        t => match_inner_type!(
+            t,
+            compute_layout,
+            Some(Layout {
+                r#type: Rc::clone(&r#type),
+                width: r#type.borrow().size()?,
+                offset: 0,
+                children: vec![],
+                designation: None,
+            })
+        ),
     }
 }

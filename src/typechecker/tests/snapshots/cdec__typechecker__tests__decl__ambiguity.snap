@@ -4,10 +4,10 @@ expression: "ast.print_line(0).join(\"\\n\")"
 ---
 TranslationUnit <(1, 1), (14, 1)>
   TypeDecl <(2, 13), (2, 14)> A int typedef
-  FunctionDecl  <(3, 6), (3, 10)> f void(A:int) 
-    ParamDecl <(3, 8), (3, 9)>  A:int 
-  FunctionDecl  <(4, 6), (4, 12)> g void(A:int) 
-    ParamDecl <(4, 10), (4, 11)> a A:int 
+  FunctionDecl  <(3, 6), (3, 10)> f void(int) 
+    ParamDecl <(3, 8), (3, 9)>  int 
+  FunctionDecl  <(4, 6), (4, 12)> g void(int) 
+    ParamDecl <(4, 10), (4, 11)> a int 
   FunctionDecl  <(5, 6), (5, 29)> scanf void(char*,...) 
     ParamDecl <(5, 16), (5, 24)> format char* 
   FunctionDecl  <(6, 5), (7, 1)> main int() 

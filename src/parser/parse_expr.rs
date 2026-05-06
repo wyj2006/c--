@@ -225,6 +225,7 @@ impl CParser {
                                     Err(e) => errs.push(e),
                                 }
                             }
+                            Rule::SIZEOF => {}
                             _ => unreachable!(),
                         }
                     }
@@ -255,6 +256,7 @@ impl CParser {
                                     decls.extend(type_name_decls);
                                 }
                             },
+                            Rule::ALIGNOF => {}
                             _ => unreachable!(),
                         }
                     }
@@ -517,6 +519,7 @@ impl CParser {
             match rule.as_rule() {
                 Rule::assignment_expression => expr = Some(self.parse_assignment_expression(rule)?),
                 Rule::generic_association => assocs.push(self.parse_generic_association(rule)?),
+                Rule::_GENERIC => {}
                 _ => unreachable!(),
             }
         }
@@ -547,6 +550,7 @@ impl CParser {
                     }
                 },
                 Rule::assignment_expression => expr = Some(self.parse_assignment_expression(rule)?),
+                Rule::DEFAULT => {}
                 _ => unreachable!(),
             }
         }

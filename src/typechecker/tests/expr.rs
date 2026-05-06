@@ -180,6 +180,18 @@ int main()
 "
 );
 
+typechecker_test_template!(
+    typedef,
+    "
+typedef unsigned int uint32_t;
+int main()
+{
+    uint32_t a;
+    a+1;
+}
+"
+);
+
 #[test]
 #[should_panic]
 pub fn addressof_bitfield() {

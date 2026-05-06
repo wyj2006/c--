@@ -1,0 +1,16 @@
+---
+source: src/typechecker/tests/expr.rs
+expression: "ast.print_line(0).join(\"\\n\")"
+---
+TranslationUnit <(1, 1), (8, 1)>
+  TypeDecl <(2, 22), (2, 30)> uint32_t unsigned int typedef
+  FunctionDecl  <(3, 5), (4, 1)> main int() 
+    Compound <(4, 1), (7, 2)>
+      DeclStmt <(5, 5), (5, 16)>
+        VarDecl <(5, 14), (5, 15)> a uint32_t:unsigned int 
+      ExprStmt <(6, 5), (6, 8)>
+        BinOp Add <(6, 6), (6, 7)> unsigned int   
+          ImplicitCast <LToRValue> <(6, 5), (6, 6)> uint32_t:unsigned int   
+            Name a <(6, 5), (6, 6)> uint32_t:unsigned int  lvalue 
+          ImplicitCast <IntTrunc> <(6, 7), (6, 8)> unsigned int   
+            Integer 10 1 [] <(6, 7), (6, 8)> int 1

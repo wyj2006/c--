@@ -342,6 +342,7 @@ impl CParser {
                                     r#type = Some(type_name_type);
                                 }
                             },
+                            Rule::ALIGNAS => {}
                             _ => unreachable!(),
                         }
                     }
@@ -630,6 +631,7 @@ impl CParser {
                                             });
                                         }
                                     },
+                                    Rule::TYPEOF_UNQUAL | Rule::TYPEOF => {}
                                     _ => unreachable!(),
                                 }
                             }
@@ -718,6 +720,7 @@ impl CParser {
                     members_decl.extend(self.parse_member_declaration(rule)?);
                     is_declare = false;
                 }
+                Rule::STRUCT | Rule::UNION => {}
                 _ => unreachable!(),
             }
         }
@@ -778,6 +781,7 @@ impl CParser {
                         }
                     }
                 }
+                Rule::ENUM => {}
                 _ => unreachable!(),
             }
         }
@@ -912,7 +916,7 @@ impl CParser {
                                         Rule::attribute_specifier_sequence => attributes
                                             .extend(self.parse_attribute_specifier_sequence(rule)?),
                                         Rule::star => has_star = true,
-                                        Rule::r#static => has_static = true,
+                                        Rule::STATIC => has_static = true,
                                         _ => unreachable!(),
                                     }
                                 }
@@ -1255,6 +1259,7 @@ impl CParser {
                         unreachable!()
                     }
                 }
+                Rule::STATIC_ASSERT => {}
                 _ => unreachable!(),
             }
         }

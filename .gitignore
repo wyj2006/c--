@@ -5,3 +5,4 @@ Cargo.lock
 *.new
 .cargo
 .clang-format
+keyword.pest

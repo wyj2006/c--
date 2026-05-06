@@ -29,6 +29,7 @@ use std::rc::Rc;
 
 #[derive(Parser)]
 #[grammar = "src/grammar/lexer.pest"]
+#[grammar = "src/grammar/keywords.pest"]
 #[grammar = "src/grammar/parser.pest"]
 pub struct CParser {
     pub file_id: usize,

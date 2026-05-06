@@ -1,6 +1,7 @@
 use crate::{
     ast::AttributeKind,
     ctype::{Type, TypeKind},
+    match_inner_type,
     variant::Variant,
 };
 use num::ToPrimitive;
@@ -78,22 +79,6 @@ impl TypeKind {
             TypeKind::Decimal128 => Some(16),
             TypeKind::Enum { underlying, .. } => underlying.borrow().align(),
             TypeKind::Array { element_type, .. } => element_type.borrow().align(),
-            TypeKind::Auto(Some(t))
-            | TypeKind::Atomic(t)
-            | TypeKind::Qualified { r#type: t, .. }
-            | TypeKind::Typedef {
-                r#type: Some(t), ..
-            } => t.borrow().align(),
-            TypeKind::Typeof {
-                expr: Some(t),
-                r#type: None,
-                ..
-            } => t.borrow().r#type.borrow().align(),
-            TypeKind::Typeof {
-                expr: None,
-                r#type: Some(t),
-                ..
-            } => t.borrow().align(),
             TypeKind::Record {
                 members: Some(members),
                 ..
@@ -104,7 +89,7 @@ impl TypeKind {
                 }
                 Some(align)
             }
-            _ => None,
+            _ => match_inner_type!(self, .align, None),
         }
     }
 }

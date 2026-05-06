@@ -1,0 +1,102 @@
+keywords      =  {
+    SIZEOF
+  | _GENERIC
+  | DEFAULT
+  | ALIGNOF
+  | AUTO
+  | CONSTEXPR
+  | EXTERN
+  | REGISTER
+  | STATIC
+  | THREAD_LOCAL
+  | TYPEDEF
+  | VOID
+  | CHAR
+  | SHORT
+  | INT
+  | LONG
+  | FLOAT
+  | DOUBLE
+  | SIGNED
+  | UNSIGNED
+  | _BITINT
+  | BOOL
+  | _COMPLEX
+  | _DECIMAL32
+  | _DECIMAL64
+  | _DECIMAL128
+  | STRUCT
+  | UNION
+  | ENUM
+  | _ATOMIC
+  | TYPEOF_UNQUAL
+  | TYPEOF
+  | CONST
+  | RESTRICT
+  | VOLATILE
+  | INLINE
+  | _NORETURN
+  | ALIGNAS
+  | STATIC_ASSERT
+  | CASE
+  | IF
+  | ELSE
+  | SWITCH
+  | FOR
+  | WHILE
+  | DO
+  | GOTO
+  | CONTINUE
+  | BREAK
+  | RETURN
+}
+SIZEOF        = @{ "sizeof" ~ !identifier_continue }
+_GENERIC      = @{ "_Generic" ~ !identifier_continue }
+DEFAULT       = @{ "default" ~ !identifier_continue }
+ALIGNOF       = @{ "alignof" ~ !identifier_continue }
+AUTO          = @{ "auto" ~ !identifier_continue }
+CONSTEXPR     = @{ "constexpr" ~ !identifier_continue }
+EXTERN        = @{ "extern" ~ !identifier_continue }
+REGISTER      = @{ "register" ~ !identifier_continue }
+STATIC        = @{ "static" ~ !identifier_continue }
+THREAD_LOCAL  = @{ "thread_local" ~ !identifier_continue }
+TYPEDEF       = @{ "typedef" ~ !identifier_continue }
+VOID          = @{ "void" ~ !identifier_continue }
+CHAR          = @{ "char" ~ !identifier_continue }
+SHORT         = @{ "short" ~ !identifier_continue }
+INT           = @{ "int" ~ !identifier_continue }
+LONG          = @{ "long" ~ !identifier_continue }
+FLOAT         = @{ "float" ~ !identifier_continue }
+DOUBLE        = @{ "double" ~ !identifier_continue }
+SIGNED        = @{ "signed" ~ !identifier_continue }
+UNSIGNED      = @{ "unsigned" ~ !identifier_continue }
+_BITINT       = @{ "_BitInt" ~ !identifier_continue }
+BOOL          = @{ "bool" ~ !identifier_continue }
+_COMPLEX      = @{ "_Complex" ~ !identifier_continue }
+_DECIMAL32    = @{ "_Decimal32" ~ !identifier_continue }
+_DECIMAL64    = @{ "_Decimal64" ~ !identifier_continue }
+_DECIMAL128   = @{ "_Decimal128" ~ !identifier_continue }
+STRUCT        = @{ "struct" ~ !identifier_continue }
+UNION         = @{ "union" ~ !identifier_continue }
+ENUM          = @{ "enum" ~ !identifier_continue }
+_ATOMIC       = @{ "_Atomic" ~ !identifier_continue }
+TYPEOF_UNQUAL = @{ "typeof_unqual" ~ !identifier_continue }
+TYPEOF        = @{ "typeof" ~ !identifier_continue }
+CONST         = @{ "const" ~ !identifier_continue }
+RESTRICT      = @{ "restrict" ~ !identifier_continue }
+VOLATILE      = @{ "volatile" ~ !identifier_continue }
+INLINE        = @{ "inline" ~ !identifier_continue }
+_NORETURN     = @{ "_Noreturn" ~ !identifier_continue }
+ALIGNAS       = @{ "alignas" ~ !identifier_continue }
+STATIC_ASSERT = @{ "static_assert" ~ !identifier_continue }
+CASE          = @{ "case" ~ !identifier_continue }
+IF            = @{ "if" ~ !identifier_continue }
+ELSE          = @{ "else" ~ !identifier_continue }
+SWITCH        = @{ "switch" ~ !identifier_continue }
+FOR           = @{ "for" ~ !identifier_continue }
+WHILE         = @{ "while" ~ !identifier_continue }
+DO            = @{ "do" ~ !identifier_continue }
+GOTO          = @{ "goto" ~ !identifier_continue }
+CONTINUE      = @{ "continue" ~ !identifier_continue }
+BREAK         = @{ "break" ~ !identifier_continue }
+RETURN        = @{ "return" ~ !identifier_continue }

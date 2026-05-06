@@ -2,7 +2,8 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 
 use crate::{
     ast::{Attribute, AttributeKind},
-    ctype::{Type, TypeKind, is_compatible},
+    ctype::{Type, TypeKind, get_inner_type, is_compatible},
+    match_inner_type,
 };
 use std::{cell::RefCell, rc::Rc};
 
@@ -77,7 +78,7 @@ pub fn integer_promote(a: Rc<RefCell<Type>>) -> Rc<RefCell<Type>> {
                 ..a.borrow().clone()
             }))
         }
-        _ => Rc::clone(&a),
+        t => match_inner_type!(t, integer_promote, Rc::clone(&a)),
     }
 }
 
@@ -97,6 +98,8 @@ pub fn usual_arith_cast(
         TypeKind::Float => 1,
         _ => 0,
     };
+    let a = get_inner_type(a);
+    let b = get_inner_type(b);
     match (&a.borrow().kind, &b.borrow().kind) {
         (x, y) if x.is_integer() && y.is_integer() => {
             let x = integer_promote(Rc::clone(&a));

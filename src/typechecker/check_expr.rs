@@ -1582,10 +1582,10 @@ impl TypeChecker {
                                 node.r#type = arith_result_type(a, b);
                             }
                             //integer肯定是算术类型, 所以执行到这里时两个操作数要么一个是指针一个是整数, 要么都是指针
-                            else if left.borrow().r#type.borrow().is_pointer()
-                                || left.borrow().r#type.borrow().is_integer()
-                                    && right.borrow().r#type.borrow().is_pointer()
-                                || right.borrow().r#type.borrow().is_integer()
+                            else if (left.borrow().r#type.borrow().is_pointer()
+                                || left.borrow().r#type.borrow().is_integer())
+                                && (right.borrow().r#type.borrow().is_pointer()
+                                    || right.borrow().r#type.borrow().is_integer())
                             {
                                 if let BinOpKind::Sub = op
                                     && left.borrow().r#type.borrow().is_integer()

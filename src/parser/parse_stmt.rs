@@ -174,6 +174,7 @@ impl CParser {
                 }
                 Rule::identifier => name = parse_identifier(rule.as_str())?,
                 Rule::constant_expression => expr = Some(self.parse_constant_expression(rule)?),
+                Rule::CASE | Rule::DEFAULT => {}
                 _ => unreachable!(),
             }
         }
@@ -215,6 +216,7 @@ impl CParser {
                         else_body = Some(self.parse_statement(rule)?);
                     }
                 }
+                Rule::IF | Rule::ELSE | Rule::SWITCH => {}
                 _ => unreachable!(),
             }
         }
@@ -253,6 +255,7 @@ impl CParser {
                 Rule::expression => exprs.push(self.parse_expression(rule)?),
                 Rule::statement => stmts.push(self.parse_statement(rule)?),
                 Rule::declaration => decls.extend(self.parse_declaration(rule)?),
+                Rule::FOR | Rule::DO | Rule::WHILE => {}
                 _ => unreachable!(),
             }
         }
@@ -298,6 +301,7 @@ impl CParser {
             match rule.as_rule() {
                 Rule::identifier => name = parse_identifier(rule.as_str())?,
                 Rule::expression => expr = Some(self.parse_expression(rule)?),
+                Rule::GOTO | Rule::BREAK | Rule::CONTINUE | Rule::RETURN => {}
                 _ => unreachable!(),
             }
         }

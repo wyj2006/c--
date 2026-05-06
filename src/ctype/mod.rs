@@ -17,6 +17,49 @@ use std::iter::zip;
 use std::mem::discriminant;
 use std::rc::Rc;
 
+#[macro_export]
+macro_rules! match_inner_type {
+    ($cond:expr, .$func:ident, $default:expr) => {
+        match $cond {
+            TypeKind::Qualified { r#type, .. }
+            | TypeKind::Atomic(r#type)
+            | TypeKind::Typedef {
+                r#type: Some(r#type),
+                ..
+            }
+            | TypeKind::Typeof {
+                r#type: Some(r#type),
+                ..
+            }
+            | TypeKind::Auto(Some(r#type)) => r#type.borrow().$func(),
+            TypeKind::Typeof {
+                expr: Some(expr), ..
+            } => expr.borrow().r#type.borrow().$func(),
+            _ => $default,
+        }
+    };
+
+    ($cond:expr, $func:ident, $default:expr) => {
+        match $cond {
+            TypeKind::Qualified { r#type, .. }
+            | TypeKind::Atomic(r#type)
+            | TypeKind::Typedef {
+                r#type: Some(r#type),
+                ..
+            }
+            | TypeKind::Typeof {
+                r#type: Some(r#type),
+                ..
+            }
+            | TypeKind::Auto(Some(r#type)) => $func(Rc::clone(r#type)),
+            TypeKind::Typeof {
+                expr: Some(expr), ..
+            } => $func(Rc::clone(&expr.borrow().r#type)),
+            _ => $default,
+        }
+    };
+}
+
 #[derive(Debug, Clone)]
 pub struct Type {
     pub file_id: usize,
@@ -24,8 +67,6 @@ pub struct Type {
     pub attributes: Vec<Rc<RefCell<Attribute>>>,
     pub kind: TypeKind,
 }
-
-//TODO 使用TypeKind::Error代替Option
 
 #[derive(Debug, Clone)]
 pub enum TypeKind {
@@ -170,7 +211,7 @@ impl TypeKind {
     pub fn can_modify(&self) -> bool {
         match self {
             TypeKind::Qualified { qualifiers, .. } => !qualifiers.contains(&TypeQual::Const),
-            _ => true,
+            _ => match_inner_type!(self,.can_modify,true),
         }
     }
 
@@ -187,8 +228,7 @@ impl TypeKind {
                 len_expr: Some(len_expr),
                 ..
             } => Some(Rc::clone(len_expr)),
-            TypeKind::Qualified { r#type, .. } => r#type.borrow().array_len_expr(),
-            _ => None,
+            _ => match_inner_type!(self,.array_len_expr,None),
         }
     }
 }
@@ -205,7 +245,7 @@ pub fn as_parameter_type(a: Rc<RefCell<Type>>) -> Rc<RefCell<Type>> {
             },
             ..a.borrow().clone()
         })),
-        _ => Rc::clone(&a),
+        t => match_inner_type!(t, as_parameter_type, Rc::clone(&a)),
     }
 }
 
@@ -213,23 +253,9 @@ pub fn is_compatible(a: Rc<RefCell<Type>>, b: Rc<RefCell<Type>>) -> bool {
     if Rc::ptr_eq(&a, &b) {
         return true;
     }
+    let a = get_inner_type(a);
+    let b = get_inner_type(b);
     match (&a.borrow().kind, &b.borrow().kind) {
-        (_, TypeKind::Typedef { r#type, .. }) => {
-            if let Some(t) = r#type {
-                is_compatible(Rc::clone(&a), Rc::clone(t))
-            } else {
-                false
-            }
-        }
-        (TypeKind::Typedef { r#type, .. }, _) => {
-            if let Some(t) = r#type {
-                is_compatible(Rc::clone(t), Rc::clone(&b))
-            } else {
-                return false;
-            }
-        }
-        (_, TypeKind::Qualified { r#type, .. }) => is_compatible(Rc::clone(&a), Rc::clone(r#type)),
-        (TypeKind::Qualified { r#type, .. }, _) => is_compatible(Rc::clone(r#type), Rc::clone(&b)),
         (TypeKind::Pointer(a_pointee), TypeKind::Pointer(b_pointee)) => {
             is_compatible(Rc::clone(a_pointee), Rc::clone(b_pointee))
         }
@@ -399,16 +425,14 @@ pub fn is_compatible(a: Rc<RefCell<Type>>, b: Rc<RefCell<Type>>) -> bool {
 pub fn pointee(a: Rc<RefCell<Type>>) -> Option<Rc<RefCell<Type>>> {
     match &a.borrow().kind {
         TypeKind::Pointer(pointee) => Some(Rc::clone(pointee)),
-        TypeKind::Qualified { r#type, .. } => pointee(Rc::clone(r#type)),
-        _ => None,
+        t => match_inner_type!(t, pointee, None),
     }
 }
 
 pub fn array_element(a: Rc<RefCell<Type>>) -> Option<Rc<RefCell<Type>>> {
     match &a.borrow().kind {
         TypeKind::Array { element_type, .. } => Some(Rc::clone(element_type)),
-        TypeKind::Qualified { r#type, .. } => array_element(Rc::clone(r#type)),
-        _ => None,
+        t => match_inner_type!(t, array_element, None),
     }
 }
 
@@ -420,4 +444,9 @@ pub fn arith_result_type(a: Rc<RefCell<Type>>, b: Rc<RefCell<Type>>) -> Rc<RefCe
     } else {
         Rc::clone(&a)
     }
+}
+
+///解除typedef, typeof这类的包装
+pub fn get_inner_type(a: Rc<RefCell<Type>>) -> Rc<RefCell<Type>> {
+    match_inner_type!(&a.borrow().kind, get_inner_type, Rc::clone(&a))
 }

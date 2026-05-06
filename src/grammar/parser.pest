@@ -1,5 +1,5 @@
 WHITESPACE = _{ " " | "\t" | NEWLINE }
-identifier = ${ !(keyword ~ !identifier_continue) ~ identifier_start ~ identifier_continue* }
+identifier = ${ !keywords ~ identifier_start ~ identifier_continue* }
 COMMENT    = _{ "//" ~ (!(NEWLINE | EOI) ~ ANY)* ~ NEWLINE? | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 
 prefix      = _{ prefix_increment | prefix_decrement | positve | negative | bit_not | not | dereference | addressof | cast | sizeof }
@@ -11,7 +11,7 @@ dereference =  { "*" }
 addressof   =  { "&" }
 // 如果后面跟的是'{', 那么这个就应该属于复合字面量
 cast             = { "(" ~ type_name ~ ")" ~ !"{" }
-sizeof           = { "sizeof" }
+sizeof           = { SIZEOF }
 prefix_increment = { "++" }
 prefix_decrement = { "--" }
 
@@ -54,13 +54,13 @@ primary      = {
 }
 string_group = { string_literal+ }
 
-generic_selection   = { "_Generic" ~ "(" ~ assignment_expression ~ ("," ~ generic_association)+ ~ ")" }
-generic_association = { (type_name | "default") ~ ":" ~ assignment_expression }
+generic_selection   = { _GENERIC ~ "(" ~ assignment_expression ~ ("," ~ generic_association)+ ~ ")" }
+generic_association = { (type_name | DEFAULT) ~ ":" ~ assignment_expression }
 
 compound_literal = { "(" ~ storage_class_specifier* ~ type_name ~ ")" ~ braced_initializer }
 
-sizeof_type      = { "sizeof" ~ "(" ~ type_name ~ ")" }
-alignof          = { "alignof" ~ "(" ~ type_name ~ ")" }
+sizeof_type      = { SIZEOF ~ "(" ~ type_name ~ ")" }
+alignof          = { ALIGNOF ~ "(" ~ type_name ~ ")" }
 unary_expression = {
     sizeof_type
   | alignof
@@ -102,31 +102,31 @@ init_declarator                        = _{ declarator ~ "=" ~ initializer | dec
 attribute_declaration                  =  { attribute_specifier_sequence ~ ";" }
 
 storage_class_specifier = {
-    "auto"
-  | "constexpr"
-  | "extern"
-  | "register"
-  | "static"
-  | "thread_local"
-  | "typedef"
+    AUTO
+  | CONSTEXPR
+  | EXTERN
+  | REGISTER
+  | STATIC
+  | THREAD_LOCAL
+  | TYPEDEF
 }
 
 type_specifier = {
-    "void"
-  | "char"
-  | "short"
-  | "int"
-  | "long"
-  | "float"
-  | "double"
-  | "signed"
-  | "unsigned"
-  | "_BitInt" ~ "(" ~ constant_expression ~ ")"
-  | "bool"
-  | "_Complex"
-  | "_Decimal32"
-  | "_Decimal64"
-  | "_Decimal128"
+    VOID
+  | CHAR
+  | SHORT
+  | INT
+  | LONG
+  | FLOAT
+  | DOUBLE
+  | SIGNED
+  | UNSIGNED
+  | _BITINT ~ "(" ~ constant_expression ~ ")"
+  | BOOL
+  | _COMPLEX
+  | _DECIMAL32
+  | _DECIMAL64
+  | _DECIMAL128
   | atomic_type_specifier
   | struct_or_union_specifier
   | enum_specifier
@@ -134,8 +134,8 @@ type_specifier = {
 }
 
 struct_or_union_specifier                =  {
-    ("struct" | "union") ~ attribute_specifier_sequence? ~ identifier? ~ "{" ~ member_declaration+ ~ "}"
-  | ("struct" | "union") ~ attribute_specifier_sequence? ~ identifier
+    (STRUCT | UNION) ~ attribute_specifier_sequence? ~ identifier? ~ "{" ~ member_declaration+ ~ "}"
+  | (STRUCT | UNION) ~ attribute_specifier_sequence? ~ identifier
 }
 member_declaration                       =  {
     attribute_specifier_sequence? ~ specifier_qualifier_list_without_typedef ~ member_declarator_list? ~ ";"
@@ -163,8 +163,8 @@ member_declarator                        =  {
 }
 
 enum_specifier      =  {
-    "enum" ~ attribute_specifier_sequence? ~ identifier? ~ enum_type_specifier? ~ "{" ~ enumerator_list ~ ","? ~ "}"
-  | "enum" ~ identifier ~ enum_type_specifier?
+    ENUM ~ attribute_specifier_sequence? ~ identifier? ~ enum_type_specifier? ~ "{" ~ enumerator_list ~ ","? ~ "}"
+  | ENUM ~ identifier ~ enum_type_specifier?
 }
 enumerator_list     = _{ enumerator ~ ("," ~ enumerator)* }
 enumerator          =  {
@@ -175,25 +175,25 @@ enum_type_specifier = _{
   | ":" ~ specifier_qualifier_list_with_typedef
 }
 
-atomic_type_specifier = { "_Atomic" ~ "(" ~ type_name ~ ")" }
+atomic_type_specifier = { _ATOMIC ~ "(" ~ type_name ~ ")" }
 
 typeof_specifier = {
-    ("typeof_unqual" | "typeof") ~ "(" ~ (expression | type_name) ~ ")"
+    (TYPEOF_UNQUAL | TYPEOF) ~ "(" ~ (expression | type_name) ~ ")"
 }
 
 type_qualifier = {
-    "const"
-  | "restrict"
-  | "volatile"
-  | "_Atomic"
+    CONST
+  | RESTRICT
+  | VOLATILE
+  | _ATOMIC
 }
 
 function_specifier = {
-    "inline"
-  | "_Noreturn"
+    INLINE
+  | _NORETURN
 }
 
-alignment_specifier = { "alignas" ~ "(" ~ (constant_expression | type_name) ~ ")" }
+alignment_specifier = { ALIGNAS ~ "(" ~ (constant_expression | type_name) ~ ")" }
 
 declarator            =  { pointer* ~ direct_declarator }
 direct_declarator     =  {
@@ -201,12 +201,11 @@ direct_declarator     =  {
 }
 name_declarator       =  { identifier ~ attribute_specifier_sequence? }
 array_declarator      =  {
-    "[" ~ static ~ type_qualifier_list? ~ assignment_expression ~ "]" ~ attribute_specifier_sequence?
-  | "[" ~ type_qualifier_list ~ static ~ assignment_expression ~ "]" ~ attribute_specifier_sequence?
+    "[" ~ STATIC ~ type_qualifier_list? ~ assignment_expression ~ "]" ~ attribute_specifier_sequence?
+  | "[" ~ type_qualifier_list ~ STATIC ~ assignment_expression ~ "]" ~ attribute_specifier_sequence?
   | "[" ~ type_qualifier_list? ~ star ~ "]" ~ attribute_specifier_sequence?
   | "[" ~ type_qualifier_list? ~ assignment_expression? ~ "]" ~ attribute_specifier_sequence?
 }
-static                =  { "static" }
 star                  =  { "*" }
 function_declarator   =  { "(" ~ parameter_type_list? ~ ")" ~ attribute_specifier_sequence? }
 pointer               =  { "*" ~ attribute_specifier_sequence? ~ type_qualifier_list? }
@@ -233,8 +232,8 @@ direct_abstract_declarator   = {
   | ((array_abstract_declarator | function_abstract_declarator) ~ attribute_specifier_sequence?)+
 }
 array_abstract_declarator    = {
-    "[" ~ static ~ type_qualifier_list? ~ assignment_expression ~ "]"
-  | "[" ~ type_qualifier_list ~ static ~ assignment_expression ~ "]"
+    "[" ~ STATIC ~ type_qualifier_list? ~ assignment_expression ~ "]"
+  | "[" ~ type_qualifier_list ~ STATIC ~ assignment_expression ~ "]"
   | "[" ~ type_qualifier_list? ~ assignment_expression? ~ "]"
   | "[" ~ star ~ "]"
 }
@@ -251,7 +250,7 @@ designator         = _{
   | "." ~ identifier
 }
 
-static_assert_declaration = { "static_assert" ~ "(" ~ constant_expression ~ ("," ~ string_literal)? ~ ")" ~ ";" }
+static_assert_declaration = { STATIC_ASSERT ~ "(" ~ constant_expression ~ ("," ~ string_literal)? ~ ")" ~ ";" }
 
 attribute_specifier_sequence =  { attribute_specifier+ }
 attribute_specifier          = _{ "[" ~ "[" ~ attribute_list ~ "]" ~ "]" }
@@ -288,8 +287,8 @@ secondary_block     = _{ statement }
 
 label             = {
     attribute_specifier_sequence? ~ identifier ~ ":"
-  | attribute_specifier_sequence? ~ "case" ~ constant_expression ~ ":"
-  | attribute_specifier_sequence? ~ "default" ~ ":"
+  | attribute_specifier_sequence? ~ CASE ~ constant_expression ~ ":"
+  | attribute_specifier_sequence? ~ DEFAULT ~ ":"
 }
 labeled_statement = { label ~ statement }
 
@@ -307,22 +306,22 @@ expression_statement = _{
 }
 
 selection_statement = {
-    "if" ~ "(" ~ expression ~ ")" ~ secondary_block ~ ("else" ~ secondary_block)?
-  | "switch" ~ "(" ~ expression ~ ")" ~ secondary_block
+    IF ~ "(" ~ expression ~ ")" ~ secondary_block ~ (ELSE ~ secondary_block)?
+  | SWITCH ~ "(" ~ expression ~ ")" ~ secondary_block
 }
 
 iteration_statement = {
-    "while" ~ "(" ~ expression ~ ")" ~ secondary_block
-  | "do" ~ secondary_block ~ "while" ~ "(" ~ expression ~ ")" ~ ";"
-  | "for" ~ "(" ~ declaration ~ expression? ~ ";" ~ expression? ~ ")" ~ secondary_block
-  | "for" ~ "(" ~ expression? ~ ";" ~ expression? ~ ";" ~ expression? ~ ")" ~ secondary_block
+    WHILE ~ "(" ~ expression ~ ")" ~ secondary_block
+  | DO ~ secondary_block ~ WHILE ~ "(" ~ expression ~ ")" ~ ";"
+  | FOR ~ "(" ~ declaration ~ expression? ~ ";" ~ expression? ~ ")" ~ secondary_block
+  | FOR ~ "(" ~ expression? ~ ";" ~ expression? ~ ";" ~ expression? ~ ")" ~ secondary_block
 }
 
 jump_statement = {
-    "goto" ~ identifier ~ ";"
-  | "continue" ~ ";"
-  | "break" ~ ";"
-  | "return" ~ expression? ~ ";"
+    GOTO ~ identifier ~ ";"
+  | CONTINUE ~ ";"
+  | BREAK ~ ";"
+  | RETURN ~ expression? ~ ";"
 }
 
 translation_unit     =  { SOI ~ external_declaration* ~ EOI }

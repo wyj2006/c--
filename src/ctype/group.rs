@@ -1,4 +1,5 @@
 use crate::ctype::{RecordKind, Type, TypeKind, TypeQual};
+use crate::match_inner_type;
 use num::BigInt;
 use num::pow::Pow;
 use std::rc::Rc;
@@ -99,9 +100,11 @@ impl Type {
     pub fn is_bool(&self) -> bool {
         self.kind.is_bool()
     }
-}
 
-//TODO typedef auto这类类型的判断
+    pub fn to_unsigned(&self) -> Option<TypeKind> {
+        self.kind.to_unsigned()
+    }
+}
 
 impl TypeKind {
     pub fn is_integer(&self) -> bool {
@@ -122,7 +125,7 @@ impl TypeKind {
             | TypeKind::ULongLong
             | TypeKind::BitInt { .. }
             | TypeKind::Enum { .. } => true,
-            _ => false,
+            _ => match_inner_type!(self, .is_integer, false),
         }
     }
 
@@ -144,7 +147,7 @@ impl TypeKind {
             | TypeKind::ULongLong => Some(true),
             TypeKind::BitInt { unsigned, .. } => Some(*unsigned),
             TypeKind::Enum { underlying, .. } => underlying.borrow().is_unsigned(),
-            _ => None,
+            _ => match_inner_type!(self, .is_unsigned, None),
         }
     }
 
@@ -178,7 +181,7 @@ impl TypeKind {
                 Some((BigInt::ZERO, BigInt::from(2).pow(size) - 1))
             }
             TypeKind::Enum { underlying, .. } => underlying.borrow().range(),
-            _ => None,
+            _ => match_inner_type!(self, .range, None),
         }
     }
 
@@ -200,62 +203,56 @@ impl TypeKind {
                 width_expr: Rc::clone(width_expr),
             }),
             TypeKind::Enum { underlying, .. } => underlying.borrow().kind.to_unsigned(),
-            _ => None,
+            _ => match_inner_type!(self, .to_unsigned, None),
         }
     }
 
     pub fn is_pointer(&self) -> bool {
         match self {
             TypeKind::Pointer(_) => true,
-            TypeKind::Qualified { r#type, .. } => r#type.borrow().is_pointer(),
-            _ => false,
+            _ => match_inner_type!(self, .is_pointer, false),
         }
     }
 
     pub fn is_array(&self) -> bool {
         match self {
             TypeKind::Array { .. } => true,
-            TypeKind::Qualified { r#type, .. } => r#type.borrow().is_array(),
-            _ => false,
+            _ => match_inner_type!(self, .is_array, false),
         }
     }
 
     pub fn is_function(&self) -> bool {
         match self {
             TypeKind::Function { .. } => true,
-            TypeKind::Qualified { r#type, .. } => r#type.borrow().is_function(),
-            _ => false,
+            _ => match_inner_type!(self, .is_function, false),
         }
     }
 
     pub fn is_real_float(&self) -> bool {
         match self {
             TypeKind::Float | TypeKind::Double | TypeKind::LongDouble => true,
-            TypeKind::Qualified { r#type, .. } => r#type.borrow().is_real_float(),
-            _ => false,
+            _ => match_inner_type!(self, .is_real_float, false),
         }
     }
 
     pub fn is_complex(&self) -> bool {
         match self {
             TypeKind::Complex(..) => true,
-            TypeKind::Qualified { r#type, .. } => r#type.borrow().is_complex(),
-            _ => false,
+            _ => match_inner_type!(self, .is_complex, false),
         }
     }
 
     pub fn is_void(&self) -> bool {
         match self {
             TypeKind::Void => true,
-            _ => false,
+            _ => match_inner_type!(self, .is_void, false),
         }
     }
 
     pub fn is_void_ptr(&self) -> bool {
         match self {
             TypeKind::Pointer(pointee) => pointee.borrow().is_void(),
-            TypeKind::Qualified { r#type, .. } => r#type.borrow().is_void_ptr(),
-            _ => false,
+            _ => match_inner_type!(self, .is_void_ptr, false),
         }
     }
 
@@ -265,8 +262,7 @@ impl TypeKind {
             | TypeKind::Decimal64
             | TypeKind::Decimal128
             | TypeKind::Complex(..) => true,
-            TypeKind::Qualified { r#type, .. } => r#type.borrow().is_float(),
-            _ => self.is_real_float(),
+            _ => match_inner_type!(self, .is_float, self.is_real_float()),
         }
     }
 
@@ -277,7 +273,7 @@ impl TypeKind {
     pub fn is_scale(&self) -> bool {
         match self {
             TypeKind::Nullptr => true,
-            _ => self.is_arithmetic() || self.is_pointer(),
+            _ => match_inner_type!(self, .is_scale, self.is_arithmetic() || self.is_pointer()),
         }
     }
 
@@ -288,7 +284,7 @@ impl TypeKind {
     pub fn is_nullptr(&self) -> bool {
         match self {
             TypeKind::Nullptr => true,
-            _ => false,
+            _ => match_inner_type!(self, .is_nullptr, false),
         }
     }
 
@@ -302,8 +298,7 @@ impl TypeKind {
                 kind: RecordKind::Struct,
                 ..
             } => true,
-            TypeKind::Qualified { r#type, .. } => r#type.borrow().is_struct(),
-            _ => false,
+            _ => match_inner_type!(self, .is_struct, false),
         }
     }
 
@@ -313,36 +308,35 @@ impl TypeKind {
                 kind: RecordKind::Union,
                 ..
             } => true,
-            TypeKind::Qualified { r#type, .. } => r#type.borrow().is_union(),
-            _ => false,
+            _ => match_inner_type!(self, .is_union, false),
         }
     }
 
     pub fn is_object(&self) -> bool {
         match self {
             TypeKind::Function { .. } => false,
-            _ => true,
+            _ => match_inner_type!(self, .is_object, true),
         }
     }
 
     pub fn is_char(&self) -> bool {
         match self {
             TypeKind::Char | TypeKind::UnsignedChar | TypeKind::SignedChar => true,
-            _ => false,
+            _ => match_inner_type!(self, .is_char, false),
         }
     }
 
     pub fn is_const(&self) -> bool {
         match self {
             TypeKind::Qualified { qualifiers, .. } => qualifiers.contains(&TypeQual::Const),
-            _ => false,
+            _ => match_inner_type!(self, .is_const, false),
         }
     }
 
     pub fn is_volatile(&self) -> bool {
         match self {
             TypeKind::Qualified { qualifiers, .. } => qualifiers.contains(&TypeQual::Volatile),
-            _ => false,
+            _ => match_inner_type!(self, .is_volatile, false),
         }
     }
 
@@ -352,16 +346,14 @@ impl TypeKind {
                 len_expr: Some(len_expr),
                 ..
             } => len_expr.borrow().value.is_unknown(),
-            TypeKind::Qualified { r#type, .. } => r#type.borrow().is_vla(),
-            _ => false,
+            _ => match_inner_type!(self, .is_vla, false),
         }
     }
 
     pub fn is_bool(&self) -> bool {
         match self {
             TypeKind::Bool => true,
-            TypeKind::Qualified { r#type, .. } => r#type.borrow().is_bool(),
-            _ => false,
+            _ => match_inner_type!(self, .is_bool, false),
         }
     }
 }

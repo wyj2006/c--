@@ -32,6 +32,7 @@ lazy_static! {
 
 #[derive(Parser)]
 #[grammar = "src/grammar/lexer.pest"]
+#[grammar = "src/grammar/keywords.pest"]
 #[grammar = "src/grammar/preprocessor.pest"]
 pub struct Preprocessor {
     pub file_id: usize,
