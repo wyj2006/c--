@@ -11,7 +11,7 @@ use inkwell::{
     types::{AnyType, AnyTypeEnum, BasicType, BasicTypeEnum},
     values::{AnyValue, BasicValue, BasicValueEnum},
 };
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, num::NonZero, rc::Rc};
 
 impl<'ctx> CodeGen<'ctx> {
     pub fn visit_declaration(
@@ -364,8 +364,15 @@ impl<'ctx> CodeGen<'ctx> {
                             &[self
                                 .context
                                 .custom_width_int_type(
-                                    (node.r#type.borrow().size().unwrap() * 8) as u32,
+                                    //根据语法, union至少有一个成员, 所以union的大小肯定大于0
+                                    NonZero::new((node.r#type.borrow().size().unwrap() * 8) as u32)
+                                        .unwrap(),
                                 )
+                                .map_err(|x| {
+                                    Diagnostic::error()
+                                        .with_message(x.to_string())
+                                        .with_label(Label::primary(node.file_id, node.span))
+                                })?
                                 .as_basic_type_enum()],
                             false,
                         )

@@ -137,7 +137,7 @@ fn gen_code<'ctx>(
     context: &'ctx Context,
     target_machine: &TargetMachine,
     file_type: FileType,
-) -> Result<(Module<'ctx>, MemoryBuffer), Diagnostic<usize>> {
+) -> Result<(Module<'ctx>, MemoryBuffer<'ctx>), Diagnostic<usize>> {
     let module = context.create_module(name);
     module.set_triple(&target_machine.get_triple());
 

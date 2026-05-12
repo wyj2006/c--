@@ -22,7 +22,7 @@ use inkwell::{
     values::{AnyValue, AnyValueEnum, BasicValue, FunctionValue, IntValue},
 };
 use num::ToPrimitive;
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, num::NonZero, rc::Rc};
 
 pub struct CodeGen<'ctx> {
     pub context: &'ctx Context,
@@ -317,10 +317,17 @@ impl<'ctx> CodeGen<'ctx> {
                 Some(4) => self.context.i32_type().as_any_type_enum(),
                 Some(8) => self.context.i64_type().as_any_type_enum(),
                 Some(16) => self.context.i128_type().as_any_type_enum(),
-                Some(t) => self
-                    .context
-                    .custom_width_int_type((t * 8) as u32)
-                    .as_any_type_enum(),
+                Some(t) => {
+                    self.context
+                        //根据语义, BitInt的长度至少为1
+                        .custom_width_int_type(NonZero::new((t * 8) as u32).unwrap())
+                        .map_err(|x| {
+                            Diagnostic::error().with_message(x.to_string()).with_label(
+                                Label::primary(r#type.borrow().file_id, r#type.borrow().span),
+                            )
+                        })?
+                        .as_any_type_enum()
+                }
                 None => {
                     return Err(Diagnostic::error()
                         .with_message("unknown size of integer type")
