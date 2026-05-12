@@ -184,7 +184,12 @@ impl Print for Initializer {
             if self.value.is_unknown() {
                 "".to_string()
             } else {
-                self.value.to_string()
+                let t = self.value.to_string();
+                if t.len() > 64 {
+                    format!("{}...", &t[..64])
+                } else {
+                    t
+                }
             },
             if self.has_side_effects {
                 "has_side_effects"
@@ -384,7 +389,12 @@ impl Print for Expr {
             if self.value.is_unknown() {
                 String::new()
             } else {
-                self.value.to_string()
+                let t = self.value.to_string();
+                if t.len() > 64 {
+                    format!("{}...", &t[..64])
+                } else {
+                    t
+                }
             },
             if self.is_lvalue { "lvalue" } else { "" },
             if self.has_side_effects {

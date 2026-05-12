@@ -77,6 +77,9 @@ pub struct Cli {
     #[arg(long)]
     /// Constant folding and propagation
     pub fold_constant: bool,
+    #[arg(long)]
+    /// Use LLVM as the backend
+    pub use_llvm: bool,
 }
 
 fn get_output(cli: &Cli, input_path: &String, extension: &str) -> PathBuf {
@@ -189,7 +192,7 @@ fn do_frontend(
             ConstFolder::new().fold(Rc::clone(&ast))?;
         }
 
-        if cfg!(feature = "use_llvm") {
+        if cli.use_llvm {
             let context = Context::create();
             let (module, buffer) = gen_code(
                 &input_path,

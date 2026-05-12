@@ -7,6 +7,7 @@ use crate::ast::{Attribute, AttributeKind};
 use crate::ctype::TypeQual;
 use crate::ctype::{RecordKind, Type, TypeKind};
 use crate::diagnostic::from_pest_span;
+use crate::file_map::source_lookup;
 use crate::parser::parse_identifier;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use pest::iterators::Pair;
@@ -287,6 +288,7 @@ impl CParser {
         let mut function_specs = Vec::new();
         let mut decls = Vec::new();
         for rule in rule.into_inner() {
+            let span = rule.as_span();
             match rule.as_rule() {
                 Rule::type_qualifier => qualifiers.push(self.parse_type_qualifier(rule)?),
                 Rule::storage_class_specifier => match self.parse_storage_class_specifier(rule)? {
@@ -328,7 +330,6 @@ impl CParser {
                     attributes.extend(self.parse_attribute_specifier_sequence(rule)?);
                 }
                 Rule::alignment_specifier => {
-                    let span = rule.as_span();
                     let mut expr = None;
                     let mut r#type = None;
                     for rule in rule.into_inner() {
@@ -353,7 +354,6 @@ impl CParser {
                     })));
                 }
                 Rule::typedef_name => {
-                    let span = rule.as_span();
                     for rule in rule.into_inner() {
                         if let Rule::identifier = rule.as_rule() {
                             types.push(Type {
@@ -547,7 +547,8 @@ impl CParser {
                 ..Type::new(self.file_id, from_pest_span(span))
             };
         } else {
-            final_type.span = from_pest_span(span);
+            (final_type.file_id, final_type.span) =
+                source_lookup(self.file_id, from_pest_span(span));
             final_type.attributes.extend(attributes);
         }
         Ok((

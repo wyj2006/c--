@@ -24,6 +24,7 @@ impl FileMap {
 
     pub fn add(&mut self, name: String, source: String) -> usize {
         let file_id = self.files.len();
+        let source = source.replace("\r\n", "\n");
         self.files.push(SimpleFile::new(name, source));
         file_id
     }
@@ -55,6 +56,7 @@ impl Files<'_> for FileMap {
     }
 }
 
+//没有被使用
 pub trait CorrectSpan {
     fn correct(&self, offset: usize);
 }
@@ -117,36 +119,49 @@ pub fn source_map(file_path: String, tokens: &Vec<Token>) -> usize {
     file_id
 }
 
-pub fn source_lookup(mut file_id: usize, span: Span) -> (usize, Span) {
+pub fn source_lookup(mut file_id: usize, mut span: Span) -> (usize, Span) {
     let file_map = &files.lock().unwrap();
-    let start = span.start().to_usize();
-    let end = span.end().to_usize();
-    let mut new_start = None;
-    let mut new_end = None;
-    for ((key_file_id, key_span), (val_file_id, val_span)) in &file_map.mappings {
-        if *key_file_id != file_id {
-            continue;
+
+    loop {
+        let start = span.start().to_usize();
+        let end = span.end().to_usize();
+
+        let mut new_start = None;
+        let mut new_end = None;
+
+        for ((key_file_id, key_span), (val_file_id, val_span)) in &file_map.mappings {
+            if *key_file_id != file_id {
+                continue;
+            }
+            if !(key_span.start().to_usize() <= start && start < key_span.end().to_usize()) {
+                continue;
+            }
+            if let None = new_start {
+                new_start = Some(val_span.end().to_usize() - (key_span.end().to_usize() - start));
+            }
+            if !(key_span.start().to_usize() < end && end <= key_span.end().to_usize()) {
+                continue;
+            }
+            if let None = new_end {
+                new_end = Some(val_span.start().to_usize() + end - key_span.start().to_usize());
+                file_id = *val_file_id;
+                break;
+            }
         }
-        if !(key_span.start().to_usize() <= start && start < key_span.end().to_usize()) {
-            continue;
-        }
-        if let None = new_start {
-            new_start = Some(val_span.end().to_usize() - (key_span.end().to_usize() - start));
-        }
-        if !(key_span.start().to_usize() < end && end <= key_span.end().to_usize()) {
-            continue;
-        }
-        if let None = new_end {
-            new_end = Some(val_span.start().to_usize() + end - key_span.start().to_usize());
-            file_id = *val_file_id;
+
+        let (new_file_id, new_span) = if let Some(start) = new_start
+            && let Some(end) = new_end
+        {
+            (file_id, Span::new(start as u32, end as u32))
+        } else {
+            (file_id, span)
+        };
+
+        if (file_id, span) == (new_file_id, new_span) {
             break;
         }
+        (file_id, span) = (new_file_id, new_span);
     }
-    if let Some(start) = new_start
-        && let Some(end) = new_end
-    {
-        (file_id, Span::new(start as u32, end as u32))
-    } else {
-        (file_id, span)
-    }
+
+    (file_id, span)
 }

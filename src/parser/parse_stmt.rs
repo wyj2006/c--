@@ -45,9 +45,7 @@ impl CParser {
                         Ok(rules) => {
                             for rule in rules {
                                 match CParser::new(part_id).parse_expression(rule) {
-                                    Ok(t) => {
-                                        expr = Some(t);
-                                    }
+                                    Ok(t) => expr = Some(t),
                                     Err(e) => errs.push(e),
                                 }
                             }

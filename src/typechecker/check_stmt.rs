@@ -131,7 +131,7 @@ impl TypeChecker {
                 return Err(Diagnostic::error()
                     .with_message(format!("errors occurred during disambiguation"))
                     .with_label(
-                        Label::primary(node.file_id, node.span)
+                        Label::secondary(node.file_id, node.span)
                             .with_message("the location where ambiguity occurs"),
                     )
                     .with_labels({
@@ -144,7 +144,6 @@ impl TypeChecker {
                                         Label::primary(label.file_id, label.range)
                                             .with_message(err.message.clone()),
                                     );
-                                    break;
                                 }
                             }
                         }
