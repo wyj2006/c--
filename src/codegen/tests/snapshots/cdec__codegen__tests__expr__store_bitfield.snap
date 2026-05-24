@@ -1,0 +1,28 @@
+---
+source: src/codegen/tests/expr.rs
+expression: codegen.builder.module.to_string()
+---
+; ModuleID = '<string>'
+source_filename = "<string>"
+target triple = "x86_64-pc-linux-gnu"
+
+define i32 @main() {
+entry:
+  %a = alloca { i8, double, i8 }, align 8
+  %0 = getelementptr inbounds nuw { i8, double, i8 }, ptr %a, i32 0, i32 0
+  %load = load i32, ptr %0, align 4
+  %and_mask = and i32 %load, -8
+  %or = or i32 1, %and_mask
+  store i32 %or, ptr %0, align 4
+  %1 = getelementptr inbounds nuw { i8, double, i8 }, ptr %a, i32 0, i32 0
+  %load1 = load i32, ptr %1, align 4
+  %and_mask2 = and i32 %load1, -121
+  %or3 = or i32 16, %and_mask2
+  store i32 %or3, ptr %1, align 4
+  %2 = getelementptr inbounds nuw { i8, double, i8 }, ptr %a, i32 0, i32 2
+  %load4 = load i32, ptr %2, align 4
+  %and_mask5 = and i32 %load4, -32
+  %or6 = or i32 3, %and_mask5
+  store i32 %or6, ptr %2, align 4
+  ret i32 0
+}

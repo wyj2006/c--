@@ -1,0 +1,53 @@
+---
+source: src/codegen/tests/expr.rs
+expression: codegen.builder.module.to_string()
+---
+; ModuleID = '<string>'
+source_filename = "<string>"
+target triple = "x86_64-pc-linux-gnu"
+
+define i32 @main() {
+entry:
+  %a = alloca { float, float }, align 8
+  store { float, float } { float 1.000000e+00, float 0.000000e+00 }, ptr %a, align 4
+  %b = alloca { float, float }, align 8
+  store { float, float } { float 0x3FF3333340000000, float 0.000000e+00 }, ptr %b, align 4
+  %0 = load { float, float }, ptr %a, align 4
+  %1 = load { float, float }, ptr %b, align 4
+  %real = extractvalue { float, float } %0, 0
+  %imag = extractvalue { float, float } %0, 1
+  %real1 = extractvalue { float, float } %1, 0
+  %imag2 = extractvalue { float, float } %1, 1
+  %add_real = fadd float %real, %real1
+  %add_imag = fadd float %imag, %imag2
+  %2 = insertvalue { float, float } %0, float %add_real, 0
+  %3 = insertvalue { float, float } %2, float %add_imag, 1
+  %real3 = extractvalue { float, float } %3, 0
+  %imag4 = extractvalue { float, float } %3, 1
+  %cast_real = fpext float %real3 to double
+  %cast_real5 = fpext float %imag4 to double
+  %4 = insertvalue { double, double } zeroinitializer, double %cast_real, 0
+  %5 = insertvalue { double, double } %4, double %cast_real5, 1
+  %real6 = extractvalue { double, double } %5, 0
+  %imag7 = extractvalue { double, double } %5, 1
+  %add_real8 = fadd double %real6, 0.000000e+00
+  %add_imag9 = fadd double %imag7, 1.000000e+00
+  %6 = insertvalue { double, double } %5, double %add_real8, 0
+  %7 = insertvalue { double, double } %6, double %add_imag9, 1
+  %real10 = extractvalue { double, double } %7, 0
+  %imag11 = extractvalue { double, double } %7, 1
+  %cast_real12 = fptrunc double %real10 to float
+  %cast_real13 = fptrunc double %imag11 to float
+  %8 = insertvalue { float, float } zeroinitializer, float %cast_real12, 0
+  %9 = insertvalue { float, float } %8, float %cast_real13, 1
+  %c = alloca { float, float }, align 8
+  store { float, float } %9, ptr %c, align 4
+  %10 = alloca i32, align 4
+  call void @llvm.memset.p0.i64(ptr align 1 %10, i8 0, i64 ptrtoint (ptr getelementptr (i32, ptr null, i32 1) to i64), i1 false)
+  ret ptr %10
+}
+
+; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)
+declare void @llvm.memset.p0.i64(ptr writeonly captures(none), i8, i64, i1 immarg) #0
+
+attributes #0 = { nocallback nofree nounwind willreturn memory(argmem: write) }

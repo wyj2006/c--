@@ -295,7 +295,7 @@ impl TypeChecker {
 
                 node.symtab = Some(self.leave_scope());
             }
-            StmtKind::Case { expr, stmt } => {
+            StmtKind::Case { expr, stmt, .. } => {
                 let mut condition_type = None;
                 for context in self.contexts.iter_mut().rev() {
                     match context {
@@ -307,6 +307,15 @@ impl TypeChecker {
                             },
                             ..,
                         ) => {
+                            if let Some(t) = cases_or_default.last_mut() {
+                                match &mut t.borrow_mut().kind {
+                                    StmtKind::Case { next, .. }
+                                    | StmtKind::Default { next, .. } => {
+                                        *next = Some(Rc::clone(&rc_node));
+                                    }
+                                    _ => unreachable!(),
+                                }
+                            }
                             condition_type = Some(Rc::clone(&condition.borrow().r#type));
                             cases_or_default.push(Rc::clone(&rc_node));
                             break;
@@ -344,7 +353,7 @@ impl TypeChecker {
                     _ => unreachable!(),
                 }
             }
-            StmtKind::Default(stmt) => {
+            StmtKind::Default { stmt, .. } => {
                 let mut in_switch = false;
                 for context in self.contexts.iter_mut().rev() {
                     match context {
@@ -354,6 +363,15 @@ impl TypeChecker {
                             },
                             ..,
                         ) => {
+                            if let Some(t) = cases_or_default.last_mut() {
+                                match &mut t.borrow_mut().kind {
+                                    StmtKind::Case { next, .. }
+                                    | StmtKind::Default { next, .. } => {
+                                        *next = Some(Rc::clone(&rc_node));
+                                    }
+                                    _ => unreachable!(),
+                                }
+                            }
                             cases_or_default.push(Rc::clone(&rc_node));
                             in_switch = true;
                             break;

@@ -12,6 +12,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 ///同时完成常量折叠和常量传播优化
 pub struct ConstFolder {
     //break语句的OUT
+    //第一个键对应的是break跳出的循环语句, 第二个键对应的是该break语句
     pub break_outs: HashMap<usize, HashMap<usize, HashMap<String, Variant>>>,
     //continue语句的OUT
     pub continue_outs: HashMap<usize, HashMap<usize, HashMap<String, Variant>>>,

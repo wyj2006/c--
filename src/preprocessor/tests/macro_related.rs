@@ -7,31 +7,27 @@ pub fn macro_example_6_10_5_1_1() {
 #define G(Q) 42
 #define F(R, X, ...) __VA_OPT__(G R X) )
 int x = F(LPAREN(), 0, <:-);
-#undef G
-#undef F
 ",
     );
     let result = to_string(&preprocessor.process().unwrap());
-    assert_eq!(result, " \n\n\nint x = 42 ;\n\n\n");
+    assert_eq!(result, " \n\n\nint x = 42 ;\n");
 }
 
 #[test]
 pub fn macro_example_6_10_5_1_2_1() {
     let mut preprocessor = quick_new_preprocessor(
-        "#define F(...) f(0 __VA_OPT__(,) __VA_ARGS__)
-#define G(X, ...) f(0, X __VA_OPT__(,) __VA_ARGS__)
+        "#define FF(...) f(0 __VA_OPT__(,) __VA_ARGS__)
+#define GG(X, ...) f(0, X __VA_OPT__(,) __VA_ARGS__)
 #define SDEF(sname, ...) S sname __VA_OPT__(= { __VA_ARGS__ })
 #define EMP
-F(a, b, c)
-F()
-F(EMP)
-G(a, b, c)
-G(a, )
-G(a)
+FF(a, b, c)
+FF()
+FF(EMP)
+GG(a, b, c)
+GG(a, )
+GG(a)
 SDEF(foo);
 SDEF(bar, 1, 2);
-#undef F
-#undef G
 ",
     );
     let result = to_string(&preprocessor.process().unwrap());
@@ -49,8 +45,6 @@ f(0, a , )
 f(0, a  )
 S foo ;
 S bar = {  1, 2 };
-
-
 "
     );
 }

@@ -1,1340 +1,221 @@
 use crate::{
-    ast::{
-        decl::StorageClassKind,
-        expr::{BinOpKind, CastMethod, Expr, ExprKind, UnaryOpKind},
-    },
-    codegen::CodeGen,
+    ast::expr::{BinOpKind, CastMethod, Expr, ExprKind, UnaryOpKind},
+    codegen::{CodeGen, builder::Builder},
     ctype::{
-        RecordKind, TypeKind,
+        TypeKind,
         cast::remove_qualifier,
         layout::{ConstDesignation, compute_layout},
         pointee,
     },
-    diagnostic::map_builder_err,
-    symtab::{Namespace, SymbolKind},
+    optimizer::constfolder::ConstFolder,
+    symtab::SymbolKind,
     variant::Variant,
 };
-use codespan_reporting::diagnostic::{Diagnostic, Label};
-use inkwell::{
-    FloatPredicate, IntPredicate,
-    builder::BuilderError,
-    module::Linkage,
-    types::BasicTypeEnum,
-    values::{
-        AnyValue, AnyValueEnum, BasicValue, BasicValueEnum, FloatValue, InstructionOpcode, IntValue,
-    },
-};
-use std::{cell::RefCell, rc::Rc, u64};
+use codespan_reporting::diagnostic::Diagnostic;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-impl<'ctx> CodeGen<'ctx> {
-    pub fn visit_expr(
-        &self,
-        node: Rc<RefCell<Expr>>,
-    ) -> Result<AnyValueEnum<'ctx>, Diagnostic<usize>> {
-        if self.func_values.len() == 0
-            //这两种表达式不一定会在函数内生成代码
-            && !matches!(node.borrow().kind, ExprKind::CompoundLiteral { .. })
-            && !matches!(node.borrow().kind, ExprKind::String { .. })
-        {
-            return match self.to_llvm_value(
-                node.borrow().value.clone(),
-                Rc::clone(&node.borrow().r#type),
-            ) {
-                Ok(t) => Ok(t),
-                Err(_) => Err(Diagnostic::error()
-                    .with_message("not a constant expression")
-                    .with_label(Label::primary(node.borrow().file_id, node.borrow().span))),
-            };
-        }
-        //没有副作用就直接使用计算好的值
+impl<B: Builder> CodeGen<B> {
+    pub fn visit_expr(&mut self, node: &Rc<RefCell<Expr>>) -> Result<B::Value, Diagnostic<usize>> {
+        //如果没有副作用, 尝试直接计算出它的值
         if !node.borrow().has_side_effects {
-            match self.to_llvm_value(
-                node.borrow().value.clone(),
-                Rc::clone(&node.borrow().r#type),
-            ) {
-                Ok(t) => return Ok(t),
-                Err(_) => {}
-            };
+            //TODO 避免重复调用ConstFolder
+            ConstFolder::new().visit_expr(Rc::clone(node), HashMap::new())?;
+
+            self.builder
+                .append_context(node.borrow().file_id, node.borrow().span);
+
+            if let Ok(t) = self
+                .builder
+                .variant_to_value(&node.borrow().value, &node.borrow().r#type)
+            {
+                self.builder.pop_context();
+                return Ok(t);
+            }
+
+            self.builder.pop_context();
         }
 
-        let node = node.borrow();
-        match &node.kind {
+        let Expr {
+            file_id,
+            span,
+            kind,
+            r#type,
+            value:_,
+            is_lvalue: _,
+            symbol,
+            has_side_effects:_,
+        } = &*node.borrow();
+
+        self.builder.append_context(*file_id, *span);
+
+        let result;
+
+        match kind {
             ExprKind::Name(name) => {
-                let symbol = self.lookup(Namespace::Ordinary, &name).unwrap();
-                let symbol_type = Rc::clone(&symbol.borrow().r#type);
+                let Some(symbol) = symbol else { unreachable!() };
                 match &symbol.borrow().kind {
                     SymbolKind::EnumConst { value } => {
-                        Ok(self.to_llvm_value(Variant::Int(value.clone()), symbol_type)?)
+                        result = self
+                            .builder
+                            .variant_to_value(&Variant::Int(value.clone()), r#type)?;
                     }
-                    _ => Ok(*self.symbol_values.get(&(symbol.as_ptr() as usize)).unwrap()),
+                    _ => result = self.builder.load_var(name)?,
                 }
-            }
-            ExprKind::String { .. } => {
-                let global_value = self.module.add_global(
-                    self.to_llvm_type(Rc::clone(&node.r#type))?
-                        .into_array_type(),
-                    None,
-                    "str",
-                );
-                global_value.set_initializer(&match BasicValueEnum::try_from(
-                    self.to_llvm_value(node.value.clone(), Rc::clone(&node.r#type))?,
-                ) {
-                    Ok(t) => t,
-                    Err(_) => unreachable!(),
-                });
-                Ok(global_value.as_any_value_enum())
-            }
-            ExprKind::Char { .. }
-            | ExprKind::Integer { .. }
-            | ExprKind::Float { .. }
-            | ExprKind::Image { .. }
-            | ExprKind::True
-            | ExprKind::False
-            | ExprKind::Nullptr
-            | ExprKind::SizeOf { .. }
-            | ExprKind::Alignof { .. } => {
-                Ok(self.to_llvm_value(node.value.clone(), Rc::clone(&node.r#type))?)
             }
             ExprKind::GenericSelection { assocs, .. } => {
-                for assoc in assocs {
-                    if assoc.borrow().is_selected {
-                        return Ok(self.visit_expr(Rc::clone(&assoc.borrow().expr))?);
-                    }
-                }
-                unreachable!()
+                let assoc = assocs.iter().find(|&x| x.borrow().is_selected).unwrap();
+                result = self.visit_expr(&assoc.borrow().expr)?;
             }
-            ExprKind::Cast { target, method, .. } => {
-                let target_value = if match method {
-                    CastMethod::LToRValue | CastMethod::ToBool => true,
-                    _ => false,
-                } {
-                    //避免重复生成target的代码
-                    self.context
-                        .i32_type()
-                        .const_int(0, false)
-                        .as_any_value_enum()
-                } else {
-                    self.visit_expr(Rc::clone(target))?
-                };
-                match method {
-                    CastMethod::Nothing | CastMethod::PtrToPtr => Ok(target_value),
-                    CastMethod::FuncToPtr => Ok(match target_value {
-                        AnyValueEnum::FunctionValue(t) => {
-                            //实际上在调用as_any_value_enum后值又变成了FunctionValue
-                            t.as_global_value().as_pointer_value().as_any_value_enum()
-                        }
-                        _ => unreachable!(),
-                    }),
-                    CastMethod::ArrayToPtr => {
-                        Ok(map_builder_err(node.file_id, node.span, unsafe {
-                            self.builder.build_in_bounds_gep(
-                                //如果是数组, 那结果是array type, 如果是vla, 那结果是pointer type
-                                BasicTypeEnum::try_from(
-                                    self.to_llvm_type(Rc::clone(&target.borrow().r#type))?,
-                                )
-                                .unwrap(),
-                                //target 一般是左值, 而左值一定是PointerValue
-                                target_value.into_pointer_value(),
-                                &[self.context.i64_type().const_int(0, false)],
-                                "",
-                            )
-                        })?
-                        .as_any_value_enum())
-                    }
-                    CastMethod::LToRValue => Ok(self.build_load(Rc::clone(target))?),
-                    CastMethod::ComplexExtend | CastMethod::ComplexTrunc => {
-                        let complex_type = self
-                            .to_llvm_type(Rc::clone(&node.r#type))?
-                            .into_struct_type();
-                        let to_type = complex_type
-                            .get_field_type_at_index(0)
-                            .unwrap()
-                            .into_float_type();
-                        let (real, imag) = map_builder_err(
-                            node.file_id,
-                            node.span,
-                            self.extract_real_imag(target_value),
-                        )?;
-                        let op = match method {
-                            CastMethod::ComplexExtend => InstructionOpcode::FPExt,
-                            CastMethod::ComplexTrunc => InstructionOpcode::FPTrunc,
-                            _ => unreachable!(),
-                        };
-                        let cast_real = map_builder_err(
-                            node.file_id,
-                            node.span,
-                            self.builder.build_cast(op, real, to_type, "cast_real"),
-                        )?;
-                        let cast_imag = map_builder_err(
-                            node.file_id,
-                            node.span,
-                            self.builder.build_cast(op, imag, to_type, "cast_real"),
-                        )?;
-                        Ok(map_builder_err(
-                            node.file_id,
-                            node.span,
-                            self.builder.build_insert_value(
-                                map_builder_err(
-                                    node.file_id,
-                                    node.span,
-                                    self.builder.build_insert_value(
-                                        complex_type.const_named_struct(&[
-                                            to_type.const_zero().as_basic_value_enum(),
-                                            to_type.const_zero().as_basic_value_enum(),
-                                        ]),
-                                        cast_real,
-                                        0,
-                                        "",
-                                    ),
-                                )?,
-                                cast_imag,
-                                1,
-                                "",
-                            ),
-                        )?
-                        .as_any_value_enum())
-                    }
-                    CastMethod::ToBool => Ok(self.to_bool(Rc::clone(&target))?.as_any_value_enum()),
-                    CastMethod::FloatToComplex => {
-                        let complex_type = self
-                            .to_llvm_type(Rc::clone(&node.r#type))?
-                            .into_struct_type();
-                        Ok(map_builder_err(
-                            node.file_id,
-                            node.span,
-                            self.builder.build_insert_value(
-                                complex_type.const_zero(),
-                                target_value.into_float_value(),
-                                0,
-                                "",
-                            ),
-                        )?
-                        .as_any_value_enum())
-                    }
-                    CastMethod::ComplexToFloat => {
-                        let (real, _) = map_builder_err(
-                            node.file_id,
-                            node.span,
-                            self.extract_real_imag(target_value),
-                        )?;
-                        Ok(real.as_any_value_enum())
-                    }
-                    _ => Ok(map_builder_err(
-                        node.file_id,
-                        node.span,
-                        self.builder.build_cast(
-                            match method {
-                                CastMethod::PtrToInt => InstructionOpcode::PtrToInt,
-                                CastMethod::IntToPtr => InstructionOpcode::IntToPtr,
-                                CastMethod::FloatTrunc => InstructionOpcode::FPTrunc,
-                                CastMethod::FloatExtend => InstructionOpcode::FPExt,
-                                CastMethod::FloatToSInt => InstructionOpcode::FPToSI,
-                                CastMethod::FloatToUInt => InstructionOpcode::FPToUI,
-                                CastMethod::SIntToFloat => InstructionOpcode::SIToFP,
-                                CastMethod::UIntToFloat => InstructionOpcode::UIToFP,
-                                CastMethod::SignedExtend => InstructionOpcode::SExt,
-                                CastMethod::ZeroExtand => InstructionOpcode::ZExt,
-                                CastMethod::IntTrunc => InstructionOpcode::Trunc,
-                                _ => unreachable!(),
-                            },
-                            match BasicValueEnum::try_from(target_value) {
-                                Ok(t) => t,
-                                Err(_) => {
-                                    return Err(Diagnostic::error()
-                                        .with_message(format!(
-                                            "cast from a invalid value: {target_value}"
-                                        ))
-                                        .with_label(Label::primary(
-                                            target.borrow().file_id,
-                                            target.borrow().span,
-                                        )));
-                                }
-                            },
-                            match BasicTypeEnum::try_from(
-                                self.to_llvm_type(Rc::clone(&node.r#type))?,
-                            ) {
-                                Ok(t) => t,
-                                Err(_) => {
-                                    return Err(Diagnostic::error()
-                                        .with_message(format!(
-                                            "cast to a invalid type: {}",
-                                            node.r#type.borrow()
-                                        ))
-                                        .with_label(Label::primary(
-                                            node.r#type.borrow().file_id,
-                                            node.r#type.borrow().span,
-                                        )));
-                                }
-                            },
-                            "",
-                        ),
-                    )?
-                    .as_any_value_enum()),
+            ExprKind::Cast { target, method, .. } => match method {
+                CastMethod::LToRValue => {
+                    result = self.build_load(target)?;
                 }
+                _ => {
+                    let target_value = self.visit_expr(target)?;
+                    result = self.builder.cast(&target_value, r#type, *method)?;
+                }
+            },
+            ExprKind::Subscript { target, index } => {
+                let target_value = self.visit_expr(target)?;
+                let index_value = self.visit_expr(index)?;
+                result = self
+                    .builder
+                    .subscript(&target_value, &index_value, r#type)?;
+            }
+            ExprKind::MemberAccess {
+                target,
+                name,
+                is_arrow,
+            } => {
+                let target_value = self.visit_expr(target)?;
+                let target_type = if *is_arrow {
+                    pointee(Rc::clone(&target.borrow().r#type)).unwrap()
+                } else {
+                    Rc::clone(&target.borrow().r#type)
+                };
+
+                let record_type = remove_qualifier(Rc::clone(&target_type));
+                result = self
+                    .builder
+                    .load_member(&target_value, &record_type, name)?;
+            }
+            ExprKind::FunctionCall { target, arguments } => {
+                let function = self.visit_expr(target)?;
+                let mut args = vec![];
+                for arg in arguments {
+                    args.push(self.visit_expr(arg)?);
+                }
+                result = self.builder.call(&function, &args, r#type)?;
+            }
+            ExprKind::CompoundLiteral {
+                storage_classes,
+                initializer,
+                ..
+            } => {
+                let init_value = self.visit_initializer(initializer)?;
+                result =
+                    self.builder
+                        .load_compound_literal(r#type, storage_classes, &init_value)?;
             }
             ExprKind::Conditional {
                 condition,
                 true_expr,
                 false_expr,
             } => {
-                let true_block = self
-                    .context
-                    .append_basic_block(*self.func_values.last().unwrap(), "cond_true");
-                let false_block = self
-                    .context
-                    .append_basic_block(*self.func_values.last().unwrap(), "cond_false");
-                let end_block = self
-                    .context
-                    .append_basic_block(*self.func_values.last().unwrap(), "cond_end");
+                let cond_block = self.builder.current_basic_block()?;
+                let true_block = self.builder.append_basic_block("cond_true")?;
+                let false_block = self.builder.append_basic_block("cond_false")?;
+                let end_block = self.builder.append_basic_block("cond_end")?;
 
-                let condtition_value = self.to_bool(Rc::clone(condition))?;
-                map_builder_err(
-                    node.file_id,
-                    node.span,
-                    self.builder.build_conditional_branch(
-                        condtition_value,
-                        true_block,
-                        false_block,
-                    ),
+                self.builder.position_at_end(&cond_block);
+                let cond_value = self.visit_expr(condition)?;
+                self.builder
+                    .conditional_branch(&cond_value, &true_block, &false_block)?;
+
+                self.builder.position_at_end(&true_block);
+                let true_value = self.visit_expr(true_expr)?;
+                self.builder.unconditional_branch(&end_block)?;
+
+                self.builder.position_at_end(&false_block);
+                let false_value = self.visit_expr(false_expr)?;
+                self.builder.unconditional_branch(&end_block)?;
+
+                self.builder.position_at_end(&end_block);
+                result = self.builder.phi(
+                    r#type,
+                    &[(true_value, true_block), (false_value, false_block)],
                 )?;
-
-                true_block
-                    .move_after(self.builder.get_insert_block().unwrap())
-                    .unwrap();
-
-                self.builder.position_at_end(true_block);
-                let true_value = self.visit_expr(Rc::clone(true_expr))?;
-                map_builder_err(
-                    node.file_id,
-                    node.span,
-                    self.builder.build_unconditional_branch(end_block),
-                )?;
-
-                false_block
-                    .move_after(self.builder.get_insert_block().unwrap())
-                    .unwrap();
-
-                self.builder.position_at_end(false_block);
-                let false_value = self.visit_expr(Rc::clone(false_expr))?;
-                map_builder_err(
-                    node.file_id,
-                    node.span,
-                    self.builder.build_unconditional_branch(end_block),
-                )?;
-
-                end_block
-                    .move_after(self.builder.get_insert_block().unwrap())
-                    .unwrap();
-
-                self.builder.position_at_end(end_block);
-
-                let phi = map_builder_err(
-                    node.file_id,
-                    node.span,
-                    self.builder.build_phi(
-                        BasicTypeEnum::try_from(self.to_llvm_type(Rc::clone(&node.r#type))?)
-                            .unwrap(),
-                        "",
-                    ),
-                )?;
-                phi.add_incoming(&[(&BasicValueEnum::try_from(true_value).unwrap(), true_block)]);
-                phi.add_incoming(&[(&BasicValueEnum::try_from(false_value).unwrap(), false_block)]);
-
-                Ok(phi.as_any_value_enum())
-            }
-            ExprKind::FunctionCall { target, arguments } => {
-                let mut args = Vec::new();
-                for arg in arguments {
-                    args.push(
-                        BasicValueEnum::try_from(self.visit_expr(Rc::clone(arg))?)
-                            .unwrap()
-                            .into(),
-                    );
-                }
-
-                let target_value = self.visit_expr(Rc::clone(target))?;
-                match target_value {
-                    AnyValueEnum::PointerValue(t) => Ok(map_builder_err(
-                        node.file_id,
-                        node.span,
-                        self.builder.build_indirect_call(
-                            self.to_llvm_type(
-                                pointee(Rc::clone(&target.borrow().r#type)).unwrap(),
-                            )?
-                            .into_function_type(),
-                            t,
-                            &args,
-                            "",
-                        ),
-                    )?
-                    .as_any_value_enum()),
-                    AnyValueEnum::FunctionValue(t) => Ok(map_builder_err(
-                        node.file_id,
-                        node.span,
-                        self.builder.build_direct_call(t, &args, ""),
-                    )?
-                    .as_any_value_enum()),
-                    _ => unreachable!(),
-                }
-            }
-            ExprKind::Subscript { target, index } => {
-                let target_value = self.visit_expr(Rc::clone(target))?;
-                let index_value = self.visit_expr(Rc::clone(index))?;
-                match (target_value, index_value) {
-                    (AnyValueEnum::PointerValue(target), AnyValueEnum::IntValue(index))
-                    | (AnyValueEnum::IntValue(index), AnyValueEnum::PointerValue(target)) => {
-                        Ok(map_builder_err(node.file_id, node.span, unsafe {
-                            self.builder.build_in_bounds_gep(
-                                BasicTypeEnum::try_from(
-                                    self.to_llvm_type(Rc::clone(&node.r#type))?,
-                                )
-                                .unwrap(),
-                                target,
-                                &[index],
-                                "",
-                            )
-                        })?
-                        .as_any_value_enum())
-                    }
-                    _ => unreachable!(),
-                }
             }
             ExprKind::UnaryOp { op, operand } => {
-                let operand_value = if let UnaryOpKind::Not = op {
-                    self.to_bool(Rc::clone(operand))?.as_any_value_enum()
-                } else {
-                    self.visit_expr(Rc::clone(operand))?
-                };
-                match op {
+                let operand_value = self.visit_expr(operand)?;
+                result = match op {
                     UnaryOpKind::AddressOf => match &operand.borrow().kind {
                         ExprKind::UnaryOp {
                             op: UnaryOpKind::Dereference,
                             operand,
-                        } => Ok(self.visit_expr(Rc::clone(operand))?),
-                        _ => match operand_value {
-                            AnyValueEnum::FunctionValue(t) => {
-                                Ok(t.as_global_value().as_pointer_value().as_any_value_enum())
-                            }
-                            //对于左值, operand_value一定是指针
-                            _ => Ok(operand_value),
-                        },
+                        } => self.visit_expr(operand)?,
+                        _ => self
+                            .builder
+                            .unaryop(*op, &operand_value, &operand.borrow().r#type)?,
                     },
-                    UnaryOpKind::Dereference => Ok(map_builder_err(
-                        node.file_id,
-                        node.span,
-                        self.builder.build_load(
-                            self.to_llvm_type(Rc::clone(&operand.borrow().r#type))?
-                                .into_pointer_type(),
-                            operand_value.into_pointer_value(),
-                            "",
-                        ),
-                    )?
-                    .as_any_value_enum()),
-                    UnaryOpKind::Not => Ok(map_builder_err(
-                        node.file_id,
-                        node.span,
-                        self.builder.build_int_compare(
-                            IntPredicate::EQ,
-                            operand_value.into_int_value(),
-                            self.context.bool_type().const_int(0, false),
-                            "",
-                        ),
-                    )?
-                    .as_any_value_enum()),
-                    UnaryOpKind::Positive => Ok(operand_value),
-                    UnaryOpKind::Negative => {
-                        match &operand.borrow().r#type.borrow().kind {
-                            t if t.is_integer() => Ok(map_builder_err(
-                                node.file_id,
-                                node.span,
-                                self.builder
-                                    .build_int_neg(operand_value.into_int_value(), ""),
-                            )?
-                            .as_any_value_enum()),
-                            t if t.is_real_float() => Ok(map_builder_err(
-                                node.file_id,
-                                node.span,
-                                self.builder
-                                    .build_float_neg(operand_value.into_float_value(), ""),
-                            )?
-                            .as_any_value_enum()),
-                            t if t.is_complex() => {
-                                let operand_value = operand_value.into_struct_value();
-
-                                let real = map_builder_err(
-                                    node.file_id,
-                                    node.span,
-                                    self.builder.build_extract_value(operand_value, 0, "real"),
-                                )?
-                                .into_float_value();
-                                let imag = map_builder_err(
-                                    node.file_id,
-                                    node.span,
-                                    self.builder.build_extract_value(operand_value, 1, "imag"),
-                                )?
-                                .into_float_value();
-
-                                let neg_real = map_builder_err(
-                                    node.file_id,
-                                    node.span,
-                                    self.builder.build_float_neg(real, "neg_real"),
-                                )?;
-                                let neg_imag = map_builder_err(
-                                    node.file_id,
-                                    node.span,
-                                    self.builder.build_float_neg(imag, "neg_image"),
-                                )?;
-
-                                Ok(map_builder_err(
-                                    node.file_id,
-                                    node.span,
-                                    self.builder.build_insert_value(
-                                        map_builder_err(
-                                            node.file_id,
-                                            node.span,
-                                            self.builder.build_insert_value(
-                                                operand_value,
-                                                neg_imag,
-                                                1,
-                                                "",
-                                            ),
-                                        )?,
-                                        neg_real,
-                                        0,
-                                        "",
-                                    ),
-                                )?
-                                .as_any_value_enum())
-                            }
-                            //TODO 十进制浮点数
-                            _ => todo!(),
-                        }
-                    }
-                    UnaryOpKind::BitNot => Ok(map_builder_err(
-                        node.file_id,
-                        node.span,
-                        self.builder.build_not(operand_value.into_int_value(), ""),
-                    )?
-                    .as_any_value_enum()),
-                    UnaryOpKind::PostfixDec
-                    | UnaryOpKind::PrefixDec
-                    | UnaryOpKind::PostfixInc
-                    | UnaryOpKind::PrefixInc => {
-                        let offset: i64 = match op {
-                            UnaryOpKind::PostfixDec | UnaryOpKind::PrefixDec => -1,
-                            UnaryOpKind::PrefixInc | UnaryOpKind::PostfixInc => 1,
-                            _ => unreachable!(),
-                        };
-                        //操作数是左值且没有进行过左值转换
-                        let old_value = map_builder_err(
-                            node.file_id,
-                            node.span,
-                            self.builder.build_load(
-                                BasicTypeEnum::try_from(
-                                    self.to_llvm_type(Rc::clone(&operand.borrow().r#type))?,
-                                )
-                                .unwrap(),
-                                operand_value.into_pointer_value(),
-                                "",
-                            ),
-                        )?;
-                        let new_value = match &operand.borrow().r#type.borrow().kind {
-                            t if t.is_integer() => map_builder_err(
-                                node.file_id,
-                                node.span,
-                                self.builder.build_int_add(
-                                    old_value.into_int_value(),
-                                    old_value
-                                        .get_type()
-                                        .into_int_type()
-                                        .const_int(offset as u64, true),
-                                    "",
-                                ),
-                            )?
-                            .as_any_value_enum(),
-                            t if t.is_real_float() => map_builder_err(
-                                node.file_id,
-                                node.span,
-                                self.builder.build_float_add(
-                                    old_value.into_float_value(),
-                                    old_value
-                                        .get_type()
-                                        .into_float_type()
-                                        .const_float(offset as f64),
-                                    "",
-                                ),
-                            )?
-                            .as_any_value_enum(),
-                            t if t.is_pointer() => {
-                                map_builder_err(node.file_id, node.span, unsafe {
-                                    self.builder.build_in_bounds_gep(
-                                        match BasicTypeEnum::try_from(self.to_llvm_type(
-                                            pointee(Rc::clone(&operand.borrow().r#type)).unwrap(),
-                                        )?) {
-                                            Ok(t) => t,
-                                            Err(_) => {
-                                                return Err(Diagnostic::error()
-                                                    .with_message(format!(
-                                                        "not point to a basic type"
-                                                    ))
-                                                    .with_label(Label::primary(
-                                                        operand.borrow().file_id,
-                                                        operand.borrow().span,
-                                                    )));
-                                            }
-                                        },
-                                        old_value.into_pointer_value(),
-                                        &[self.context.i64_type().const_int(offset as u64, true)],
-                                        "",
-                                    )
-                                })?
-                                .as_any_value_enum()
-                            }
-                            _ => unreachable!(),
-                        };
-                        map_builder_err(
-                            node.file_id,
-                            node.span,
-                            self.builder.build_store(
-                                //操作数本身就是左值
-                                operand_value.into_pointer_value(),
-                                BasicValueEnum::try_from(new_value).unwrap(),
-                            ),
-                        )?;
-                        match op {
-                            UnaryOpKind::PostfixInc | UnaryOpKind::PostfixDec => {
-                                Ok(old_value.as_any_value_enum())
-                            }
-                            UnaryOpKind::PrefixInc | UnaryOpKind::PrefixDec => Ok(new_value),
-                            _ => unreachable!(),
-                        }
-                    }
+                    _ => self
+                        .builder
+                        .unaryop(*op, &operand_value, &operand.borrow().r#type)?,
                 }
             }
             ExprKind::BinOp { op, left, right } => match op {
                 BinOpKind::And => {
-                    let left_block = self.builder.get_insert_block().unwrap();
-                    let right_block = self
-                        .context
-                        .append_basic_block(*self.func_values.last().unwrap(), "and_right");
-                    let end_block = self
-                        .context
-                        .append_basic_block(*self.func_values.last().unwrap(), "and_end");
+                    let pre_block = self.builder.current_basic_block()?;
+                    let left_block = self.builder.append_basic_block("and_left")?;
+                    let right_block = self.builder.append_basic_block("and_right")?;
+                    let end_block = self.builder.append_basic_block("and_end")?;
 
-                    let left_value = self.to_bool(Rc::clone(left))?;
-                    map_builder_err(
-                        node.file_id,
-                        node.span,
-                        self.builder
-                            .build_conditional_branch(left_value, right_block, end_block),
+                    self.builder.position_at_end(&pre_block);
+                    self.builder.unconditional_branch(&left_block)?;
+
+                    self.builder.position_at_end(&left_block);
+                    let left_value = self.visit_expr(left)?;
+                    self.builder
+                        .conditional_branch(&left_value, &right_block, &end_block)?;
+
+                    self.builder.position_at_end(&right_block);
+                    let right_value = self.visit_expr(right)?;
+                    self.builder.unconditional_branch(&end_block)?;
+
+                    self.builder.position_at_end(&end_block);
+                    result = self.builder.phi(
+                        r#type,
+                        &[(left_value, left_block), (right_value, right_block)],
                     )?;
-
-                    right_block
-                        .move_after(self.builder.get_insert_block().unwrap())
-                        .unwrap();
-
-                    self.builder.position_at_end(right_block);
-                    let right_value = self.to_bool(Rc::clone(right))?;
-                    map_builder_err(
-                        node.file_id,
-                        node.span,
-                        self.builder.build_unconditional_branch(end_block),
-                    )?;
-
-                    end_block
-                        .move_after(self.builder.get_insert_block().unwrap())
-                        .unwrap();
-
-                    self.builder.position_at_end(end_block);
-                    let phi = map_builder_err(
-                        node.file_id,
-                        node.span,
-                        self.builder.build_phi(
-                            BasicTypeEnum::try_from(self.to_llvm_type(Rc::clone(&node.r#type))?)
-                                .unwrap(),
-                            "",
-                        ),
-                    )?;
-                    phi.add_incoming(&[(&self.context.i32_type().const_int(0, false), left_block)]);
-                    phi.add_incoming(&[(&right_value, right_block)]);
-
-                    Ok(phi.as_any_value_enum())
                 }
                 BinOpKind::Or => {
-                    let left_block = self.builder.get_insert_block().unwrap();
-                    let right_block = self
-                        .context
-                        .append_basic_block(*self.func_values.last().unwrap(), "or_right");
-                    let end_block = self
-                        .context
-                        .append_basic_block(*self.func_values.last().unwrap(), "or_end");
+                    let pre_block = self.builder.current_basic_block()?;
+                    let left_block = self.builder.append_basic_block("or_left")?;
+                    let right_block = self.builder.append_basic_block("or_right")?;
+                    let end_block = self.builder.append_basic_block("or_end")?;
 
-                    let left_value = self.to_bool(Rc::clone(left))?;
-                    map_builder_err(
-                        node.file_id,
-                        node.span,
-                        self.builder
-                            .build_conditional_branch(left_value, end_block, right_block),
+                    self.builder.position_at_end(&pre_block);
+                    self.builder.unconditional_branch(&left_block)?;
+
+                    self.builder.position_at_end(&left_block);
+                    let left_value = self.visit_expr(left)?;
+                    self.builder
+                        .conditional_branch(&left_value, &end_block, &right_block)?;
+
+                    self.builder.position_at_end(&right_block);
+                    let right_value = self.visit_expr(right)?;
+                    self.builder.unconditional_branch(&end_block)?;
+
+                    self.builder.position_at_end(&end_block);
+                    result = self.builder.phi(
+                        r#type,
+                        &[(left_value, left_block), (right_value, right_block)],
                     )?;
-
-                    right_block
-                        .move_after(self.builder.get_insert_block().unwrap())
-                        .unwrap();
-
-                    self.builder.position_at_end(right_block);
-                    let right_value = self.to_bool(Rc::clone(right))?;
-                    map_builder_err(
-                        node.file_id,
-                        node.span,
-                        self.builder.build_unconditional_branch(end_block),
-                    )?;
-
-                    end_block
-                        .move_after(self.builder.get_insert_block().unwrap())
-                        .unwrap();
-
-                    self.builder.position_at_end(end_block);
-                    let phi = map_builder_err(
-                        node.file_id,
-                        node.span,
-                        self.builder.build_phi(
-                            BasicTypeEnum::try_from(self.to_llvm_type(Rc::clone(&node.r#type))?)
-                                .unwrap(),
-                            "",
-                        ),
-                    )?;
-                    phi.add_incoming(&[(&self.context.i32_type().const_int(1, false), left_block)]);
-                    phi.add_incoming(&[(&right_value, right_block)]);
-
-                    Ok(phi.as_any_value_enum())
-                }
-                BinOpKind::Ge | BinOpKind::Gt | BinOpKind::Le | BinOpKind::Lt => {
-                    let left_value = self.visit_expr(Rc::clone(left))?;
-                    let right_value = self.visit_expr(Rc::clone(right))?;
-
-                    match (
-                        &left.borrow().r#type.borrow().kind,
-                        &right.borrow().r#type.borrow().kind,
-                    ) {
-                        (a, b) if a.is_integer() && b.is_integer() => Ok(map_builder_err(
-                            node.file_id,
-                            node.span,
-                            self.builder.build_int_compare(
-                                match op {
-                                    //进行常用算术转换后a和b的符号应该一样
-                                    BinOpKind::Ge => {
-                                        if a.is_unsigned().unwrap() {
-                                            IntPredicate::UGE
-                                        } else {
-                                            IntPredicate::SGE
-                                        }
-                                    }
-                                    BinOpKind::Gt => {
-                                        if a.is_unsigned().unwrap() {
-                                            IntPredicate::UGT
-                                        } else {
-                                            IntPredicate::SGT
-                                        }
-                                    }
-                                    BinOpKind::Le => {
-                                        if a.is_unsigned().unwrap() {
-                                            IntPredicate::ULE
-                                        } else {
-                                            IntPredicate::SLE
-                                        }
-                                    }
-                                    BinOpKind::Lt => {
-                                        if a.is_unsigned().unwrap() {
-                                            IntPredicate::ULT
-                                        } else {
-                                            IntPredicate::SLT
-                                        }
-                                    }
-                                    _ => unreachable!(),
-                                },
-                                left_value.into_int_value(),
-                                right_value.into_int_value(),
-                                "",
-                            ),
-                        )?
-                        .as_any_value_enum()),
-                        (a, b) if a.is_real_float() && b.is_real_float() => Ok(map_builder_err(
-                            node.file_id,
-                            node.span,
-                            self.builder.build_float_compare(
-                                match op {
-                                    BinOpKind::Ge => FloatPredicate::OGE,
-                                    BinOpKind::Gt => FloatPredicate::OGT,
-                                    BinOpKind::Le => FloatPredicate::OLE,
-                                    BinOpKind::Lt => FloatPredicate::OLT,
-                                    _ => unreachable!(),
-                                },
-                                left_value.into_float_value(),
-                                right_value.into_float_value(),
-                                "",
-                            ),
-                        )?
-                        .as_any_value_enum()),
-                        (a, b) if a.is_pointer() && b.is_pointer() => Ok(map_builder_err(
-                            node.file_id,
-                            node.span,
-                            self.builder.build_int_compare(
-                                match op {
-                                    BinOpKind::Ge => IntPredicate::UGE,
-                                    BinOpKind::Gt => IntPredicate::UGT,
-                                    BinOpKind::Le => IntPredicate::ULE,
-                                    BinOpKind::Lt => IntPredicate::ULT,
-                                    _ => unreachable!(),
-                                },
-                                left_value.into_pointer_value(),
-                                right_value.into_pointer_value(),
-                                "",
-                            ),
-                        )?
-                        .as_any_value_enum()),
-                        _ => unreachable!(),
-                    }
-                }
-                BinOpKind::Eq | BinOpKind::Neq => {
-                    let left_value = self.visit_expr(Rc::clone(left))?;
-                    let right_value = self.visit_expr(Rc::clone(right))?;
-
-                    match (
-                        &left.borrow().r#type.borrow().kind,
-                        &right.borrow().r#type.borrow().kind,
-                    ) {
-                        (a, b) if a.is_integer() && b.is_integer() => Ok(map_builder_err(
-                            node.file_id,
-                            node.span,
-                            self.builder.build_int_compare(
-                                match op {
-                                    BinOpKind::Eq => IntPredicate::EQ,
-                                    BinOpKind::Neq => IntPredicate::NE,
-                                    _ => unreachable!(),
-                                },
-                                left_value.into_int_value(),
-                                right_value.into_int_value(),
-                                "",
-                            ),
-                        )?
-                        .as_any_value_enum()),
-                        (a, b) if a.is_real_float() && b.is_real_float() => Ok(map_builder_err(
-                            node.file_id,
-                            node.span,
-                            self.builder.build_float_compare(
-                                match op {
-                                    BinOpKind::Eq => FloatPredicate::OEQ,
-                                    BinOpKind::Neq => FloatPredicate::ONE,
-                                    _ => unreachable!(),
-                                },
-                                left_value.into_float_value(),
-                                right_value.into_float_value(),
-                                "",
-                            ),
-                        )?
-                        .as_any_value_enum()),
-                        (a, b)
-                            if (a.is_pointer() || a.is_nullptr())
-                                && (b.is_pointer() || b.is_nullptr()) =>
-                        {
-                            Ok(map_builder_err(
-                                node.file_id,
-                                node.span,
-                                self.builder.build_int_compare(
-                                    match op {
-                                        BinOpKind::Eq => IntPredicate::EQ,
-                                        BinOpKind::Neq => IntPredicate::NE,
-                                        _ => unreachable!(),
-                                    },
-                                    left_value.into_pointer_value(),
-                                    right_value.into_pointer_value(),
-                                    "",
-                                ),
-                            )?
-                            .as_any_value_enum())
-                        }
-                        (a, b)
-                            if (a.is_complex() && b.is_real_float())
-                                || (b.is_complex() && a.is_real_float())
-                                || (a.is_complex() && b.is_complex()) =>
-                        {
-                            let (real1, imag1) = map_builder_err(
-                                left.borrow().file_id,
-                                left.borrow().span,
-                                self.extract_real_imag(left_value),
-                            )?;
-                            let (real2, imag2) = map_builder_err(
-                                right.borrow().file_id,
-                                right.borrow().span,
-                                self.extract_real_imag(right_value),
-                            )?;
-
-                            let op = match op {
-                                BinOpKind::Eq => FloatPredicate::OEQ,
-                                BinOpKind::Neq => FloatPredicate::ONE,
-                                _ => unreachable!(),
-                            };
-
-                            let cmp_real = map_builder_err(
-                                node.file_id,
-                                node.span,
-                                self.builder
-                                    .build_float_compare(op, real1, real2, "cmp_real"),
-                            )?;
-                            let cmp_imag = map_builder_err(
-                                node.file_id,
-                                node.span,
-                                self.builder
-                                    .build_float_compare(op, imag1, imag2, "cmp_imag"),
-                            )?;
-                            Ok(map_builder_err(
-                                node.file_id,
-                                node.span,
-                                self.builder.build_and(cmp_real, cmp_imag, ""),
-                            )?
-                            .as_any_value_enum())
-                        }
-                        //TODO 十进制浮点数
-                        _ => todo!(),
-                    }
-                }
-                BinOpKind::Add => {
-                    let left_value = self.visit_expr(Rc::clone(left))?;
-                    let right_value = self.visit_expr(Rc::clone(right))?;
-                    match (
-                        &left.borrow().r#type.borrow().kind,
-                        &right.borrow().r#type.borrow().kind,
-                    ) {
-                        (a, b) if a.is_integer() && b.is_integer() => Ok(map_builder_err(
-                            node.file_id,
-                            node.span,
-                            self.builder.build_int_add(
-                                left_value.into_int_value(),
-                                right_value.into_int_value(),
-                                "",
-                            ),
-                        )?
-                        .as_any_value_enum()),
-                        (a, b) if a.is_real_float() && b.is_real_float() => Ok(map_builder_err(
-                            node.file_id,
-                            node.span,
-                            self.builder.build_float_add(
-                                left_value.into_float_value(),
-                                right_value.into_float_value(),
-                                "",
-                            ),
-                        )?
-                        .as_any_value_enum()),
-                        (TypeKind::Pointer(pointee), b) if b.is_integer() => {
-                            Ok(map_builder_err(node.file_id, node.span, unsafe {
-                                self.builder.build_in_bounds_gep(
-                                    BasicTypeEnum::try_from(self.to_llvm_type(Rc::clone(pointee))?)
-                                        .unwrap(),
-                                    left_value.into_pointer_value(),
-                                    &[right_value.into_int_value()],
-                                    "",
-                                )
-                            })?
-                            .as_any_value_enum())
-                        }
-                        (a, TypeKind::Pointer(pointee)) if a.is_integer() => {
-                            Ok(map_builder_err(node.file_id, node.span, unsafe {
-                                self.builder.build_in_bounds_gep(
-                                    BasicTypeEnum::try_from(self.to_llvm_type(Rc::clone(pointee))?)
-                                        .unwrap(),
-                                    right_value.into_pointer_value(),
-                                    &[left_value.into_int_value()],
-                                    "",
-                                )
-                            })?
-                            .as_any_value_enum())
-                        }
-                        (a, b)
-                            if (a.is_complex() && b.is_real_float())
-                                || (b.is_complex() && a.is_real_float())
-                                || (a.is_complex() && b.is_complex()) =>
-                        {
-                            let complex_type = if a.is_complex() {
-                                left_value.into_struct_value()
-                            } else if b.is_complex() {
-                                right_value.into_struct_value()
-                            } else {
-                                unreachable!()
-                            };
-
-                            let (real1, imag1) = map_builder_err(
-                                left.borrow().file_id,
-                                left.borrow().span,
-                                self.extract_real_imag(left_value),
-                            )?;
-                            let (real2, imag2) = map_builder_err(
-                                right.borrow().file_id,
-                                right.borrow().span,
-                                self.extract_real_imag(right_value),
-                            )?;
-
-                            let add_real = map_builder_err(
-                                node.file_id,
-                                node.span,
-                                self.builder.build_float_add(real1, real2, "add_real"),
-                            )?;
-                            let add_imag = map_builder_err(
-                                node.file_id,
-                                node.span,
-                                self.builder.build_float_add(imag1, imag2, "add_imag"),
-                            )?;
-
-                            Ok(map_builder_err(
-                                node.file_id,
-                                node.span,
-                                (|| {
-                                    self.builder.build_insert_value(
-                                        self.builder
-                                            .build_insert_value(complex_type, add_real, 0, "")?
-                                            .into_struct_value(),
-                                        add_imag,
-                                        1,
-                                        "",
-                                    )
-                                })(),
-                            )?
-                            .as_any_value_enum())
-                        }
-                        //TODO 十进制浮点数
-                        _ => todo!(),
-                    }
-                }
-                BinOpKind::Sub => {
-                    let left_value = self.visit_expr(Rc::clone(left))?;
-                    let right_value = self.visit_expr(Rc::clone(right))?;
-                    match (
-                        &left.borrow().r#type.borrow().kind,
-                        &right.borrow().r#type.borrow().kind,
-                    ) {
-                        (a, b) if a.is_integer() && b.is_integer() => Ok(map_builder_err(
-                            node.file_id,
-                            node.span,
-                            self.builder.build_int_sub(
-                                left_value.into_int_value(),
-                                right_value.into_int_value(),
-                                "",
-                            ),
-                        )?
-                        .as_any_value_enum()),
-                        (a, b) if a.is_real_float() && b.is_real_float() => Ok(map_builder_err(
-                            node.file_id,
-                            node.span,
-                            self.builder.build_float_sub(
-                                left_value.into_float_value(),
-                                right_value.into_float_value(),
-                                "",
-                            ),
-                        )?
-                        .as_any_value_enum()),
-                        (TypeKind::Pointer(pointee), b) if b.is_integer() => {
-                            let right_neg = map_builder_err(
-                                node.file_id,
-                                node.span,
-                                self.builder.build_int_neg(right_value.into_int_value(), ""),
-                            )?;
-                            Ok(map_builder_err(node.file_id, node.span, unsafe {
-                                self.builder.build_in_bounds_gep(
-                                    BasicTypeEnum::try_from(self.to_llvm_type(Rc::clone(pointee))?)
-                                        .unwrap(),
-                                    left_value.into_pointer_value(),
-                                    &[right_neg],
-                                    "",
-                                )
-                            })?
-                            .as_any_value_enum())
-                        }
-                        (a, b)
-                            if (a.is_complex() && b.is_real_float())
-                                || (b.is_complex() && a.is_real_float())
-                                || (a.is_complex() && b.is_complex()) =>
-                        {
-                            let complex_type = if a.is_complex() {
-                                left_value.into_struct_value()
-                            } else if b.is_complex() {
-                                right_value.into_struct_value()
-                            } else {
-                                unreachable!()
-                            };
-
-                            let (real1, imag1) = map_builder_err(
-                                left.borrow().file_id,
-                                left.borrow().span,
-                                self.extract_real_imag(left_value),
-                            )?;
-                            let (real2, imag2) = map_builder_err(
-                                right.borrow().file_id,
-                                right.borrow().span,
-                                self.extract_real_imag(right_value),
-                            )?;
-
-                            let sub_real = map_builder_err(
-                                node.file_id,
-                                node.span,
-                                self.builder.build_float_sub(real1, real2, "sub_real"),
-                            )?;
-                            let sub_imag = map_builder_err(
-                                node.file_id,
-                                node.span,
-                                self.builder.build_float_sub(imag1, imag2, "sub_imag"),
-                            )?;
-
-                            Ok(map_builder_err(
-                                node.file_id,
-                                node.span,
-                                (|| {
-                                    self.builder.build_insert_value(
-                                        self.builder
-                                            .build_insert_value(complex_type, sub_real, 0, "")?
-                                            .into_struct_value(),
-                                        sub_imag,
-                                        1,
-                                        "",
-                                    )
-                                })(),
-                            )?
-                            .as_any_value_enum())
-                        }
-                        //TODO 十进制浮点数
-                        _ => todo!(),
-                    }
-                }
-                BinOpKind::Mul | BinOpKind::Div | BinOpKind::Mod => {
-                    let left_value = self.visit_expr(Rc::clone(left))?;
-                    let right_value = self.visit_expr(Rc::clone(right))?;
-                    match (
-                        &left.borrow().r#type.borrow().kind,
-                        &right.borrow().r#type.borrow().kind,
-                    ) {
-                        (a, b) if a.is_integer() && b.is_integer() => Ok(map_builder_err(
-                            node.file_id,
-                            node.span,
-                            match op {
-                                BinOpKind::Mul => self.builder.build_int_mul(
-                                    left_value.into_int_value(),
-                                    right_value.into_int_value(),
-                                    "",
-                                ),
-                                //经过常用算术转换后a和b的符号应该相同
-                                BinOpKind::Div => {
-                                    if a.is_unsigned().unwrap() {
-                                        self.builder.build_int_unsigned_div(
-                                            left_value.into_int_value(),
-                                            right_value.into_int_value(),
-                                            "",
-                                        )
-                                    } else {
-                                        self.builder.build_int_signed_div(
-                                            left_value.into_int_value(),
-                                            right_value.into_int_value(),
-                                            "",
-                                        )
-                                    }
-                                }
-                                BinOpKind::Mod => {
-                                    if a.is_unsigned().unwrap() {
-                                        self.builder.build_int_unsigned_rem(
-                                            left_value.into_int_value(),
-                                            right_value.into_int_value(),
-                                            "",
-                                        )
-                                    } else {
-                                        self.builder.build_int_signed_rem(
-                                            left_value.into_int_value(),
-                                            right_value.into_int_value(),
-                                            "",
-                                        )
-                                    }
-                                }
-                                _ => unreachable!(),
-                            },
-                        )?
-                        .as_any_value_enum()),
-                        (a, b) if a.is_real_float() && b.is_real_float() => Ok(map_builder_err(
-                            node.file_id,
-                            node.span,
-                            match op {
-                                BinOpKind::Mul => self.builder.build_float_mul(
-                                    left_value.into_float_value(),
-                                    right_value.into_float_value(),
-                                    "",
-                                ),
-                                BinOpKind::Div => self.builder.build_float_div(
-                                    left_value.into_float_value(),
-                                    right_value.into_float_value(),
-                                    "",
-                                ),
-                                _ => unreachable!(),
-                            },
-                        )?
-                        .as_any_value_enum()),
-                        (a, b)
-                            if (a.is_complex() && b.is_real_float())
-                                || (b.is_complex() && a.is_real_float())
-                                || (a.is_complex() && b.is_complex()) =>
-                        {
-                            let complex_type = if a.is_complex() {
-                                left_value.into_struct_value()
-                            } else if b.is_complex() {
-                                right_value.into_struct_value()
-                            } else {
-                                unreachable!()
-                            };
-
-                            let (real1, imag1) = map_builder_err(
-                                left.borrow().file_id,
-                                left.borrow().span,
-                                self.extract_real_imag(left_value),
-                            )?;
-                            let (real2, imag2) = map_builder_err(
-                                right.borrow().file_id,
-                                right.borrow().span,
-                                self.extract_real_imag(right_value),
-                            )?;
-
-                            let new_real = match op {
-                                BinOpKind::Mul => map_builder_err(
-                                    node.file_id,
-                                    node.span,
-                                    (|| {
-                                        self.builder.build_float_sub(
-                                            self.builder.build_float_mul(real1, real2, "")?,
-                                            self.builder.build_float_mul(imag1, imag2, "")?,
-                                            "new_real",
-                                        )
-                                    })(),
-                                )?,
-                                BinOpKind::Div => map_builder_err(
-                                    node.file_id,
-                                    node.span,
-                                    (|| {
-                                        self.builder.build_float_div(
-                                            self.builder.build_float_add(
-                                                self.builder.build_float_mul(real1, real2, "")?,
-                                                self.builder.build_float_mul(imag1, imag2, "")?,
-                                                "",
-                                            )?,
-                                            self.builder.build_float_add(
-                                                self.builder.build_float_mul(real2, real2, "")?,
-                                                self.builder.build_float_mul(imag2, imag2, "")?,
-                                                "",
-                                            )?,
-                                            "new_real",
-                                        )
-                                    })(),
-                                )?,
-                                _ => unreachable!(),
-                            };
-                            let new_imag = match op {
-                                BinOpKind::Mul => map_builder_err(
-                                    node.file_id,
-                                    node.span,
-                                    (|| {
-                                        self.builder.build_float_add(
-                                            self.builder.build_float_mul(real1, imag2, "")?,
-                                            self.builder.build_float_mul(real2, imag1, "")?,
-                                            "new_imag",
-                                        )
-                                    })(),
-                                )?,
-                                BinOpKind::Div => map_builder_err(
-                                    node.file_id,
-                                    node.span,
-                                    (|| {
-                                        self.builder.build_float_div(
-                                            self.builder.build_float_sub(
-                                                self.builder.build_float_mul(imag1, real2, "")?,
-                                                self.builder.build_float_mul(real1, imag2, "")?,
-                                                "",
-                                            )?,
-                                            self.builder.build_float_add(
-                                                self.builder.build_float_mul(real2, real2, "")?,
-                                                self.builder.build_float_mul(imag2, imag2, "")?,
-                                                "",
-                                            )?,
-                                            "new_imag",
-                                        )
-                                    })(),
-                                )?,
-                                _ => unreachable!(),
-                            };
-
-                            Ok(map_builder_err(
-                                node.file_id,
-                                node.span,
-                                (|| {
-                                    self.builder.build_insert_value(
-                                        self.builder
-                                            .build_insert_value(complex_type, new_real, 0, "")?
-                                            .into_struct_value(),
-                                        new_imag,
-                                        1,
-                                        "",
-                                    )
-                                })(),
-                            )?
-                            .as_any_value_enum())
-                        }
-                        //TODO 十进制浮点数
-                        _ => todo!(),
-                    }
-                }
-                BinOpKind::BitAnd
-                | BinOpKind::BitOr
-                | BinOpKind::BitXOr
-                | BinOpKind::LShift
-                | BinOpKind::RShift => {
-                    let left_value = self.visit_expr(Rc::clone(left))?;
-                    let right_value = self.visit_expr(Rc::clone(right))?;
-                    match (
-                        &left.borrow().r#type.borrow().kind,
-                        &right.borrow().r#type.borrow().kind,
-                    ) {
-                        (a, b) if a.is_integer() && b.is_integer() => Ok(map_builder_err(
-                            node.file_id,
-                            node.span,
-                            match op {
-                                BinOpKind::BitAnd => self.builder.build_and(
-                                    left_value.into_int_value(),
-                                    right_value.into_int_value(),
-                                    "",
-                                ),
-                                BinOpKind::BitOr => self.builder.build_or(
-                                    left_value.into_int_value(),
-                                    right_value.into_int_value(),
-                                    "",
-                                ),
-                                BinOpKind::BitXOr => self.builder.build_xor(
-                                    left_value.into_int_value(),
-                                    right_value.into_int_value(),
-                                    "",
-                                ),
-                                BinOpKind::LShift => self.builder.build_left_shift(
-                                    left_value.into_int_value(),
-                                    right_value.into_int_value(),
-                                    "",
-                                ),
-                                BinOpKind::RShift => self.builder.build_right_shift(
-                                    left_value.into_int_value(),
-                                    right_value.into_int_value(),
-                                    !a.is_unsigned().unwrap(),
-                                    "",
-                                ),
-                                _ => unreachable!(),
-                            },
-                        )?
-                        .as_any_value_enum()),
-                        _ => unreachable!(),
-                    }
                 }
                 BinOpKind::Assign => {
-                    let right_value = self.visit_expr(Rc::clone(right))?;
-                    self.build_store(Rc::clone(left), right_value)?;
-                    Ok(right_value)
+                    let right_value = self.visit_expr(right)?;
+                    self.build_store(left, &right_value)?;
+                    result = right_value;
                 }
                 BinOpKind::MulAssign
                 | BinOpKind::DivAssign
@@ -1348,8 +229,8 @@ impl<'ctx> CodeGen<'ctx> {
                 | BinOpKind::BitXOrAssign => {
                     let eq_expr = Rc::new(RefCell::new(Expr {
                         ..Expr::new(
-                            node.file_id,
-                            node.span,
+                            *file_id,
+                            *span,
                             ExprKind::BinOp {
                                 op: match op {
                                     BinOpKind::MulAssign => BinOpKind::Mul,
@@ -1381,251 +262,39 @@ impl<'ctx> CodeGen<'ctx> {
                             },
                         )
                     }));
-                    let right_value = self.visit_expr(eq_expr)?;
-                    self.build_store(Rc::clone(left), right_value)?;
-                    Ok(right_value)
+                    let right_value = self.visit_expr(&eq_expr)?;
+                    self.build_store(left, &right_value)?;
+                    result = right_value;
                 }
-                BinOpKind::Comma => {
-                    self.visit_expr(Rc::clone(left))?;
-                    let right_value = self.visit_expr(Rc::clone(right))?;
-                    Ok(right_value)
+                _ => {
+                    let left_value = self.visit_expr(left)?;
+                    let left_type = &left.borrow().r#type;
+                    let right_value = self.visit_expr(right)?;
+                    let right_type = &right.borrow().r#type;
+                    result = self.builder.binop(
+                        *op,
+                        &left_value,
+                        left_type,
+                        &right_value,
+                        right_type,
+                    )?;
                 }
             },
-            //如果 is_arrow==true 那么target的值是指针, 如果是false, 因为不会进行左值转换, 所以target的值还是指针
-            ExprKind::MemberAccess {
-                target,
-                name,
-                is_arrow,
-                ..
-            } => {
-                let target_value = self.visit_expr(Rc::clone(target))?;
-
-                let target_type = if *is_arrow {
-                    pointee(Rc::clone(&target.borrow().r#type)).unwrap()
-                } else {
-                    Rc::clone(&target.borrow().r#type)
-                };
-
-                let record_type = remove_qualifier(Rc::clone(&target_type));
-
-                match &record_type.borrow().kind {
-                    TypeKind::Record {
-                        kind: RecordKind::Struct,
-                        members: Some(members),
-                        ..
-                    } => {
-                        let SymbolKind::Member { index, .. } =
-                            &members.get(name).unwrap().borrow().kind
-                        else {
-                            unreachable!();
-                        };
-                        Ok(map_builder_err(
-                            node.file_id,
-                            node.span,
-                            self.builder.build_struct_gep(
-                                BasicTypeEnum::try_from(
-                                    self.to_llvm_type(Rc::clone(&record_type))?,
-                                )
-                                .unwrap(),
-                                target_value.into_pointer_value(),
-                                *index as u32,
-                                "",
-                            ),
-                        )?
-                        .as_any_value_enum())
-                    }
-                    TypeKind::Record {
-                        kind: RecordKind::Union,
-                        ..
-                    } => Ok(target_value.as_any_value_enum()),
-                    _ => unreachable!(),
-                }
-            }
-            ExprKind::CompoundLiteral {
-                storage_classes,
-                initializer,
-                ..
-            } => {
-                let init_value =
-                    match BasicValueEnum::try_from(self.visit_initializer(Rc::clone(initializer))?)
-                    {
-                        Ok(t) => t,
-                        Err(_) => {
-                            return Err(Diagnostic::error()
-                                .with_message("not a basic value")
-                                .with_label(Label::primary(
-                                    initializer.borrow().file_id,
-                                    initializer.borrow().span,
-                                )));
-                        }
-                    };
-
-                let ty = match BasicTypeEnum::try_from(self.to_llvm_type(Rc::clone(&node.r#type))?)
-                {
-                    Ok(t) => t,
-                    Err(_) => {
-                        return Err(Diagnostic::error()
-                            .with_message("not a basic type")
-                            .with_label(Label::primary(
-                                node.r#type.borrow().file_id,
-                                node.r#type.borrow().span,
-                            )));
-                    }
-                };
-
-                if self.func_values.len() == 0
-                    || storage_classes
-                        .iter()
-                        .any(|x| x.kind == StorageClassKind::Static)
-                {
-                    let value = self.module.add_global(ty, None, "compoundliteral");
-
-                    value.set_thread_local(
-                        storage_classes
-                            .iter()
-                            .any(|x| x.kind == StorageClassKind::ThreadLocal),
-                    );
-
-                    if storage_classes
-                        .iter()
-                        .any(|x| x.kind == StorageClassKind::Static)
-                    {
-                        value.set_linkage(Linkage::Internal);
-                    }
-
-                    if init_value.is_const() {
-                        value.set_initializer(&init_value);
-                    } else {
-                        return Err(Diagnostic::error()
-                            .with_message("not a constant")
-                            .with_label(Label::primary(
-                                initializer.borrow().file_id,
-                                initializer.borrow().span,
-                            )));
-                    }
-                    Ok(value.as_pointer_value().as_any_value_enum())
-                } else {
-                    let value = map_builder_err(
-                        node.file_id,
-                        node.span,
-                        self.builder.build_alloca(ty, "compoundliteral"),
-                    )?;
-                    map_builder_err(
-                        node.file_id,
-                        node.span,
-                        self.builder.build_store(value, init_value),
-                    )?;
-                    Ok(value.as_any_value_enum())
-                }
-            }
+            _ => unreachable!(),
         }
-    }
 
-    //将标量类型的表达式转换为bool值
-    pub fn to_bool(&self, expr: Rc<RefCell<Expr>>) -> Result<IntValue<'ctx>, Diagnostic<usize>> {
-        let file_id = expr.borrow().file_id;
-        let span = expr.borrow().span;
-        let value = self.visit_expr(Rc::clone(&expr))?;
-        match &expr.borrow().r#type.borrow().kind {
-            t if t.is_integer() => Ok(map_builder_err(
-                file_id,
-                span,
-                self.builder.build_int_compare(
-                    IntPredicate::NE,
-                    value.into_int_value(),
-                    value.get_type().into_int_type().const_int(0, false),
-                    "",
-                ),
-            )?),
-            t if t.is_real_float() => Ok(map_builder_err(
-                file_id,
-                span,
-                self.builder.build_float_compare(
-                    FloatPredicate::ONE,
-                    value.into_float_value(),
-                    value.get_type().into_float_type().const_float(0.),
-                    "",
-                ),
-            )?),
-            t if t.is_pointer() => Ok(map_builder_err(
-                file_id,
-                span,
-                self.builder.build_int_compare(
-                    IntPredicate::NE,
-                    value.into_pointer_value(),
-                    value.get_type().into_pointer_type().const_null(),
-                    "",
-                ),
-            )?),
-            t if t.is_nullptr() => Ok(self.context.i32_type().const_int(0, false)),
-            t if t.is_complex() => {
-                let (real, imag) = map_builder_err(file_id, span, self.extract_real_imag(value))?;
-                let bool_real = map_builder_err(
-                    file_id,
-                    span,
-                    self.builder.build_float_compare(
-                        FloatPredicate::ONE,
-                        real,
-                        real.get_type().const_float(0.),
-                        "bool_real",
-                    ),
-                )?;
-                let bool_imag = map_builder_err(
-                    file_id,
-                    span,
-                    self.builder.build_float_compare(
-                        FloatPredicate::ONE,
-                        imag,
-                        imag.get_type().const_float(0.),
-                        "bool_imag",
-                    ),
-                )?;
-                Ok(map_builder_err(
-                    file_id,
-                    span,
-                    self.builder.build_and(bool_real, bool_imag, ""),
-                )?)
-            }
-            //TODO 十进制浮点数
-            _ => todo!(),
-        }
+        self.builder.pop_context();
+
+        Ok(result)
     }
 
     //如果expr是位域访问, 那么生成加载位域值的操作, 否则就是正常的load代码
-    pub fn build_load(
-        &self,
-        node: Rc<RefCell<Expr>>,
-    ) -> Result<AnyValueEnum<'ctx>, Diagnostic<usize>> {
-        let value = self.visit_expr(Rc::clone(&node))?;
-        let value = map_builder_err(
-            node.borrow().file_id,
-            node.borrow().span,
-            self.builder.build_load(
-                match BasicTypeEnum::try_from(self.to_llvm_type(Rc::clone(&node.borrow().r#type))?)
-                {
-                    Ok(t) => t,
-                    Err(_) => {
-                        return Err(Diagnostic::error()
-                            .with_message(format!(
-                                "invalid type for lvalue: {}",
-                                node.borrow().r#type.borrow()
-                            ))
-                            .with_label(Label::primary(
-                                node.borrow().r#type.borrow().file_id,
-                                node.borrow().r#type.borrow().span,
-                            )));
-                    }
-                },
-                value.into_pointer_value(),
-                "",
-            ),
-        )?
-        .as_any_value_enum();
+    pub fn build_load(&mut self, node: &Rc<RefCell<Expr>>) -> Result<B::Value, Diagnostic<usize>> {
+        let value = self.visit_expr(node)?;
+        let value = self.builder.load(&value, &node.borrow().r#type)?;
 
         match &*node.borrow() {
             Expr {
-                file_id,
-                span,
                 kind:
                     ExprKind::MemberAccess {
                         target,
@@ -1654,28 +323,9 @@ impl<'ctx> CodeGen<'ctx> {
                         if let Some(ConstDesignation::MemberAccess(t)) = &child.designation
                             && *t == *name
                         {
-                            let mask = self
-                                .context
-                                .i32_type()
-                                .const_int((1 << child.width) - 1, false);
-                            let lshr = map_builder_err(
-                                *file_id,
-                                *span,
-                                self.builder.build_right_shift(
-                                    value.into_int_value(),
-                                    self.context
-                                        .i32_type()
-                                        .const_int(child.offset as u64, false),
-                                    false,
-                                    "lshr",
-                                ),
-                            )?;
-                            return Ok(map_builder_err(
-                                *file_id,
-                                *span,
-                                self.builder.build_and(lshr, mask, ""),
-                            )?
-                            .as_any_value_enum());
+                            return self
+                                .builder
+                                .load_bitfield(&value, child.width, child.offset);
                         }
                     }
                 }
@@ -1688,16 +338,14 @@ impl<'ctx> CodeGen<'ctx> {
 
     //行为类似于build_load
     pub fn build_store(
-        &self,
-        node: Rc<RefCell<Expr>>,
-        mut value: AnyValueEnum<'ctx>,
+        &mut self,
+        node: &Rc<RefCell<Expr>>,
+        value: &B::Value,
     ) -> Result<(), Diagnostic<usize>> {
-        let ptr = self.visit_expr(Rc::clone(&node))?.into_pointer_value();
+        let ptr = self.visit_expr(node)?;
 
         match &*node.borrow() {
             Expr {
-                file_id,
-                span,
                 kind:
                     ExprKind::MemberAccess {
                         target,
@@ -1705,6 +353,7 @@ impl<'ctx> CodeGen<'ctx> {
                         name,
                     },
                 symbol: Some(symbol),
+                r#type,
                 ..
             } => {
                 let target_type = if *is_arrow {
@@ -1725,96 +374,21 @@ impl<'ctx> CodeGen<'ctx> {
                         if let Some(ConstDesignation::MemberAccess(t)) = &child.designation
                             && *t == *name
                         {
-                            let old_value = map_builder_err(
-                                *file_id,
-                                *span,
-                                self.builder.build_load(
-                                    BasicTypeEnum::try_from(
-                                        self.to_llvm_type(Rc::clone(&node.borrow().r#type))?,
-                                    )
-                                    .unwrap(),
-                                    ptr,
-                                    "load",
-                                ),
+                            self.builder.store_bitfield(
+                                &ptr,
+                                r#type,
+                                &value,
+                                child.width,
+                                child.offset,
                             )?;
-                            let masked_value = map_builder_err(
-                                *file_id,
-                                *span,
-                                self.builder.build_and(
-                                    old_value.into_int_value(),
-                                    self.context.i32_type().const_int(
-                                        !(((1 << child.width) - 1) << child.offset),
-                                        false,
-                                    ),
-                                    "and_mask",
-                                ),
-                            )?;
-                            //清除value的高位
-                            value = map_builder_err(
-                                *file_id,
-                                *span,
-                                self.builder.build_and(
-                                    value.into_int_value(),
-                                    self.context
-                                        .i32_type()
-                                        .const_int((1 << child.width) - 1, false),
-                                    "",
-                                ),
-                            )?
-                            .as_any_value_enum();
-                            let shl = map_builder_err(
-                                *file_id,
-                                *span,
-                                self.builder.build_left_shift(
-                                    value.into_int_value(),
-                                    self.context
-                                        .i32_type()
-                                        .const_int(child.offset as u64, false),
-                                    "shl",
-                                ),
-                            )?;
-                            value = map_builder_err(
-                                *file_id,
-                                *span,
-                                self.builder.build_or(shl, masked_value, "or"),
-                            )?
-                            .as_any_value_enum();
                             break;
                         }
                     }
                 }
             }
-            _ => {}
+            _ => self.builder.store(&ptr, value)?,
         }
 
-        map_builder_err(
-            node.borrow().file_id,
-            node.borrow().span,
-            self.builder
-                .build_store(ptr, BasicValueEnum::try_from(value).unwrap()),
-        )?;
         Ok(())
-    }
-
-    //提取复数的实部和虚部, 需要保证传入的是正确的类型
-    pub fn extract_real_imag(
-        &self,
-        a: AnyValueEnum<'ctx>,
-    ) -> Result<(FloatValue<'ctx>, FloatValue<'ctx>), BuilderError> {
-        match a {
-            AnyValueEnum::FloatValue(t) => Ok((t, t.get_type().const_float(0.))),
-            AnyValueEnum::StructValue(t) => Ok((
-                self.builder
-                    .build_extract_value(t, 0, "real")?
-                    .into_float_value(),
-                self.builder
-                    .build_extract_value(t, 1, "imag")?
-                    .into_float_value(),
-            )),
-            _ => Ok((
-                self.context.f64_type().const_float(0.),
-                self.context.f64_type().const_float(0.),
-            )),
-        }
     }
 }

@@ -70,8 +70,12 @@ pub enum StmtKind {
     Case {
         expr: Rc<RefCell<Expr>>,
         stmt: Option<Rc<RefCell<Stmt>>>,
+        next: Option<Rc<RefCell<Stmt>>>,
     },
-    Default(Option<Rc<RefCell<Stmt>>>),
+    Default {
+        stmt: Option<Rc<RefCell<Stmt>>>,
+        next: Option<Rc<RefCell<Stmt>>>,
+    },
     DeclExpr {
         //类似于sizeof用于消歧义的结构
         decls: Option<Vec<Rc<RefCell<Declaration>>>>,

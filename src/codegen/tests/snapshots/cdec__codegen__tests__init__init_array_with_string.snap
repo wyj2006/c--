@@ -1,0 +1,10 @@
+---
+source: src/codegen/tests/init.rs
+expression: codegen.builder.module.to_string()
+---
+; ModuleID = '<string>'
+source_filename = "<string>"
+target triple = "x86_64-pc-linux-gnu"
+
+@a = global [5 x i8] c"fdas\00"
+@b = global [3 x [5 x i8]] { [5 x i8] c"fdas\00", { i8, i8, i8, i8, i8 } zeroinitializer, { i8, i8, i8, i8, i8 } zeroinitializer }

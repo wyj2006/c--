@@ -1,0 +1,12 @@
+---
+source: src/codegen/tests/init.rs
+expression: codegen.builder.module.to_string()
+---
+; ModuleID = '<string>'
+source_filename = "<string>"
+target triple = "x86_64-pc-linux-gnu"
+
+@a = global [3 x i32] { i32 1, i32 2, i32 3 }
+@b = global [5 x i32] { i32 0, i32 0, i32 1, i32 2, i32 3 }
+@c = global [4 x [5 x i32]] { { i32, i32, i32, i32, i32 } zeroinitializer, { i32, i32, i32, i32, i32 } { i32 0, i32 0, i32 1, i32 2, i32 3 }, { i32, i32, i32, i32, i32 } zeroinitializer, { i32, i32, i32, i32, i32 } zeroinitializer }
+@d = global [4 x [5 x i32]] { { i32, i32, i32, i32, i32 } { i32 1, i32 2, i32 3, i32 0, i32 0 }, { i32, i32, i32, i32, i32 } { i32 4, i32 5, i32 0, i32 0, i32 0 }, { i32, i32, i32, i32, i32 } zeroinitializer, { i32, i32, i32, i32, i32 } zeroinitializer }

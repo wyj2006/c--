@@ -273,7 +273,7 @@ impl SymbolTable {
     pub fn lookup_current<'b>(
         &self,
         namespace: Namespace,
-        name: &'b String,
+        name: &'b str,
     ) -> Option<Rc<RefCell<Symbol>>> {
         if let Some(symbols) = self.namespaces.get(&namespace) {
             match symbols.get(name) {
@@ -285,11 +285,7 @@ impl SymbolTable {
         }
     }
 
-    pub fn lookup<'b>(
-        &self,
-        namespace: Namespace,
-        name: &'b String,
-    ) -> Option<Rc<RefCell<Symbol>>> {
+    pub fn lookup<'b>(&self, namespace: Namespace, name: &'b str) -> Option<Rc<RefCell<Symbol>>> {
         match self.lookup_current(namespace, name) {
             Some(t) => Some(t),
             None => match &self.parent {

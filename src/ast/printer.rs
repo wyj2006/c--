@@ -98,8 +98,8 @@ impl Print for Declaration {
         format!(
             "{} {} {} {} {}",
             match &self.kind {
-                DeclarationKind::Var { initializer: _ } => "VarDecl",
-                DeclarationKind::Function { function_specs, .. } => &format!(
+                DeclarationKind::Var { initializer: _ } => "VarDecl".to_string(),
+                DeclarationKind::Function { function_specs, .. } => format!(
                     "FunctionDecl {}",
                     function_specs
                         .iter()
@@ -107,14 +107,14 @@ impl Print for Declaration {
                         .collect::<Vec<String>>()
                         .join(" ")
                 ),
-                DeclarationKind::Type => "TypeDecl",
-                DeclarationKind::Record { .. } => "RecordDecl",
-                DeclarationKind::Enum { .. } => "EnumDecl",
-                DeclarationKind::StaticAssert { .. } => "StaticAssert",
-                DeclarationKind::Attribute => "AttributeDecl",
-                DeclarationKind::Enumerator { .. } => "Enumerator",
-                DeclarationKind::Parameter => "ParamDecl",
-                DeclarationKind::Member { .. } => "MemberDecl",
+                DeclarationKind::Type => "TypeDecl".to_string(),
+                DeclarationKind::Record { .. } => "RecordDecl".to_string(),
+                DeclarationKind::Enum { .. } => "EnumDecl".to_string(),
+                DeclarationKind::StaticAssert { .. } => "StaticAssert".to_string(),
+                DeclarationKind::Attribute => "AttributeDecl".to_string(),
+                DeclarationKind::Enumerator { .. } => "Enumerator".to_string(),
+                DeclarationKind::Parameter => "ParamDecl".to_string(),
+                DeclarationKind::Member { .. } => "MemberDecl".to_string(),
             },
             format_location(self.file_id, self.span),
             self.name,
@@ -218,32 +218,32 @@ impl Print for Stmt {
         format!(
             "{} {}",
             match &self.kind {
-                StmtKind::Break(..) => "Break",
-                StmtKind::Case { .. } => "Case",
-                StmtKind::Compound(_) => "Compound",
-                StmtKind::Continue(..) => "Continue",
-                StmtKind::Default(_) => "Default",
+                StmtKind::Break(..) => "Break".to_string(),
+                StmtKind::Case { .. } => "Case".to_string(),
+                StmtKind::Compound(_) => "Compound".to_string(),
+                StmtKind::Continue(..) => "Continue".to_string(),
+                StmtKind::Default { .. } => "Default".to_string(),
                 StmtKind::DoWhile {
                     condition: _,
                     body: _,
-                } => "DoWhile",
+                } => "DoWhile".to_string(),
                 StmtKind::DeclExpr {
                     decls: Some(_),
                     expr: None,
-                } => "DeclStmt",
+                } => "DeclStmt".to_string(),
                 StmtKind::DeclExpr {
                     decls: None,
                     expr: Some(_),
-                } => "ExprStmt",
-                StmtKind::DeclExpr { .. } => "DeclExprStmt",
-                StmtKind::For { .. } => "For",
-                StmtKind::Goto(name) => &format!("Goto {}", name),
-                StmtKind::If { .. } => "If",
-                StmtKind::Label { name, .. } => &format!("Label {}", name),
-                StmtKind::Null => "Null",
-                StmtKind::Return { .. } => "Return",
-                StmtKind::Switch { .. } => "Switch",
-                StmtKind::While { .. } => "While",
+                } => "ExprStmt".to_string(),
+                StmtKind::DeclExpr { .. } => "DeclExprStmt".to_string(),
+                StmtKind::For { .. } => "For".to_string(),
+                StmtKind::Goto(name) => format!("Goto {}", name),
+                StmtKind::If { .. } => "If".to_string(),
+                StmtKind::Label { name, .. } => format!("Label {}", name),
+                StmtKind::Null => "Null".to_string(),
+                StmtKind::Return { .. } => "Return".to_string(),
+                StmtKind::Switch { .. } => "Switch".to_string(),
+                StmtKind::While { .. } => "While".to_string(),
             },
             format_location(self.file_id, self.span)
         )
@@ -255,7 +255,7 @@ impl Print for Stmt {
         lines.extend(self.attributes.print_line(indent));
 
         match &self.kind {
-            StmtKind::Case { expr, stmt } => {
+            StmtKind::Case { expr, stmt, .. } => {
                 lines.extend(expr.print_line(indent));
                 lines.extend(stmt.print_line(indent));
             }
@@ -293,8 +293,8 @@ impl Print for Stmt {
             StmtKind::Label { stmt, .. } => {
                 lines.extend(stmt.print_line(indent));
             }
-            StmtKind::Default(t) => {
-                lines.extend(t.print_line(indent));
+            StmtKind::Default { stmt, .. } => {
+                lines.extend(stmt.print_line(indent));
             }
             StmtKind::Return { expr } => lines.extend(expr.print_line(indent)),
             StmtKind::Switch {
@@ -319,22 +319,22 @@ impl Print for Expr {
         format!(
             "{} {} {} {} {} {}",
             match &self.kind {
-                ExprKind::Alignof { r#type, .. } => &format!("Alignof {}", r#type.borrow()),
-                ExprKind::BinOp { op, .. } => &format!("BinOp {:?}", op),
+                ExprKind::Alignof { r#type, .. } => format!("Alignof {}", r#type.borrow()),
+                ExprKind::BinOp { op, .. } => format!("BinOp {:?}", op),
                 ExprKind::Cast {
                     is_implicit: false,
                     method,
                     ..
-                } => &format!("Cast <{method}>"),
+                } => format!("Cast <{method}>"),
                 ExprKind::Cast {
                     is_implicit: true,
                     method,
                     ..
-                } => &format!("ImplicitCast <{method}>"),
-                ExprKind::Char { prefix, text } => &format!("Char {prefix:?} {text:?}"),
+                } => format!("ImplicitCast <{method}>"),
+                ExprKind::Char { prefix, text } => format!("Char {prefix:?} {text:?}"),
                 ExprKind::CompoundLiteral {
                     storage_classes, ..
-                } => &format!(
+                } => format!(
                     "CompoundLiteral {} {}",
                     storage_classes
                         .iter()
@@ -343,32 +343,32 @@ impl Print for Expr {
                         .join(" "),
                     self.r#type.borrow()
                 ),
-                ExprKind::False => "False",
+                ExprKind::False => "False".to_string(),
                 ExprKind::Float {
                     base,
                     digits,
                     exp_base,
                     exponent,
                     type_suffix,
-                } => &format!("Float {base} {digits} {exp_base} {exponent} {type_suffix:?}"),
-                ExprKind::Image { .. } => &format!("Image"),
+                } => format!("Float {base} {digits} {exp_base} {exponent} {type_suffix:?}"),
+                ExprKind::Image { .. } => format!("Image"),
                 ExprKind::Integer {
                     base,
                     text,
                     type_suffix,
-                } => &format!("Integer {base} {text} {type_suffix:?}"),
+                } => format!("Integer {base} {text} {type_suffix:?}"),
                 ExprKind::MemberAccess {
                     target: _,
                     is_arrow,
                     name,
-                } => &format!(
+                } => format!(
                     "MemberAccess {} {}",
                     if *is_arrow { "->" } else { "." },
                     name
                 ),
-                ExprKind::Name(name) => &format!("Name {name}"),
-                ExprKind::Nullptr => "Nullptr",
-                ExprKind::SizeOf { r#type, .. } => &format!(
+                ExprKind::Name(name) => format!("Name {name}"),
+                ExprKind::Nullptr => "Nullptr".to_string(),
+                ExprKind::SizeOf { r#type, .. } => format!(
                     "SizeOf {}",
                     if let Some(r#type) = r#type {
                         r#type.borrow().to_string()
@@ -376,13 +376,13 @@ impl Print for Expr {
                         "".to_string()
                     }
                 ),
-                ExprKind::String { prefix, text } => &format!("String {prefix:?} {text:?}"),
-                ExprKind::True => "True",
-                ExprKind::GenericSelection { .. } => "GenericSelection",
-                ExprKind::UnaryOp { op, .. } => &format!("UnaryOp {:?}", op),
-                ExprKind::Conditional { .. } => "Conditional",
-                ExprKind::FunctionCall { .. } => "FunctionCall",
-                ExprKind::Subscript { .. } => "Subscript",
+                ExprKind::String { prefix, text } => format!("String {prefix:?} {text:?}"),
+                ExprKind::True => "True".to_string(),
+                ExprKind::GenericSelection { .. } => "GenericSelection".to_string(),
+                ExprKind::UnaryOp { op, .. } => format!("UnaryOp {:?}", op),
+                ExprKind::Conditional { .. } => "Conditional".to_string(),
+                ExprKind::FunctionCall { .. } => "FunctionCall".to_string(),
+                ExprKind::Subscript { .. } => "Subscript".to_string(),
             },
             format_location(self.file_id, self.span),
             self.r#type.borrow().to_string(),

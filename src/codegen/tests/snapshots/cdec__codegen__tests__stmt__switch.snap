@@ -1,0 +1,60 @@
+---
+source: src/codegen/tests/stmt.rs
+expression: codegen.builder.module.to_string()
+---
+; ModuleID = '<string>'
+source_filename = "<string>"
+target triple = "x86_64-pc-linux-gnu"
+
+define i32 @main() {
+entry:
+  %a = alloca i32, align 4
+  %0 = load i32, ptr %a, align 4
+  br label %switch_case
+  switch i32 %0, label %switch_default [
+    i32 0, label %switch_case
+    i32 1, label %switch_case1
+    i32 2, label %switch_case2
+    i32 3, label %switch_case3
+  ]
+
+switch_case:                                      ; preds = %entry, %entry
+  %1 = load i32, ptr %a, align 4
+  %2 = add i32 %1, 1
+  store i32 %2, ptr %a, align 4
+  br label %switch_case1
+
+switch_case1:                                     ; preds = %entry, %switch_case
+  %3 = load i32, ptr %a, align 4
+  %4 = add i32 %3, 1
+  store i32 %4, ptr %a, align 4
+  br label %switch_case2
+
+switch_case2:                                     ; preds = %entry, %switch_case1
+  %5 = load i32, ptr %a, align 4
+  %6 = add i32 %5, 1
+  store i32 %6, ptr %a, align 4
+  br label %switch_case3
+
+switch_case3:                                     ; preds = %entry, %switch_case2
+  %7 = load i32, ptr %a, align 4
+  %8 = add i32 %7, 1
+  store i32 %8, ptr %a, align 4
+  br label %switch_default
+
+switch_default:                                   ; preds = %entry, %switch_case3
+  %9 = load i32, ptr %a, align 4
+  %10 = add i32 %9, 1
+  store i32 %10, ptr %a, align 4
+  br label %switch_exit
+
+switch_exit:                                      ; preds = %switch_default
+  %11 = alloca i32, align 4
+  call void @llvm.memset.p0.i64(ptr align 1 %11, i8 0, i64 ptrtoint (ptr getelementptr (i32, ptr null, i32 1) to i64), i1 false)
+  ret ptr %11
+}
+
+; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)
+declare void @llvm.memset.p0.i64(ptr writeonly captures(none), i8, i64, i1 immarg) #0
+
+attributes #0 = { nocallback nofree nounwind willreturn memory(argmem: write) }

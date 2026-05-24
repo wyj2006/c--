@@ -1,0 +1,25 @@
+---
+source: src/codegen/tests/init.rs
+expression: codegen.builder.module.to_string()
+---
+; ModuleID = '<string>'
+source_filename = "<string>"
+target triple = "x86_64-pc-linux-gnu"
+
+@a = global { i32, float, double } { i32 1, float 2.000000e+00, double 3.000000e+00 }
+
+define i32 @main() {
+entry:
+  %a = alloca i32, align 4
+  %b = alloca float, align 4
+  %c = alloca double, align 8
+  %0 = load i32, ptr %a, align 4
+  %1 = load float, ptr %b, align 4
+  %2 = load double, ptr %c, align 8
+  %3 = insertvalue { i32, float, double } zeroinitializer, i32 %0, 0
+  %4 = insertvalue { i32, float, double } %3, float %1, 1
+  %5 = insertvalue { i32, float, double } %4, double %2, 2
+  %x = alloca { i32, float, double }, align 8
+  store { i32, float, double } %5, ptr %x, align 8
+  ret i32 0
+}

@@ -237,7 +237,7 @@ impl ConstFolder {
                     vars = self.visit_stmt(Rc::clone(stmt), vars)?;
                 }
             }
-            StmtKind::Case { expr, stmt } => {
+            StmtKind::Case { expr, stmt, .. } => {
                 if let Some(v) = self.case_ins.get(&ptr) {
                     for (_, i) in v {
                         vars = self.intersection(&vars, i);
@@ -248,7 +248,7 @@ impl ConstFolder {
                     vars = self.visit_stmt(Rc::clone(stmt), vars)?;
                 }
             }
-            StmtKind::Default(stmt) => {
+            StmtKind::Default { stmt, .. } => {
                 if let Some(v) = self.case_ins.get(&ptr) {
                     for (_, i) in v {
                         vars = self.intersection(&vars, i);

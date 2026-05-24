@@ -181,9 +181,13 @@ impl CParser {
             StmtKind::Case {
                 expr: expr.unwrap(),
                 stmt: None,
+                next: None,
             }
         } else if str.starts_with("default") {
-            StmtKind::Default(None)
+            StmtKind::Default {
+                stmt: None,
+                next: None,
+            }
         } else {
             StmtKind::Label { name, stmt: None }
         };
@@ -333,9 +337,12 @@ impl CParser {
         let label = label.unwrap();
         if let StmtKind::Label { name: _, stmt: old } = &mut label.borrow_mut().kind {
             *old = stmt;
-        } else if let StmtKind::Case { expr: _, stmt: old } = &mut label.borrow_mut().kind {
+        } else if let StmtKind::Case {
+            expr: _, stmt: old, ..
+        } = &mut label.borrow_mut().kind
+        {
             *old = stmt;
-        } else if let StmtKind::Default(old) = &mut label.borrow_mut().kind {
+        } else if let StmtKind::Default { stmt: old, .. } = &mut label.borrow_mut().kind {
             *old = stmt;
         }
         Ok(label)
