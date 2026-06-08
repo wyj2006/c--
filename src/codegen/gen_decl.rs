@@ -57,7 +57,7 @@ impl<B: Builder> CodeGen<B> {
                         .decl_function(name, r#type, storage_classes, function_specs)?;
 
                 if let Some(body) = body {
-                    self.builder.enter_function(&function);
+                    self.builder.enter_function(&function)?;
 
                     for decl in parameter_decls {
                         self.visit_declaration(decl)?;

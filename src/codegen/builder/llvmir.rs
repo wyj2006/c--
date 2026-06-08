@@ -1,11 +1,11 @@
 use crate::{
     ast::{
-        decl::{FunctionSpecKind, StorageClassKind},
+        decl::{FunctionSpecKind, StorageClass, StorageClassKind},
         expr::{BinOpKind, CastMethod, UnaryOpKind},
     },
     codegen::builder::Builder,
     ctype::{
-        RecordKind, Type, TypeKind, array_element,
+        RecordKind, Type, TypeKind, array_element, get_inner_type,
         layout::{ConstDesignation, Layout, compute_layout},
         pointee,
     },
@@ -437,18 +437,19 @@ impl<'ctx> Builder for LLVMIRBuilder<'ctx> {
             .lookup(namespace, name)
     }
 
-    fn enter_function(&mut self, function: &Self::Value) {
+    fn enter_function(&mut self, function: &Self::Value) -> Result<(), Diagnostic<usize>> {
         let function = function.into_function_value();
 
         self.func_values.push(function);
 
-        let basic_block = self.context.append_basic_block(function, "entry");
+        let basic_block = self.append_basic_block("entry")?;
         self.builder.position_at_end(basic_block);
+
+        Ok(())
     }
 
     fn leave_function(&mut self, function: &Self::Value) -> Result<(), Diagnostic<usize>> {
         let function = function.into_function_value();
-        self.func_values.pop();
 
         let mut last_block = function.get_first_basic_block().unwrap();
         while let Some(t) = last_block.get_next_basic_block() {
@@ -474,6 +475,8 @@ impl<'ctx> Builder for LLVMIRBuilder<'ctx> {
                 self.map_builder_err(self.builder.build_return(None))?;
             }
         }
+
+        self.func_values.pop();
         Ok(())
     }
 
@@ -481,12 +484,19 @@ impl<'ctx> Builder for LLVMIRBuilder<'ctx> {
         let block = self
             .context
             .append_basic_block(*self.func_values.last().unwrap(), name);
-        block.move_after(self.current_basic_block()?).unwrap();
+        if let Ok(current_block) = self.current_basic_block()
+            && block.get_parent() == current_block.get_parent()
+        {
+            block.move_after(current_block).unwrap();
+        }
         Ok(block)
     }
 
     fn current_basic_block(&self) -> Result<Self::BasicBlock, Diagnostic<usize>> {
-        Ok(self.builder.get_insert_block().unwrap())
+        match self.builder.get_insert_block() {
+            Some(t) => Ok(t),
+            None => Err(Diagnostic::error().with_message("current position has no basic block")),
+        }
     }
 
     fn position_at_end(&self, basic_block: &Self::BasicBlock) {
@@ -498,7 +508,7 @@ impl<'ctx> Builder for LLVMIRBuilder<'ctx> {
     }
 
     fn variant_to_value(
-        &self,
+        &mut self,
         variant: &Variant,
         r#type: &Rc<RefCell<Type>>,
     ) -> Result<Self::Value, Diagnostic<usize>> {
@@ -707,7 +717,7 @@ impl<'ctx> Builder for LLVMIRBuilder<'ctx> {
     }
 
     fn layout_to_value(
-        &self,
+        &mut self,
         layout: Layout,
         path: Vec<ConstDesignation>,
         init_values: &HashMap<Vec<ConstDesignation>, Self::Value>,
@@ -1115,6 +1125,7 @@ impl<'ctx> Builder for LLVMIRBuilder<'ctx> {
     fn switch(
         &mut self,
         condition: &Self::Value,
+        _condition_type: &Rc<RefCell<Type>>,
         cases: &[(Self::Value, Self::BasicBlock)],
         default: &Self::BasicBlock,
     ) -> Result<(), Diagnostic<usize>> {
@@ -1172,12 +1183,12 @@ impl<'ctx> Builder for LLVMIRBuilder<'ctx> {
             .as_any_value_enum())
     }
 
-    fn load_var(&mut self, name: &str) -> Result<Self::Value, Diagnostic<usize>> {
+    fn load_var_ptr(&mut self, name: &str) -> Result<Self::Value, Diagnostic<usize>> {
         let symbol = self.lookup(name, Namespace::Ordinary).unwrap();
         Ok(*self.values.get(&(symbol.as_ptr() as usize)).unwrap())
     }
 
-    fn load_member(
+    fn load_member_ptr(
         &mut self,
         target_value: &Self::Value,
         record_type: &Rc<RefCell<Type>>,
@@ -1211,10 +1222,10 @@ impl<'ctx> Builder for LLVMIRBuilder<'ctx> {
         }
     }
 
-    fn load_compound_literal(
+    fn load_compound_literal_ptr(
         &mut self,
         r#type: &Rc<RefCell<Type>>,
-        storage_classes: &[crate::ast::decl::StorageClass],
+        storage_classes: &[StorageClass],
         init_value: &Self::Value,
     ) -> Result<Self::Value, Diagnostic<usize>> {
         let init_value = match BasicValueEnum::try_from(*init_value) {
@@ -1287,7 +1298,12 @@ impl<'ctx> Builder for LLVMIRBuilder<'ctx> {
             .as_any_value_enum())
     }
 
-    fn store(&mut self, ptr: &Self::Value, value: &Self::Value) -> Result<(), Diagnostic<usize>> {
+    fn store(
+        &mut self,
+        ptr: &Self::Value,
+        value: &Self::Value,
+        _type: &Rc<RefCell<Type>>,
+    ) -> Result<(), Diagnostic<usize>> {
         self.map_builder_err(self.builder.build_store(
             ptr.into_pointer_value(),
             BasicValueEnum::try_from(*value).unwrap(),
@@ -1334,19 +1350,20 @@ impl<'ctx> Builder for LLVMIRBuilder<'ctx> {
             .map_builder_err(self.builder.build_or(shl, masked_value, "or"))?
             .as_any_value_enum();
 
-        self.store(ptr, &value)?;
+        self.store(ptr, &value, r#type)?;
         Ok(())
     }
 
     fn cast(
         &mut self,
-        target_value: &Self::Value,
+        value: &Self::Value,
+        _value_type: &Rc<RefCell<Type>>,
         r#type: &Rc<RefCell<Type>>,
         method: CastMethod,
     ) -> Result<Self::Value, Diagnostic<usize>> {
         match method {
-            CastMethod::Nothing | CastMethod::PtrToPtr => Ok(*target_value),
-            CastMethod::FuncToPtr => Ok(match target_value {
+            CastMethod::Nothing | CastMethod::PtrToPtr => Ok(*value),
+            CastMethod::FuncToPtr => Ok(match value {
                 AnyValueEnum::FunctionValue(t) => {
                     //实际上在调用as_any_value_enum后值又变成了FunctionValue
                     t.as_global_value().as_pointer_value().as_any_value_enum()
@@ -1360,7 +1377,7 @@ impl<'ctx> Builder for LLVMIRBuilder<'ctx> {
                             //如果是数组, 那结果是array type, 如果是vla, 那结果是pointer type
                             BasicTypeEnum::try_from(self.to_llvm_type(r#type)?).unwrap(),
                             //target 一般是左值, 而左值一定是PointerValue
-                            target_value.into_pointer_value(),
+                            value.into_pointer_value(),
                             &[self.context.i64_type().const_int(0, false)],
                             "",
                         )
@@ -1374,7 +1391,7 @@ impl<'ctx> Builder for LLVMIRBuilder<'ctx> {
                     .get_field_type_at_index(0)
                     .unwrap()
                     .into_float_type();
-                let (real, imag) = self.map_builder_err(self.extract_real_imag(*target_value))?;
+                let (real, imag) = self.map_builder_err(self.extract_real_imag(*value))?;
                 let op = match method {
                     CastMethod::ComplexExtend => InstructionOpcode::FPExt,
                     CastMethod::ComplexTrunc => InstructionOpcode::FPTrunc,
@@ -1401,20 +1418,20 @@ impl<'ctx> Builder for LLVMIRBuilder<'ctx> {
                     ))?
                     .as_any_value_enum())
             }
-            CastMethod::ToBool => Ok(self.to_bool(*target_value)?.as_any_value_enum()),
+            CastMethod::ToBool => Ok(self.to_bool(*value)?.as_any_value_enum()),
             CastMethod::FloatToComplex => {
                 let complex_type = self.to_llvm_type(r#type)?.into_struct_type();
                 Ok(self
                     .map_builder_err(self.builder.build_insert_value(
                         complex_type.const_zero(),
-                        target_value.into_float_value(),
+                        value.into_float_value(),
                         0,
                         "",
                     ))?
                     .as_any_value_enum())
             }
             CastMethod::ComplexToFloat => {
-                let (real, _) = self.map_builder_err(self.extract_real_imag(*target_value))?;
+                let (real, _) = self.map_builder_err(self.extract_real_imag(*value))?;
                 Ok(real.as_any_value_enum())
             }
             _ => Ok(self
@@ -1433,12 +1450,10 @@ impl<'ctx> Builder for LLVMIRBuilder<'ctx> {
                         CastMethod::IntTrunc => InstructionOpcode::Trunc,
                         _ => unreachable!(),
                     },
-                    match BasicValueEnum::try_from(*target_value) {
+                    match BasicValueEnum::try_from(*value) {
                         Ok(t) => t,
                         Err(_) => {
-                            return Err(
-                                self.error(format!("cast from a invalid value: {target_value}"))
-                            );
+                            return Err(self.error(format!("cast from a invalid value: {value}")));
                         }
                     },
                     match BasicTypeEnum::try_from(self.to_llvm_type(r#type)?) {
@@ -1462,8 +1477,7 @@ impl<'ctx> Builder for LLVMIRBuilder<'ctx> {
         r#type: &Rc<RefCell<Type>>,
     ) -> Result<Self::Value, Diagnostic<usize>> {
         match (target, index) {
-            (AnyValueEnum::PointerValue(target), AnyValueEnum::IntValue(index))
-            | (AnyValueEnum::IntValue(index), AnyValueEnum::PointerValue(target)) => Ok(self
+            (AnyValueEnum::PointerValue(target), AnyValueEnum::IntValue(index)) => Ok(self
                 .map_builder_err(unsafe {
                     self.builder.build_in_bounds_gep(
                         BasicTypeEnum::try_from(self.to_llvm_type(r#type)?).unwrap(),
@@ -1573,22 +1587,8 @@ impl<'ctx> Builder for LLVMIRBuilder<'ctx> {
                         )?
                         .as_any_value_enum()),
                     t if t.is_complex() => {
-                        let operand_value = operand_value.into_struct_value();
-
-                        let real = self
-                            .map_builder_err(self.builder.build_extract_value(
-                                operand_value,
-                                0,
-                                "real",
-                            ))?
-                            .into_float_value();
-                        let imag = self
-                            .map_builder_err(self.builder.build_extract_value(
-                                operand_value,
-                                1,
-                                "imag",
-                            ))?
-                            .into_float_value();
+                        let (real, imag) =
+                            self.map_builder_err(self.extract_real_imag(*operand_value))?;
 
                         let neg_real =
                             self.map_builder_err(self.builder.build_float_neg(real, "neg_real"))?;
@@ -1598,7 +1598,7 @@ impl<'ctx> Builder for LLVMIRBuilder<'ctx> {
                         Ok(self
                             .map_builder_err(self.builder.build_insert_value(
                                 self.map_builder_err(self.builder.build_insert_value(
-                                    operand_value,
+                                    operand_value.into_struct_value(),
                                     neg_imag,
                                     1,
                                     "",
@@ -1868,26 +1868,40 @@ impl<'ctx> Builder for LLVMIRBuilder<'ctx> {
                             "",
                         ))?
                         .as_any_value_enum()),
-                    (TypeKind::Pointer(pointee), b) if b.is_integer() => Ok(self
-                        .map_builder_err(unsafe {
-                            self.builder.build_in_bounds_gep(
-                                BasicTypeEnum::try_from(self.to_llvm_type(pointee)?).unwrap(),
-                                left_value.into_pointer_value(),
-                                &[right_value.into_int_value()],
-                                "",
-                            )
-                        })?
-                        .as_any_value_enum()),
-                    (a, TypeKind::Pointer(pointee)) if a.is_integer() => Ok(self
-                        .map_builder_err(unsafe {
-                            self.builder.build_in_bounds_gep(
-                                BasicTypeEnum::try_from(self.to_llvm_type(pointee)?).unwrap(),
-                                right_value.into_pointer_value(),
-                                &[left_value.into_int_value()],
-                                "",
-                            )
-                        })?
-                        .as_any_value_enum()),
+                    (a, b) if a.is_pointer() && b.is_integer() => {
+                        let pointee = match &get_inner_type(left_type.clone()).borrow().kind {
+                            TypeKind::Pointer(pointee) => pointee.clone(),
+                            _ => unreachable!(),
+                        };
+
+                        Ok(self
+                            .map_builder_err(unsafe {
+                                self.builder.build_in_bounds_gep(
+                                    BasicTypeEnum::try_from(self.to_llvm_type(&pointee)?).unwrap(),
+                                    left_value.into_pointer_value(),
+                                    &[right_value.into_int_value()],
+                                    "",
+                                )
+                            })?
+                            .as_any_value_enum())
+                    }
+                    (a, b) if a.is_integer() && b.is_pointer() => {
+                        let pointee = match &get_inner_type(right_type.clone()).borrow().kind {
+                            TypeKind::Pointer(pointee) => pointee.clone(),
+                            _ => unreachable!(),
+                        };
+
+                        Ok(self
+                            .map_builder_err(unsafe {
+                                self.builder.build_in_bounds_gep(
+                                    BasicTypeEnum::try_from(self.to_llvm_type(&pointee)?).unwrap(),
+                                    right_value.into_pointer_value(),
+                                    &[left_value.into_int_value()],
+                                    "",
+                                )
+                            })?
+                            .as_any_value_enum())
+                    }
                     (a, b)
                         if (a.is_complex() && b.is_real_float())
                             || (b.is_complex() && a.is_real_float())
@@ -1946,14 +1960,19 @@ impl<'ctx> Builder for LLVMIRBuilder<'ctx> {
                             "",
                         ))?
                         .as_any_value_enum()),
-                    (TypeKind::Pointer(pointee), b) if b.is_integer() => {
+                    (a, b) if a.is_pointer() && b.is_integer() => {
+                        let pointee = match &get_inner_type(left_type.clone()).borrow().kind {
+                            TypeKind::Pointer(pointee) => pointee.clone(),
+                            _ => unreachable!(),
+                        };
+
                         let right_neg = self.map_builder_err(
                             self.builder.build_int_neg(right_value.into_int_value(), ""),
                         )?;
                         Ok(self
                             .map_builder_err(unsafe {
                                 self.builder.build_in_bounds_gep(
-                                    BasicTypeEnum::try_from(self.to_llvm_type(pointee)?).unwrap(),
+                                    BasicTypeEnum::try_from(self.to_llvm_type(&pointee)?).unwrap(),
                                     left_value.into_pointer_value(),
                                     &[right_neg],
                                     "",
@@ -2189,7 +2208,6 @@ impl<'ctx> Builder for LLVMIRBuilder<'ctx> {
                     .as_any_value_enum()),
                 _ => unreachable!(),
             },
-
             BinOpKind::Comma => Ok(right_value.as_any_value_enum()),
             _ => unreachable!(),
         }

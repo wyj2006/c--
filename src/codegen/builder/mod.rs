@@ -1,4 +1,5 @@
 pub mod llvmir;
+pub mod riscv;
 
 use crate::{
     ast::{
@@ -27,7 +28,7 @@ pub trait Builder {
     fn leave_scope(&mut self);
     fn lookup(&self, name: &str, namespace: Namespace) -> Option<Rc<RefCell<Symbol>>>;
 
-    fn enter_function(&mut self, function: &Self::Value);
+    fn enter_function(&mut self, function: &Self::Value) -> Result<(), Diagnostic<usize>>;
     fn leave_function(&mut self, function: &Self::Value) -> Result<(), Diagnostic<usize>>;
 
     //在当前基本块后面加入基本块
@@ -38,13 +39,13 @@ pub trait Builder {
 
     //variant和type的类型不一定一样, 也就是说不会对variant进行隐式转换
     fn variant_to_value(
-        &self,
+        &mut self,
         variant: &Variant,
         r#type: &Rc<RefCell<Type>>,
     ) -> Result<Self::Value, Diagnostic<usize>>;
 
     fn layout_to_value(
-        &self,
+        &mut self,
         layout: Layout,
         path: Vec<ConstDesignation>,
         init_values: &HashMap<Vec<ConstDesignation>, Self::Value>,
@@ -94,6 +95,7 @@ pub trait Builder {
     fn switch(
         &mut self,
         condition: &Self::Value,
+        condition_type: &Rc<RefCell<Type>>,
         cases: &[(Self::Value, Self::BasicBlock)],
         default: &Self::BasicBlock,
     ) -> Result<(), Diagnostic<usize>>;
@@ -106,16 +108,16 @@ pub trait Builder {
         r#type: &Rc<RefCell<Type>>,
     ) -> Result<Self::Value, Diagnostic<usize>>;
 
-    fn load_var(&mut self, name: &str) -> Result<Self::Value, Diagnostic<usize>>;
+    fn load_var_ptr(&mut self, name: &str) -> Result<Self::Value, Diagnostic<usize>>;
 
-    fn load_member(
+    fn load_member_ptr(
         &mut self,
         target_value: &Self::Value,
         record_type: &Rc<RefCell<Type>>,
         member_name: &str,
     ) -> Result<Self::Value, Diagnostic<usize>>;
 
-    fn load_compound_literal(
+    fn load_compound_literal_ptr(
         &mut self,
         r#type: &Rc<RefCell<Type>>,
         storage_classes: &[StorageClass],
@@ -129,7 +131,12 @@ pub trait Builder {
         offset: usize,
     ) -> Result<Self::Value, Diagnostic<usize>>;
 
-    fn store(&mut self, ptr: &Self::Value, value: &Self::Value) -> Result<(), Diagnostic<usize>>;
+    fn store(
+        &mut self,
+        ptr: &Self::Value,
+        value: &Self::Value,
+        r#type: &Rc<RefCell<Type>>,
+    ) -> Result<(), Diagnostic<usize>>;
 
     fn store_bitfield(
         &mut self,
@@ -142,7 +149,8 @@ pub trait Builder {
 
     fn cast(
         &mut self,
-        target_value: &Self::Value,
+        value: &Self::Value,
+        value_type: &Rc<RefCell<Type>>,
         r#type: &Rc<RefCell<Type>>,
         method: CastMethod,
     ) -> Result<Self::Value, Diagnostic<usize>>;

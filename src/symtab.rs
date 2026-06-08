@@ -56,7 +56,7 @@ pub enum SymbolKind {
     },
     Parameter {
         storage_classes: Vec<StorageClass>,
-        //参数位置, 从0开始计
+        //参数位置, 从0开始计, 包括无名参数
         index: u32,
     },
     EnumConst {

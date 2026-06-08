@@ -344,6 +344,9 @@ impl TypeChecker {
                         .sum(),
                     None => 0,
                 };
+                if node.name.len() == 0 {
+                    node.name = format!("parameter{}", addr_of!(*node) as usize)
+                }
                 self.cur_symtab.borrow_mut().add(
                     Namespace::Ordinary,
                     Rc::new(RefCell::new(Symbol {
@@ -462,7 +465,7 @@ impl TypeChecker {
                     self.visit_expr(Rc::clone(t))?;
                     if node.name.len() == 0 {
                         //无名位域会影响内存结构, 但无名非位域不会
-                        node.name = format!("{}", addr_of!(*node) as usize);
+                        node.name = format!("bitfield{}", addr_of!(*node) as usize);
                     }
                 }
 

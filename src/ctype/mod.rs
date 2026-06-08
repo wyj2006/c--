@@ -450,3 +450,10 @@ pub fn arith_result_type(a: Rc<RefCell<Type>>, b: Rc<RefCell<Type>>) -> Rc<RefCe
 pub fn get_inner_type(a: Rc<RefCell<Type>>) -> Rc<RefCell<Type>> {
     match_inner_type!(&a.borrow().kind, get_inner_type, Rc::clone(&a))
 }
+
+pub fn complex_part_type(a: &Rc<RefCell<Type>>) -> Option<Rc<RefCell<Type>>> {
+    match &get_inner_type(a.clone()).borrow().kind {
+        TypeKind::Complex(Some(t)) => Some(t.clone()),
+        _ => None,
+    }
+}

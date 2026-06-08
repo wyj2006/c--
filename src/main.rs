@@ -163,7 +163,7 @@ fn do_frontend(
     let mut output_path = None;
     let mut option_ast = None;
     let mut option_symtab = None;
-    let mut option_ir: Option<String> = None;
+    let mut option_ir = None;
 
     match (|| {
         let tokens = preprocess(input_path)?;

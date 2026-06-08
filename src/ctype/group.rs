@@ -29,6 +29,18 @@ impl Type {
         self.kind.is_function()
     }
 
+    pub fn is_float(&self) -> bool {
+        self.kind.is_float()
+    }
+
+    pub fn is_double(&self) -> bool {
+        self.kind.is_double()
+    }
+
+    pub fn is_long_double(&self) -> bool {
+        self.kind.is_long_double()
+    }
+
     pub fn is_real_float(&self) -> bool {
         self.kind.is_real_float()
     }
@@ -45,8 +57,8 @@ impl Type {
         self.kind.is_void_ptr()
     }
 
-    pub fn is_float(&self) -> bool {
-        self.kind.is_float()
+    pub fn is_float_type(&self) -> bool {
+        self.kind.is_float_type()
     }
 
     pub fn is_arithmetic(&self) -> bool {
@@ -228,6 +240,27 @@ impl TypeKind {
         }
     }
 
+    pub fn is_float(&self) -> bool {
+        match self {
+            TypeKind::Float => true,
+            _ => match_inner_type!(self, .is_float_type, false),
+        }
+    }
+
+    pub fn is_double(&self) -> bool {
+        match self {
+            TypeKind::Double => true,
+            _ => match_inner_type!(self, .is_double, false),
+        }
+    }
+
+    pub fn is_long_double(&self) -> bool {
+        match self {
+            TypeKind::LongDouble => true,
+            _ => match_inner_type!(self, .is_long_double, false),
+        }
+    }
+
     pub fn is_real_float(&self) -> bool {
         match self {
             TypeKind::Float | TypeKind::Double | TypeKind::LongDouble => true,
@@ -256,18 +289,18 @@ impl TypeKind {
         }
     }
 
-    pub fn is_float(&self) -> bool {
+    pub fn is_float_type(&self) -> bool {
         match self {
             TypeKind::Decimal32
             | TypeKind::Decimal64
             | TypeKind::Decimal128
             | TypeKind::Complex(..) => true,
-            _ => match_inner_type!(self, .is_float, self.is_real_float()),
+            _ => match_inner_type!(self, .is_float_type, self.is_real_float()),
         }
     }
 
     pub fn is_arithmetic(&self) -> bool {
-        self.is_integer() || self.is_float()
+        self.is_integer() || self.is_float_type()
     }
 
     pub fn is_scale(&self) -> bool {
