@@ -11,6 +11,7 @@ use crate::{
         pointee,
     },
     diagnostic::map_builder_err,
+    optimizer::constfolder::ConstFolder,
     symtab::{Namespace, SymbolKind},
     variant::Variant,
 };
@@ -24,7 +25,7 @@ use inkwell::{
         AnyValue, AnyValueEnum, BasicValue, BasicValueEnum, FloatValue, InstructionOpcode, IntValue,
     },
 };
-use std::{cell::RefCell, rc::Rc, u64};
+use std::{cell::RefCell, collections::HashMap, rc::Rc, u64};
 
 impl<'ctx> CodeGen<'ctx> {
     pub fn visit_expr(
@@ -36,6 +37,8 @@ impl<'ctx> CodeGen<'ctx> {
             && !matches!(node.borrow().kind, ExprKind::CompoundLiteral { .. })
             && !matches!(node.borrow().kind, ExprKind::String { .. })
         {
+            //TODO 避免重复使用ConstFolder
+            ConstFolder::new().visit_expr(Rc::clone(&node), HashMap::new())?;
             return match self.to_llvm_value(
                 node.borrow().value.clone(),
                 Rc::clone(&node.borrow().r#type),
@@ -48,6 +51,8 @@ impl<'ctx> CodeGen<'ctx> {
         }
         //没有副作用就直接使用计算好的值
         if !node.borrow().has_side_effects {
+            //TODO 避免重复使用ConstFolder
+            ConstFolder::new().visit_expr(Rc::clone(&node), HashMap::new())?;
             match self.to_llvm_value(
                 node.borrow().value.clone(),
                 Rc::clone(&node.borrow().r#type),

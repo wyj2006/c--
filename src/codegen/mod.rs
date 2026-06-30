@@ -21,7 +21,7 @@ use inkwell::{
     types::{AnyType, AnyTypeEnum, BasicType, StringRadix},
     values::{AnyValue, AnyValueEnum, BasicValue, FunctionValue, IntValue},
 };
-use num::ToPrimitive;
+use num::{BigInt, BigRational, ToPrimitive, Zero};
 use std::{cell::RefCell, collections::HashMap, num::NonZero, rc::Rc};
 
 pub struct CodeGen<'ctx> {
@@ -347,12 +347,20 @@ impl<'ctx> CodeGen<'ctx> {
         r#type: Rc<RefCell<Type>>,
     ) -> Result<AnyValueEnum<'ctx>, Diagnostic<usize>> {
         match &value {
-            Variant::Bool(value) => Ok(match self.to_llvm_type(r#type)? {
+            Variant::Bool(value) => Ok(match self.to_llvm_type(r#type.clone())? {
                 AnyTypeEnum::IntType(t) => t.const_int(*value as u64, false).as_any_value_enum(),
                 AnyTypeEnum::FloatType(t) => unsafe {
                     t.const_float_from_string(&value.to_string())
                         .as_any_value_enum()
                 },
+                //可能是复数类型
+                AnyTypeEnum::StructType(_) => self.to_llvm_value(
+                    Variant::Complex(
+                        BigRational::from_integer(BigInt::from(*value)),
+                        BigRational::zero(),
+                    ),
+                    r#type.clone(),
+                )?,
                 _ => self
                     .context
                     .bool_type()
@@ -360,25 +368,30 @@ impl<'ctx> CodeGen<'ctx> {
                     .as_any_value_enum(),
             }),
             Variant::Rational(value) => {
-                let value = to_decimal(value).to_string();
-                let dot_index = value.find(".").unwrap_or(value.len());
-                Ok(match self.to_llvm_type(r#type)? {
+                let value_str = to_decimal(value).to_string();
+                let dot_index = value_str.find(".").unwrap_or(value_str.len());
+                Ok(match self.to_llvm_type(r#type.clone())? {
                     AnyTypeEnum::FloatType(t) => {
-                        unsafe { t.const_float_from_string(&value) }.as_any_value_enum()
+                        unsafe { t.const_float_from_string(&value_str) }.as_any_value_enum()
                     }
                     AnyTypeEnum::IntType(t) => t
-                        .const_int_from_string(&value[..dot_index], StringRadix::Decimal)
+                        .const_int_from_string(&value_str[..dot_index], StringRadix::Decimal)
                         .unwrap()
                         .as_any_value_enum(),
+                    //可能是复数类型
+                    AnyTypeEnum::StructType(_) => self.to_llvm_value(
+                        Variant::Complex(value.clone(), BigRational::zero()),
+                        r#type.clone(),
+                    )?,
                     _ => unsafe {
                         self.context
                             .f64_type()
-                            .const_float_from_string(&value.to_string())
+                            .const_float_from_string(&value_str.to_string())
                     }
                     .as_any_value_enum(),
                 })
             }
-            Variant::Int(value) => Ok(match self.to_llvm_type(r#type)? {
+            Variant::Int(value) => Ok(match self.to_llvm_type(r#type.clone())? {
                 AnyTypeEnum::IntType(t) => t
                     .const_int_from_string(&value.to_string(), StringRadix::Decimal)
                     .unwrap()
@@ -387,6 +400,14 @@ impl<'ctx> CodeGen<'ctx> {
                     t.const_float_from_string(&value.to_string())
                         .as_any_value_enum()
                 },
+                //可能是复数类型
+                AnyTypeEnum::StructType(_) => self.to_llvm_value(
+                    Variant::Complex(
+                        BigRational::from_integer(value.clone()),
+                        BigRational::zero(),
+                    ),
+                    r#type.clone(),
+                )?,
                 _ => self
                     .context
                     .i32_type()
@@ -411,12 +432,12 @@ impl<'ctx> CodeGen<'ctx> {
                             )));
                     }
                 };
-                Ok(match self.to_llvm_type(Rc::clone(&element_type))? {
+                Ok(match self.to_llvm_type(element_type.clone())? {
                     AnyTypeEnum::ArrayType(t) => {
                         let mut values = Vec::new();
                         for value in array {
                             values.push(
-                                self.to_llvm_value(value.clone(), Rc::clone(&element_type))?
+                                self.to_llvm_value(value.clone(), element_type.clone())?
                                     .into_array_value(),
                             );
                         }
@@ -426,7 +447,7 @@ impl<'ctx> CodeGen<'ctx> {
                         let mut values = Vec::new();
                         for value in array {
                             values.push(
-                                self.to_llvm_value(value.clone(), Rc::clone(&element_type))?
+                                self.to_llvm_value(value.clone(), element_type.clone())?
                                     .into_int_value(),
                             );
                         }
@@ -436,7 +457,7 @@ impl<'ctx> CodeGen<'ctx> {
                         let mut values = Vec::new();
                         for value in array {
                             values.push(
-                                self.to_llvm_value(value.clone(), Rc::clone(&element_type))?
+                                self.to_llvm_value(value.clone(), element_type.clone())?
                                     .into_float_value(),
                             );
                         }
@@ -446,7 +467,7 @@ impl<'ctx> CodeGen<'ctx> {
                         let mut values = Vec::new();
                         for value in array {
                             values.push(
-                                self.to_llvm_value(value.clone(), Rc::clone(&element_type))?
+                                self.to_llvm_value(value.clone(), element_type.clone())?
                                     .into_pointer_value(),
                             );
                         }
@@ -456,7 +477,7 @@ impl<'ctx> CodeGen<'ctx> {
                         let mut values = Vec::new();
                         for value in array {
                             values.push(
-                                self.to_llvm_value(value.clone(), Rc::clone(&element_type))?
+                                self.to_llvm_value(value.clone(), element_type.clone())?
                                     .into_scalable_vector_value(),
                             );
                         }
@@ -466,7 +487,7 @@ impl<'ctx> CodeGen<'ctx> {
                         let mut values = Vec::new();
                         for value in array {
                             values.push(
-                                self.to_llvm_value(value.clone(), Rc::clone(&element_type))?
+                                self.to_llvm_value(value.clone(), element_type.clone())?
                                     .into_struct_value(),
                             );
                         }
@@ -476,7 +497,7 @@ impl<'ctx> CodeGen<'ctx> {
                         let mut values = Vec::new();
                         for value in array {
                             values.push(
-                                self.to_llvm_value(value.clone(), Rc::clone(&element_type))?
+                                self.to_llvm_value(value.clone(), element_type.clone())?
                                     .into_vector_value(),
                             );
                         }
@@ -497,24 +518,28 @@ impl<'ctx> CodeGen<'ctx> {
             }
             Variant::Complex(a, b) => {
                 let t = match &r#type.borrow().kind {
-                    TypeKind::Complex(Some(t)) => match self.to_llvm_type(Rc::clone(t))? {
-                        AnyTypeEnum::FloatType(t) => t,
-                        _ => self.context.f64_type(),
+                    TypeKind::Complex(Some(t)) => match self.to_llvm_type(t.clone())? {
+                        AnyTypeEnum::FloatType(t) => Some(t),
+                        _ => None,
                     },
-                    _ => self.context.f64_type(),
+                    _ => None,
                 };
-                Ok(self
-                    .context
-                    .const_struct(
-                        &[
-                            unsafe { t.const_float_from_string(&to_decimal(a).to_string()) }
-                                .as_basic_value_enum(),
-                            unsafe { t.const_float_from_string(&to_decimal(b).to_string()) }
-                                .as_basic_value_enum(),
-                        ],
-                        false,
-                    )
-                    .as_any_value_enum())
+                if let Some(t) = t {
+                    Ok(self
+                        .context
+                        .const_struct(
+                            &[
+                                unsafe { t.const_float_from_string(&to_decimal(a).to_string()) }
+                                    .as_basic_value_enum(),
+                                unsafe { t.const_float_from_string(&to_decimal(b).to_string()) }
+                                    .as_basic_value_enum(),
+                            ],
+                            false,
+                        )
+                        .as_any_value_enum())
+                } else {
+                    self.to_llvm_value(Variant::Rational(a.clone()), r#type)
+                }
             }
             Variant::Unknown => Err(Diagnostic::error()
                 .with_message(format!("unkown value for type"))
