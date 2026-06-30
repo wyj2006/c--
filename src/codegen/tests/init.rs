@@ -41,7 +41,7 @@ int d[4][5]={{1,2,3},4,5};
 );
 
 codegen_test_template!(
-    init_struct_without_bitfield,
+    init_struct_without_biffield,
     "struct A{
     int a;
     float b;
@@ -59,7 +59,7 @@ int main()
 );
 
 codegen_test_template!(
-    init_struct_with_bitfield,
+    init_struct_with_biffield,
     "struct A{
     int a:3;
     int b:4;
@@ -75,7 +75,7 @@ int main()
 );
 
 codegen_test_template!(
-    init_union_without_bitfield,
+    init_union_without_biffield,
     "union A{
     int a;
     float b;
@@ -93,7 +93,7 @@ int main()
 );
 
 codegen_test_template!(
-    init_union_with_bitfield,
+    init_union_with_biffield,
     "union A{
     int a:3;
     int b:4;

@@ -12,7 +12,7 @@ pub mod variant;
 
 use crate::{
     ast::TranslationUnit,
-    codegen::{CodeGen, builder::llvmir::LLVMIRBuilder},
+    codegen::CodeGen,
     diagnostic::print_diag,
     file_map::{FileMap, source_map},
     optimizer::constfolder::ConstFolder,
@@ -141,18 +141,16 @@ fn gen_code<'ctx>(
     let module = context.create_module(name);
     module.set_triple(&target_machine.get_triple());
 
-    let builder = LLVMIRBuilder::new(&context, module);
-
-    let mut codegen = CodeGen::new(builder);
+    let mut codegen = CodeGen::new(&context, module);
     codegen.r#gen(Rc::clone(&ast))?;
 
     let buffer = target_machine
-        .write_to_memory_buffer(&codegen.builder.module, file_type)
+        .write_to_memory_buffer(&codegen.module, file_type)
         .map_err(|e| {
             Diagnostic::error().with_message(format!("cannot generate object file: {e}"))
         })?;
 
-    Ok((codegen.builder.module, buffer))
+    Ok((codegen.module, buffer))
 }
 
 fn do_frontend(

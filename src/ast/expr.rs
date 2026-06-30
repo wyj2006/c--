@@ -195,7 +195,7 @@ pub enum EncodePrefix {
     Wide,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum BinOpKind {
     Add,
     Sub,
@@ -229,7 +229,7 @@ pub enum BinOpKind {
     BitXOrAssign,
 }
 
-#[derive(Debug, Clone, PartialEq, Copy)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum UnaryOpKind {
     Positive,
     Negative,
