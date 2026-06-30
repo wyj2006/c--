@@ -40,10 +40,10 @@ impl<B: Builder> CodeGen<B> {
             span,
             kind,
             r#type,
-            value: _,
+            value:_,
             is_lvalue: _,
             symbol,
-            has_side_effects: _,
+            has_side_effects:_,
         } = &*node.borrow();
 
         self.builder.append_context(*file_id, *span);
@@ -59,7 +59,7 @@ impl<B: Builder> CodeGen<B> {
                             .builder
                             .variant_to_value(&Variant::Int(value.clone()), r#type)?;
                     }
-                    _ => result = self.builder.load_var_ptr(name)?,
+                    _ => result = self.builder.load_var(name)?,
                 }
             }
             ExprKind::GenericSelection { assocs, .. } => {
@@ -71,25 +71,16 @@ impl<B: Builder> CodeGen<B> {
                     result = self.build_load(target)?;
                 }
                 _ => {
-                    let value = self.visit_expr(target)?;
-                    result = self
-                        .builder
-                        .cast(&value, &target.borrow().r#type, r#type, *method)?;
+                    let target_value = self.visit_expr(target)?;
+                    result = self.builder.cast(&target_value, r#type, *method)?;
                 }
             },
             ExprKind::Subscript { target, index } => {
                 let target_value = self.visit_expr(target)?;
                 let index_value = self.visit_expr(index)?;
-
-                if target.borrow().r#type.borrow().is_integer() {
-                    result = self
-                        .builder
-                        .subscript(&index_value, &target_value, r#type)?;
-                } else {
-                    result = self
-                        .builder
-                        .subscript(&target_value, &index_value, r#type)?;
-                }
+                result = self
+                    .builder
+                    .subscript(&target_value, &index_value, r#type)?;
             }
             ExprKind::MemberAccess {
                 target,
@@ -106,7 +97,7 @@ impl<B: Builder> CodeGen<B> {
                 let record_type = remove_qualifier(Rc::clone(&target_type));
                 result = self
                     .builder
-                    .load_member_ptr(&target_value, &record_type, name)?;
+                    .load_member(&target_value, &record_type, name)?;
             }
             ExprKind::FunctionCall { target, arguments } => {
                 let function = self.visit_expr(target)?;
@@ -114,9 +105,7 @@ impl<B: Builder> CodeGen<B> {
                 for arg in arguments {
                     args.push(self.visit_expr(arg)?);
                 }
-                result = self
-                    .builder
-                    .call(&function, &args, &target.borrow().r#type)?;
+                result = self.builder.call(&function, &args, r#type)?;
             }
             ExprKind::CompoundLiteral {
                 storage_classes,
@@ -126,7 +115,7 @@ impl<B: Builder> CodeGen<B> {
                 let init_value = self.visit_initializer(initializer)?;
                 result =
                     self.builder
-                        .load_compound_literal_ptr(r#type, storage_classes, &init_value)?;
+                        .load_compound_literal(r#type, storage_classes, &init_value)?;
             }
             ExprKind::Conditional {
                 condition,
@@ -397,7 +386,7 @@ impl<B: Builder> CodeGen<B> {
                     }
                 }
             }
-            Expr { r#type, .. } => self.builder.store(&ptr, value, r#type)?,
+            _ => self.builder.store(&ptr, value)?,
         }
 
         Ok(())

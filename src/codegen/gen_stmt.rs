@@ -114,7 +114,6 @@ impl<B: Builder> CodeGen<B> {
                 self.builder.position_at_end(&cond_block);
                 self.builder.switch(
                     &cond_value,
-                    &condition.borrow().r#type,
                     &cases,
                     default.as_ref().unwrap_or(&exit_block),
                 )?;
