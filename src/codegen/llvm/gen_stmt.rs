@@ -5,7 +5,7 @@ use inkwell::values::{AnyValueEnum, BasicValue};
 
 use crate::{
     ast::stmt::{Stmt, StmtKind},
-    codegen::CodeGen,
+    codegen::llvm::CodeGen,
     diagnostic::map_builder_err,
     symtab::Namespace,
 };

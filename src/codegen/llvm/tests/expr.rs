@@ -1,6 +1,6 @@
-use crate::codegen_test_template;
+use crate::codegen_llvm_test_template;
 
-codegen_test_template!(
+codegen_llvm_test_template!(
     load_bitfield,
     "struct A{
     int a:3;
@@ -19,7 +19,7 @@ int main()
 "
 );
 
-codegen_test_template!(
+codegen_llvm_test_template!(
     store_bitfield,
     "struct A{
     int a:3;
@@ -38,7 +38,7 @@ int main()
 "
 );
 
-codegen_test_template!(
+codegen_llvm_test_template!(
     init_cast_op,
     "int main()
 {

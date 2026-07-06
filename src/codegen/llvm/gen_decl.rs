@@ -1,6 +1,6 @@
 use crate::{
     ast::decl::{Declaration, DeclarationKind, FunctionSpecKind, StorageClassKind},
-    codegen::CodeGen,
+    codegen::llvm::CodeGen,
     ctype::{RecordKind, TypeKind, array_element, layout::compute_layout},
     diagnostic::map_builder_err,
     symtab::{Namespace, SymbolKind},

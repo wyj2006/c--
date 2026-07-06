@@ -4,19 +4,14 @@ pub mod init;
 pub mod stmt;
 
 #[macro_export]
-macro_rules! codegen_test_template {
+macro_rules! codegen_riscv_test_template {
     ($name:ident,$code:expr) => {
-        #[cfg(not(windows))]
         #[test]
         pub fn $name() {
-            use crate::codegen::CodeGen;
+            use crate::codegen::riscv::CodeGen;
             use crate::{
                 symtab::SymbolTable,
                 typechecker::{TypeChecker, tests::quick_new_parser},
-            };
-            use inkwell::{
-                context::Context,
-                targets::{InitializationConfig, Target, TargetTriple},
             };
             use insta::assert_snapshot;
             use std::{cell::RefCell, rc::Rc};
@@ -29,17 +24,10 @@ macro_rules! codegen_test_template {
             let mut type_checker = TypeChecker::new(Rc::clone(&symtab));
             type_checker.check(Rc::clone(&ast)).unwrap();
 
-            Target::initialize_all(&InitializationConfig::default());
-            let target_triple = TargetTriple::create("x86_64-pc-linux-gnu");
+            let mut codegen = CodeGen::new();
+            codegen.r#gen(&ast).unwrap();
 
-            let context = Context::create();
-            let module = context.create_module("<string>");
-            module.set_triple(&target_triple);
-
-            let mut codegen = CodeGen::new(&context, module);
-            codegen.r#gen(Rc::clone(&ast)).unwrap();
-
-            assert_snapshot!(codegen.module.to_string());
+            assert_snapshot!(codegen.to_string());
         }
     };
 }

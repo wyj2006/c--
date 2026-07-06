@@ -30,6 +30,7 @@ pub struct TypeChecker {
     pub member_symtabs: Vec<Rc<RefCell<SymbolTable>>>,
     //正在处理的enum类型
     pub enums: Vec<Rc<RefCell<Type>>>,
+    pub records: Vec<Rc<RefCell<Type>>>,
     //上下文信息, 实际上就是调用路径
     pub contexts: Vec<Context>,
 }
@@ -51,6 +52,7 @@ impl TypeChecker {
             func_types: vec![],
             member_symtabs: vec![],
             enums: vec![],
+            records: vec![],
             contexts: vec![],
         }
     }

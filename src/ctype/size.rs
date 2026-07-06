@@ -18,6 +18,7 @@ impl TypeKind {
     pub fn size(&self) -> Option<usize> {
         match &self {
             //TODO 根据平台决定
+            //TODO 考虑对齐
             TypeKind::Char | TypeKind::SignedChar | TypeKind::UnsignedChar => Some(1),
             TypeKind::Short | TypeKind::UShort => Some(2),
             TypeKind::Unsigned | TypeKind::Signed | TypeKind::Int | TypeKind::UInt => Some(4),

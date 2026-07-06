@@ -1,0 +1,24 @@
+---
+source: src/codegen/riscv/tests/stmt.rs
+expression: codegen.to_string()
+---
+main:
+    prologue:
+        mv fp, sp
+        sub sp, sp, 4
+    entry:
+        lw x32, -4(fp)
+        snez x33, x32
+        beqz x33, if_else
+    if_then:
+        lw x34, -4(fp)
+        add x35, x34, 1
+        sw x35, -4(fp)
+        j if_merge
+    if_else:
+        lw x36, -4(fp)
+        sub x37, x36, 1
+        sw x37, -4(fp)
+    if_merge:
+        li a0, 0
+        ret

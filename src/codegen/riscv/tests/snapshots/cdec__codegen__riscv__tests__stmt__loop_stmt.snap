@@ -1,0 +1,62 @@
+---
+source: src/codegen/riscv/tests/stmt.rs
+expression: codegen.to_string()
+---
+main:
+    prologue:
+        mv fp, sp
+        sub sp, sp, 16
+    entry:
+        sw 0, -16(fp)
+        add x32, fp, -12
+        mv a0, x32
+        add x33, fp, -16
+        mv a1, x33
+        mv a2, 4
+        call memcpy
+    for_cond:
+        lw x34, -12(fp)
+        lw x35, -8(fp)
+        sub x37, x34, x35
+        sgtz x36, x37
+        seqz x36, x36
+        snez x38, x36
+        beqz x38, for_exit
+        j for_body
+    for_body:
+        lw x39, -12(fp)
+        rem x40, x39, 2
+        sub x42, x40, 0
+        seqz x41, x42
+        snez x43, x41
+        beqz x43, if_else
+    if_then:
+        j for_exit
+        j if_merge
+    if_else:
+    if_merge:
+        lw x44, -12(fp)
+        rem x45, x44, 3
+        sub x47, x45, 0
+        seqz x46, x47
+        snez x48, x46
+        beqz x48, if_else2
+    if_then2:
+        j for_iter
+        j if_merge2
+    if_else2:
+    if_merge2:
+        lw x49, -4(fp)
+        lw x50, -12(fp)
+        lw x51, x50
+        add x52, x49, x51
+        sw x52, -4(fp)
+        j for_iter
+    for_iter:
+        lw x53, -12(fp)
+        add x54, x53, 1
+        sw x54, -12(fp)
+        j for_cond
+    for_exit:
+        li a0, 0
+        ret

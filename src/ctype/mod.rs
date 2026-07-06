@@ -450,3 +450,14 @@ pub fn arith_result_type(a: Rc<RefCell<Type>>, b: Rc<RefCell<Type>>) -> Rc<RefCe
 pub fn get_inner_type(a: Rc<RefCell<Type>>) -> Rc<RefCell<Type>> {
     match_inner_type!(&a.borrow().kind, get_inner_type, Rc::clone(&a))
 }
+
+pub fn get_qualifiers(a: Rc<RefCell<Type>>) -> Vec<TypeQual> {
+    match &a.borrow().kind {
+        TypeKind::Qualified { qualifiers, r#type } => {
+            let mut qualifiers = qualifiers.clone();
+            qualifiers.extend(get_qualifiers(r#type.clone()));
+            qualifiers
+        }
+        _ => match_inner_type!(&a.borrow().kind, get_qualifiers, vec![]),
+    }
+}

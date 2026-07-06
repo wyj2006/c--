@@ -1,0 +1,42 @@
+---
+source: src/codegen/riscv/tests/expr.rs
+expression: codegen.to_string()
+---
+main:
+    prologue:
+        mv fp, sp
+        sub sp, sp, 28
+    entry:
+        add x32, fp, -12
+        sd x32, -20(fp)
+        ld x33, -12(fp)
+        lw x34, x33
+        sw x34, -4(fp)
+        lw x35, -4(fp)
+        not x36, x35
+        sw x36, -4(fp)
+        add x37, fp, -28
+        flw f32, x37
+        fneg.s f33, f32
+        fsw f33, -24(fp)
+        ld x38, -12(fp)
+        lw x39, -4(fp)
+        snez x40, x39
+        seqz x41, x40
+        sll x42, x41, 56
+        srl x42, x42, 56
+        sw x42, x38
+        ld x43, -20(fp)
+        add x44, x43, 8
+        sd x44, -20(fp)
+        ld x45, -20(fp)
+        sub x46, x45, 8
+        sd x46, -20(fp)
+        ld x47, -20(fp)
+        sub x48, x47, 8
+        sd x48, -20(fp)
+        ld x49, -20(fp)
+        add x50, x49, 8
+        sd x50, -20(fp)
+        li a0, 0
+        ret

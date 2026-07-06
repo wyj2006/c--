@@ -1,0 +1,40 @@
+---
+source: src/codegen/riscv/tests/decl.rs
+expression: codegen.to_string()
+---
+a:
+    prologue:
+        mv fp, sp
+        sub sp, sp, 0
+    entry:
+        ret 
+b:
+    prologue:
+        mv fp, sp
+        sub sp, sp, 0
+    entry:
+        li a0, 0
+        ret 
+c:
+    prologue:
+        mv fp, sp
+        sub sp, sp, 1
+    entry:
+        sd a0, -1(fp)
+        lb x32, -1(fp)
+        fcvt.s.l f32, x32
+        fmv.s fa0, f32
+        ret 
+        li a0, 0
+        fcvt.s.wu fa0, a0
+        ret 
+d:
+    prologue:
+        mv fp, sp
+        sub sp, sp, 8
+    entry:
+        sd a0, -4(fp)
+        sd a1, -8(fp)
+        li a0, 0
+        fcvt.d.wu fa0, a0
+        ret

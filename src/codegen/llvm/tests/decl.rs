@@ -1,6 +1,6 @@
-use crate::codegen_test_template;
+use crate::codegen_llvm_test_template;
 
-codegen_test_template!(
+codegen_llvm_test_template!(
     var,
     "static int a;
 extern int b;
@@ -16,7 +16,7 @@ int main()
 "
 );
 
-codegen_test_template!(
+codegen_llvm_test_template!(
     compound_literal,
     "int main()
 {

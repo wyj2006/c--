@@ -101,7 +101,9 @@ pub fn compute_layout(r#type: Rc<RefCell<Type>>) -> Option<Layout> {
 
             for (i, (_, member)) in members.iter().enumerate() {
                 let bit_field = match &mut member.borrow_mut().kind {
-                    SymbolKind::Member { bit_field, index } => {
+                    SymbolKind::Member {
+                        bit_field, index, ..
+                    } => {
                         *index = children.len();
                         bit_field.unwrap_or(0)
                     }

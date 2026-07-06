@@ -1,0 +1,28 @@
+---
+source: src/codegen/riscv/tests/stmt.rs
+expression: codegen.to_string()
+---
+main:
+    prologue:
+        mv fp, sp
+        sub sp, sp, 4
+    entry:
+        lw x32, -4(fp)
+        sw 1, -4(fp)
+        beq x32, 1, case
+        beq x32, 2, case2
+        beq x32, 3, case3
+        j default
+    case:
+        sw 2, -4(fp)
+        j switch_exit
+    case2:
+        sw 3, -4(fp)
+    case3:
+        sw 4, -4(fp)
+        j switch_exit
+    default:
+        sw 5, -4(fp)
+    switch_exit:
+        li a0, 0
+        ret

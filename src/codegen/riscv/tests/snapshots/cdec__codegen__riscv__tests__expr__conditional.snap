@@ -1,0 +1,25 @@
+---
+source: src/codegen/riscv/tests/expr.rs
+expression: codegen.to_string()
+---
+main:
+    prologue:
+        mv fp, sp
+        sub sp, sp, 16
+    entry:
+        lw x33, -8(fp)
+        snez x34, x33
+        beqz x34, cond_false
+        j cond_true
+    cond_true:
+        lw x35, -12(fp)
+        mv x32, x35
+        j cond_merge
+    cond_false:
+        lw x36, -16(fp)
+        mv x32, x36
+        j cond_merge
+    cond_merge:
+        sw x32, -4(fp)
+        li a0, 0
+        ret

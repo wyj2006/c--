@@ -12,7 +12,7 @@ pub mod variant;
 
 use crate::{
     ast::TranslationUnit,
-    codegen::CodeGen,
+    codegen::{llvm, riscv},
     diagnostic::print_diag,
     file_map::{FileMap, source_map},
     optimizer::constfolder::ConstFolder,
@@ -131,7 +131,7 @@ fn analyze(
     Ok(symtab)
 }
 
-fn gen_code<'ctx>(
+fn gen_code_llvm<'ctx>(
     name: &str,
     ast: Rc<RefCell<TranslationUnit>>,
     context: &'ctx Context,
@@ -141,7 +141,7 @@ fn gen_code<'ctx>(
     let module = context.create_module(name);
     module.set_triple(&target_machine.get_triple());
 
-    let mut codegen = CodeGen::new(&context, module);
+    let mut codegen = llvm::CodeGen::new(&context, module);
     codegen.r#gen(Rc::clone(&ast))?;
 
     let buffer = target_machine
@@ -151,6 +151,13 @@ fn gen_code<'ctx>(
         })?;
 
     Ok((codegen.module, buffer))
+}
+
+fn gen_code_riscv(ast: Rc<RefCell<TranslationUnit>>) -> Result<(), Diagnostic<usize>> {
+    let mut codegen = riscv::CodeGen::new();
+    codegen.r#gen(&ast)?;
+    println!("{codegen}");
+    Ok(())
 }
 
 fn do_frontend(
@@ -194,7 +201,7 @@ fn do_frontend(
 
         if cli.use_llvm {
             let context = Context::create();
-            let (module, buffer) = gen_code(
+            let (module, buffer) = gen_code_llvm(
                 &input_path,
                 Rc::clone(&ast),
                 &context,
@@ -213,6 +220,8 @@ fn do_frontend(
             }
 
             write(&output_path, buffer.as_slice())?;
+        } else {
+            gen_code_riscv(Rc::clone(&ast))?;
         }
 
         if cli.compile_and_assemble {

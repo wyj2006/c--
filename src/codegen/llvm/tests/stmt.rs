@@ -1,6 +1,6 @@
-use crate::codegen_test_template;
+use crate::codegen_llvm_test_template;
 
-codegen_test_template!(
+codegen_llvm_test_template!(
     switch,
     "int main()
 {

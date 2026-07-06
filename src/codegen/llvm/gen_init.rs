@@ -1,6 +1,6 @@
 use crate::{
     ast::{Initializer, InitializerKind},
-    codegen::CodeGen,
+    codegen::llvm::CodeGen,
     ctype::layout::{ConstDesignation, Layout, compute_layout},
     diagnostic::map_builder_err,
 };

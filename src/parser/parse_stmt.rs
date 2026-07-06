@@ -275,7 +275,7 @@ impl CParser {
                 }
             } else {
                 StmtKind::For {
-                    init_expr: exprs.pop(),
+                    init_expr: if decls.len() == 0 { exprs.pop() } else { None },
                     init_decl: decls.pop(),
                     condition: exprs.pop(),
                     iter_expr: exprs.pop(),

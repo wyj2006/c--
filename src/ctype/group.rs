@@ -45,6 +45,14 @@ impl Type {
         self.kind.is_void_ptr()
     }
 
+    pub fn is_double(&self) -> bool {
+        self.kind.is_double()
+    }
+
+    pub fn is_float_type(&self) -> bool {
+        self.kind.is_float_type()
+    }
+
     pub fn is_float(&self) -> bool {
         self.kind.is_float()
     }
@@ -103,6 +111,10 @@ impl Type {
 
     pub fn to_unsigned(&self) -> Option<TypeKind> {
         self.kind.to_unsigned()
+    }
+
+    pub fn is_aggregate(&self) -> bool {
+        self.kind.is_aggregate()
     }
 }
 
@@ -256,6 +268,20 @@ impl TypeKind {
         }
     }
 
+    pub fn is_double(&self) -> bool {
+        match self {
+            TypeKind::Double => true,
+            _ => match_inner_type!(self, .is_double, false),
+        }
+    }
+
+    pub fn is_float_type(&self) -> bool {
+        match self {
+            TypeKind::Float => true,
+            _ => match_inner_type!(self, .is_float_type, false),
+        }
+    }
+
     pub fn is_float(&self) -> bool {
         match self {
             TypeKind::Decimal32
@@ -355,5 +381,9 @@ impl TypeKind {
             TypeKind::Bool => true,
             _ => match_inner_type!(self, .is_bool, false),
         }
+    }
+
+    pub fn is_aggregate(&self) -> bool {
+        self.is_struct() || self.is_union() || self.is_array()
     }
 }

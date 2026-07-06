@@ -3,7 +3,7 @@ use crate::{
         decl::StorageClassKind,
         expr::{BinOpKind, CastMethod, Expr, ExprKind, UnaryOpKind},
     },
-    codegen::CodeGen,
+    codegen::llvm::CodeGen,
     ctype::{
         RecordKind, TypeKind,
         cast::remove_qualifier,

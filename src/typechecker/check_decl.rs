@@ -401,6 +401,7 @@ impl TypeChecker {
                 )?;
 
                 if let Some(members_decl) = members_decl {
+                    self.records.push(Rc::clone(&node.r#type));
                     //在处理完成员声明前保持不完整(members为None说明不完整)
                     let member_symtab = Rc::new(RefCell::new(SymbolTable::new()));
                     self.member_symtabs.push(Rc::clone(&member_symtab));
@@ -408,6 +409,7 @@ impl TypeChecker {
                         self.visit_declaration(Rc::clone(&decl))?;
                     }
                     self.member_symtabs.pop();
+                    self.records.pop();
 
                     match &mut node.r#type.borrow_mut().kind {
                         //这里members一定为None, 否则在之前加入符号表时就会报错
@@ -500,6 +502,7 @@ impl TypeChecker {
                             None => None,
                         },
                         index: 0,
+                        belong_record: self.records.last().unwrap().clone(),
                     },
                     r#type: Rc::clone(&node.r#type),
                     attributes: node.attributes.clone(),

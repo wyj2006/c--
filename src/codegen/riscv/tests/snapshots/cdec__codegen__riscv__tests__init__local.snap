@@ -1,0 +1,28 @@
+---
+source: src/codegen/riscv/tests/init.rs
+expression: codegen.to_string()
+---
+main:
+    prologue:
+        mv fp, sp
+        sub sp, sp, 48
+    entry:
+        add x33, fp, -40
+        add x32, x33, 8
+        sw 3, x32
+        add x35, fp, -40
+        add x34, x35, 12
+        sw 4, x34
+        add x36, fp, -20
+        mv a0, x36
+        add x37, fp, -40
+        mv a1, x37
+        mv a2, 20
+        call memcpy
+        add x39, fp, -48
+        add x38, x39, 0
+        sw 1, x38
+        lw x40, -48(fp)
+        sw x40, -44(fp)
+        li a0, 0
+        ret

@@ -11,7 +11,7 @@ use crate::{
             array_to_ptr, func_to_ptr, integer_promote, lvalue_cast, remove_qualifier,
             usual_arith_cast,
         },
-        is_compatible, pointee,
+        get_inner_type, get_qualifiers, is_compatible, pointee,
     },
     diagnostic::warning,
     symtab::{Namespace, SymbolKind},
@@ -33,6 +33,7 @@ impl TypeChecker {
         Expr {
             r#type,
             has_side_effects: expr.borrow().has_side_effects,
+            symbol: expr.borrow().symbol.clone(),
             ..Expr::new(
                 expr.borrow().file_id,
                 expr.borrow().span,
@@ -1138,62 +1139,10 @@ impl TypeChecker {
                         target_type = Rc::clone(&target.borrow().r#type);
                     }
 
-                    let mut qualifiers = vec![];
-                    let mut record_type = None;
-                    match &target_type.borrow().kind {
-                        TypeKind::Qualified {
-                            qualifiers: quals,
-                            r#type,
-                        } => match &r#type.borrow().kind {
-                            TypeKind::Record { .. } => {
-                                record_type = Some(Rc::clone(r#type));
-                                qualifiers.extend(quals.clone());
-                            }
-                            _ => {}
-                        },
-                        TypeKind::Record { .. } => {
-                            record_type = Some(Rc::clone(&target.borrow().r#type));
-                        }
-                        _ => {}
-                    }
-                    if let Some(t) = record_type {
-                        let TypeKind::Record { members, .. } = &t.borrow().kind else {
-                            unreachable!();
-                        };
-                        if let Some(members) = members {
-                            if let Some(member) = members.get(name) {
-                                node.symbol = Some(Rc::clone(member));
-                                if qualifiers.len() > 0 {
-                                    node.r#type = Rc::new(RefCell::new(Type {
-                                        kind: TypeKind::Qualified {
-                                            qualifiers,
-                                            r#type: Rc::clone(&member.borrow().r#type),
-                                        },
-                                        ..Type::new(node.file_id, node.span)
-                                    }));
-                                } else {
-                                    node.r#type = Rc::clone(&member.borrow().r#type);
-                                }
-                            } else {
-                                return Err(Diagnostic::error()
-                                    .with_message(format!(
-                                        "no member named '{name}' in '{}'",
-                                        t.borrow().to_string()
-                                    ))
-                                    .with_label(Label::primary(
-                                        target.borrow().file_id,
-                                        target.borrow().span,
-                                    )));
-                            }
-                        } else {
-                            return Err(Diagnostic::error()
-                                .with_message(format!("'{}' is incomplete", t.borrow().to_string()))
-                                .with_label(Label::primary(
-                                    target.borrow().file_id,
-                                    target.borrow().span,
-                                )));
-                        }
-                    } else {
+                    let qualifiers = get_qualifiers(target_type.clone());
+                    let record_type = get_inner_type(target_type.clone());
+
+                    let TypeKind::Record { members, .. } = &record_type.borrow().kind else {
                         return Err(Diagnostic::error()
                             .with_message(format!(
                                 "'{}' is not a struct or union",
@@ -1203,7 +1152,44 @@ impl TypeChecker {
                                 target.borrow().file_id,
                                 target.borrow().span,
                             )));
+                    };
+                    if let Some(members) = members {
+                        if let Some(member) = members.get(name) {
+                            node.symbol = Some(Rc::clone(member));
+                            if qualifiers.len() > 0 {
+                                node.r#type = Rc::new(RefCell::new(Type {
+                                    kind: TypeKind::Qualified {
+                                        qualifiers,
+                                        r#type: Rc::clone(&member.borrow().r#type),
+                                    },
+                                    ..Type::new(node.file_id, node.span)
+                                }));
+                            } else {
+                                node.r#type = Rc::clone(&member.borrow().r#type);
+                            }
+                        } else {
+                            return Err(Diagnostic::error()
+                                .with_message(format!(
+                                    "no member named '{name}' in '{}'",
+                                    record_type.borrow().to_string()
+                                ))
+                                .with_label(Label::primary(
+                                    target.borrow().file_id,
+                                    target.borrow().span,
+                                )));
+                        }
+                    } else {
+                        return Err(Diagnostic::error()
+                            .with_message(format!(
+                                "'{}' is incomplete",
+                                record_type.borrow().to_string()
+                            ))
+                            .with_label(Label::primary(
+                                target.borrow().file_id,
+                                target.borrow().span,
+                            )));
                     }
+
                     node.is_lvalue = is_lvalue;
                     node.has_side_effects = has_side_effects;
                 }

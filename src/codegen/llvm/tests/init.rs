@@ -1,6 +1,6 @@
-use crate::codegen_test_template;
+use crate::codegen_llvm_test_template;
 
-codegen_test_template!(
+codegen_llvm_test_template!(
     init_scale_without_list,
     "int a=1;
 int main()
@@ -12,7 +12,7 @@ int main()
 "
 );
 
-codegen_test_template!(
+codegen_llvm_test_template!(
     init_scale_with_list,
     "int a={1};
 int main()
@@ -24,14 +24,14 @@ int main()
 "
 );
 
-codegen_test_template!(
+codegen_llvm_test_template!(
     init_array_with_string,
     r#"char a[]="fdas";
 char b[3][5]={"fdas"};
 "#
 );
 
-codegen_test_template!(
+codegen_llvm_test_template!(
     init_array_with_list,
     r#"int a[]={1,2,3};
 int b[5]={[2]=1,2,3};
@@ -40,7 +40,7 @@ int d[4][5]={{1,2,3},4,5};
 "#
 );
 
-codegen_test_template!(
+codegen_llvm_test_template!(
     init_struct_without_bitfield,
     "struct A{
     int a;
@@ -58,7 +58,7 @@ int main()
 "
 );
 
-codegen_test_template!(
+codegen_llvm_test_template!(
     init_struct_with_bitfield,
     "struct A{
     int a:3;
@@ -74,7 +74,7 @@ int main()
 "
 );
 
-codegen_test_template!(
+codegen_llvm_test_template!(
     init_union_without_bitfield,
     "union A{
     int a;
@@ -92,7 +92,7 @@ int main()
 "
 );
 
-codegen_test_template!(
+codegen_llvm_test_template!(
     init_union_with_bitfield,
     "union A{
     int a:3;
