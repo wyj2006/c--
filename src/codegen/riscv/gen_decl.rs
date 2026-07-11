@@ -1,7 +1,7 @@
 use crate::{
     ast::decl::{Declaration, DeclarationKind, StorageClassKind},
     codegen::riscv::{
-        A0_REG, A1_REG, CodeGen, FA0_REG, FP_REG, SP_REG,
+        A0_REG, A1_REG, CodeGen, FA0_REG, FP_REG, RA_REG, SP_REG,
         function::Function,
         instruction::{Opcode, Operand},
     },
@@ -55,10 +55,46 @@ impl CodeGen {
 
                 if let Some(body) = body {
                     self.cur_function = index;
+
                     let prologue_block = self.append_basic_block("prologue")?;
                     self.position_at_end(&prologue_block)?;
                     let entry_block = self.append_basic_block("entry")?;
                     self.position_at_end(&entry_block)?;
+
+                    //保存RA寄存器
+                    let (_, function) = self.functions.get_index_mut(self.cur_function).unwrap();
+
+                    function.frame_size += self.xlen / 8;
+                    let ra_saved = Operand::Address {
+                        base: Box::new(FP_REG),
+                        offset: -(function.frame_size as i64),
+                    };
+                    function.ra_saved = ra_saved.clone();
+
+                    function.frame_size += self.xlen / 8;
+                    let a0_saved = Operand::Address {
+                        base: Box::new(FP_REG),
+                        offset: -(function.frame_size as i64),
+                    };
+                    function.a0_saved = a0_saved.clone();
+
+                    self.add_instruction(
+                        match self.xlen {
+                            32 => Opcode::StoreW,
+                            64 => Opcode::StoreD,
+                            _ => unreachable!(),
+                        },
+                        &[RA_REG, ra_saved.clone()],
+                    )?;
+
+                    self.add_instruction(
+                        match self.xlen {
+                            32 => Opcode::StoreW,
+                            64 => Opcode::StoreD,
+                            _ => unreachable!(),
+                        },
+                        &[A0_REG, a0_saved.clone()],
+                    )?;
 
                     //因为参数中使用了栈, 所以要与调用时的解析顺序反过来
                     for decl in parameter_decls.iter().rev() {
@@ -135,6 +171,18 @@ impl CodeGen {
                         t if t.is_aggregate() => {
                             let size = t.size().unwrap();
                             if size > xsize * 2 {
+                                let (_, function) =
+                                    self.functions.get_index(self.cur_function).unwrap();
+                                let a0_saved = function.a0_saved.clone();
+                                self.add_instruction(
+                                    match self.xlen {
+                                        32 => Opcode::LoadWU,
+                                        64 => Opcode::LoadD,
+                                        _ => unreachable!(),
+                                    },
+                                    &[A0_REG, a0_saved],
+                                )?;
+
                                 self.call_memset(
                                     &A0_REG,
                                     &Operand::Immediate(0),
@@ -155,6 +203,16 @@ impl CodeGen {
                         }
                         _ => {}
                     }
+
+                    //恢复RA寄存器
+                    self.add_instruction(
+                        match self.xlen {
+                            32 => Opcode::LoadWU,
+                            64 => Opcode::LoadD,
+                            _ => unreachable!(),
+                        },
+                        &[RA_REG, ra_saved],
+                    )?;
 
                     self.add_instruction(Opcode::Ret, &[])?;
 
@@ -234,7 +292,8 @@ impl CodeGen {
                     _ => unreachable!(),
                 };
 
-                match &get_inner_type(r#type.clone()).borrow().kind {
+                let arg_type = get_inner_type(r#type.clone());
+                match arg_type.borrow().kind.clone() {
                     t if t.is_float_type() => {
                         if freg_used < 8 {
                             self.add_instruction(
@@ -243,9 +302,8 @@ impl CodeGen {
                             )?;
                             freg_used += 1;
                         } else {
-                            let t = self.assign_ireg()?;
+                            let t = self.pop_arg(&arg_type)?;
                             let t2 = self.assign_freg()?;
-                            self.add_instruction(Opcode::Pop, &[t.clone()])?;
                             self.add_instruction(
                                 match self.xlen {
                                     32 => Opcode::FMoveSW,
@@ -265,9 +323,8 @@ impl CodeGen {
                             )?;
                             freg_used += 1;
                         } else {
-                            let t = self.assign_ireg()?;
+                            let t = self.pop_arg(&arg_type)?;
                             let t2 = self.assign_freg()?;
-                            self.add_instruction(Opcode::Pop, &[t.clone()])?;
                             self.add_instruction(
                                 match self.xlen {
                                     32 => Opcode::FMoveDW,
@@ -287,8 +344,7 @@ impl CodeGen {
                             )?;
                             ireg_used += 1;
                         } else {
-                            let t = self.assign_ireg()?;
-                            self.add_instruction(Opcode::Pop, &[t.clone()])?;
+                            let t = self.pop_arg(&arg_type)?;
                             self.add_instruction(store_opcode, &[t, value.clone()])?;
                         }
                     }
@@ -296,8 +352,7 @@ impl CodeGen {
                         let size = t.size().unwrap();
 
                         if size > xsize * 2 {
-                            let ptr = self.assign_ireg()?;
-                            self.add_instruction(Opcode::Pop, &[ptr.clone()])?;
+                            let ptr = self.pop_arg(&arg_type)?;
                             self.call_memcpy(&value, &ptr, &Operand::Immediate(size as i64))?;
                         } else {
                             if ireg_used < 8 {
@@ -307,8 +362,7 @@ impl CodeGen {
                                 )?;
                                 ireg_used += 1;
                             } else {
-                                let t = self.assign_ireg()?;
-                                self.add_instruction(Opcode::Pop, &[t.clone()])?;
+                                let t = self.pop_arg(&arg_type)?;
                                 self.add_instruction(store_opcode, &[t, value.clone()])?;
                             }
 
@@ -324,8 +378,7 @@ impl CodeGen {
                                     )?;
                                     ireg_used += 1;
                                 } else {
-                                    let t = self.assign_ireg()?;
-                                    self.add_instruction(Opcode::Pop, &[t.clone()])?;
+                                    let t = self.pop_arg(&arg_type)?;
                                     self.add_instruction(store_opcode, &[t, value.clone()])?;
                                 }
                             }

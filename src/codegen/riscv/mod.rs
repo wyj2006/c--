@@ -44,6 +44,7 @@ pub struct CodeGen {
     pub globals: IndexMap<String, (Option<Variant>, Rc<RefCell<Type>>)>,
 }
 
+const RA_REG: Operand = Operand::IntReg(1);
 const SP_REG: Operand = Operand::IntReg(2);
 const FP_REG: Operand = Operand::IntReg(8);
 const A0_REG: Operand = Operand::IntReg(10);
@@ -377,6 +378,7 @@ impl CodeGen {
                 }
                 Ok(value)
             }
+            //对于复合类型, 将表示它们的值视作指针
             t if t.is_aggregate() => Ok(ptr.clone()),
             _ => unreachable!(),
         }
@@ -470,6 +472,7 @@ impl CodeGen {
                     &[value.clone(), ptr.clone()],
                 )?;
             }
+            //对于复合类型, 将表示它们的值视作指针
             t if t.is_aggregate() => {
                 let size = t.size().unwrap();
                 self.call_memcpy(value, ptr, &Operand::Immediate(size as i64))?;
@@ -584,5 +587,59 @@ impl CodeGen {
         }
         self.globals.insert(name.clone(), value);
         Ok(name)
+    }
+
+    //处理需要在栈上传递的参数
+    pub fn push_arg(
+        &mut self,
+        value: &Operand,
+        r#type: &Rc<RefCell<Type>>,
+    ) -> Result<(), Diagnostic<usize>> {
+        let (_, function) = self.functions.get_index_mut(self.cur_function).unwrap();
+        function.frame_size += r#type.borrow().size().unwrap();
+        let address = Operand::Address {
+            base: Box::new(FP_REG),
+            offset: -(function.frame_size as i64),
+        };
+        match &r#type.borrow().kind {
+            //对于复合类型来说, push的是它的指针, 也有可能是它的一部分数据, 所以不能直接用self.store
+            //但不管怎么样, 入栈的数据的大小一定是xlen
+            t if t.is_aggregate() => self.add_instruction(
+                match self.xlen {
+                    32 => Opcode::StoreW,
+                    64 => Opcode::StoreD,
+                    _ => unreachable!(),
+                },
+                &[value.clone(), address],
+            )?,
+            _ => self.store(&address, value, r#type, &None)?,
+        }
+        Ok(())
+    }
+
+    pub fn pop_arg(&mut self, r#type: &Rc<RefCell<Type>>) -> Result<Operand, Diagnostic<usize>> {
+        let (_, function) = self.functions.get_index_mut(self.cur_function).unwrap();
+        let ptr = &Operand::Address {
+            base: Box::new(FP_REG),
+            offset: function.arg_frame_size as i64,
+        };
+        function.arg_frame_size += r#type.borrow().size().unwrap();
+
+        match &r#type.borrow().kind {
+            //对于复合类型来说, pop的是对应地址的值, 所以不能用self.load
+            t if t.is_aggregate() => {
+                let t = self.assign_ireg()?;
+                self.add_instruction(
+                    match self.xlen {
+                        32 => Opcode::LoadWU,
+                        64 => Opcode::LoadD,
+                        _ => unreachable!(),
+                    },
+                    &[t.clone(), ptr.clone()],
+                )?;
+                Ok(t)
+            }
+            _ => self.load(ptr, r#type, &None),
+        }
     }
 }

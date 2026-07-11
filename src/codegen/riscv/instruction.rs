@@ -78,8 +78,6 @@ pub enum Opcode {
     Mul,
     Neg,
     Or,
-    Pop,
-    Push,
     Rem,
     RemU,
     Ret,

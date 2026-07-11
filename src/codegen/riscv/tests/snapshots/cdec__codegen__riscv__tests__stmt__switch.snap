@@ -5,24 +5,27 @@ expression: codegen.to_string()
 main:
     prologue:
         mv fp, sp
-        sub sp, sp, 4
+        sub sp, sp, 20
     entry:
-        lw x32, -4(fp)
-        sw 1, -4(fp)
+        sd ra, -8(fp)
+        sd a0, -16(fp)
+        lw x32, -20(fp)
+        sw 1, -20(fp)
         beq x32, 1, case
         beq x32, 2, case2
         beq x32, 3, case3
         j default
     case:
-        sw 2, -4(fp)
+        sw 2, -20(fp)
         j switch_exit
     case2:
-        sw 3, -4(fp)
+        sw 3, -20(fp)
     case3:
-        sw 4, -4(fp)
+        sw 4, -20(fp)
         j switch_exit
     default:
-        sw 5, -4(fp)
+        sw 5, -20(fp)
     switch_exit:
         li a0, 0
+        ld ra, -8(fp)
         ret

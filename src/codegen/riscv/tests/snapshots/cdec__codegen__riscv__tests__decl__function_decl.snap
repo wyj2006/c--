@@ -5,36 +5,49 @@ expression: codegen.to_string()
 a:
     prologue:
         mv fp, sp
-        sub sp, sp, 0
+        sub sp, sp, 16
     entry:
+        sd ra, -8(fp)
+        sd a0, -16(fp)
+        ld ra, -8(fp)
         ret 
 b:
     prologue:
         mv fp, sp
-        sub sp, sp, 0
+        sub sp, sp, 16
     entry:
+        sd ra, -8(fp)
+        sd a0, -16(fp)
         li a0, 0
+        ld ra, -8(fp)
         ret 
 c:
     prologue:
         mv fp, sp
-        sub sp, sp, 1
+        sub sp, sp, 17
     entry:
-        sd a0, -1(fp)
-        lb x32, -1(fp)
+        sd ra, -8(fp)
+        sd a0, -16(fp)
+        sd a0, -17(fp)
+        lb x32, -17(fp)
         fcvt.s.l f32, x32
         fmv.s fa0, f32
+        ld ra, -8(fp)
         ret 
         li a0, 0
         fcvt.s.wu fa0, a0
+        ld ra, -8(fp)
         ret 
 d:
     prologue:
         mv fp, sp
-        sub sp, sp, 8
+        sub sp, sp, 24
     entry:
-        sd a0, -4(fp)
-        sd a1, -8(fp)
+        sd ra, -8(fp)
+        sd a0, -16(fp)
+        sd a0, -20(fp)
+        sd a1, -24(fp)
         li a0, 0
         fcvt.d.wu fa0, a0
+        ld ra, -8(fp)
         ret

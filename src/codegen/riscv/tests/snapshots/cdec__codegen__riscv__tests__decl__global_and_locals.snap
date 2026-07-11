@@ -11,14 +11,17 @@ e2:
 main:
     prologue:
         mv fp, sp
-        sub sp, sp, 24
+        sub sp, sp, 40
     entry:
-        sw 1, -8(fp)
-        add x32, fp, -4
+        sd ra, -8(fp)
+        sd a0, -16(fp)
+        sw 1, -24(fp)
+        add x32, fp, -20
         mv a0, x32
-        add x33, fp, -8
+        add x33, fp, -24
         mv a1, x33
         mv a2, 4
         call memcpy
         li a0, 0
+        ld ra, -8(fp)
         ret

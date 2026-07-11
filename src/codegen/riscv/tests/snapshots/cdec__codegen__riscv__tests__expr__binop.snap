@@ -5,28 +5,30 @@ expression: codegen.to_string()
 main:
     prologue:
         mv fp, sp
-        sub sp, sp, 20
+        sub sp, sp, 36
     entry:
-        lw x32, -4(fp)
-        ld x33, -12(fp)
+        sd ra, -8(fp)
+        sd a0, -16(fp)
+        lw x32, -20(fp)
+        ld x33, -28(fp)
         lw x34, x33
         add x35, x32, x34
-        sw x35, -4(fp)
-        ld x36, -12(fp)
+        sw x35, -20(fp)
+        ld x36, -28(fp)
         sub x37, x36, 4
-        sd x37, -12(fp)
-        add x38, fp, -16
+        sd x37, -28(fp)
+        add x38, fp, -32
         flw f32, x38
-        add x39, fp, -20
+        add x39, fp, -36
         flw f33, x39
         fmul.s f34, f32, f33
-        fsw f34, -16(fp)
-        ld x42, -12(fp)
+        fsw f34, -32(fp)
+        ld x42, -28(fp)
         snez x43, x42
         snez x41, x43
         beqz x41, and_merge
     and_right:
-        add x44, fp, -16
+        add x44, fp, -32
         flw f35, x44
         li x45, 0
         fmv.s.x f36, x45
@@ -38,7 +40,7 @@ main:
         snez x40, x46
         bnez x40, or_merge
     or_right:
-        add x47, fp, -20
+        add x47, fp, -36
         flw f37, x47
         li x48, 0
         fmv.s.x f38, x48
@@ -48,6 +50,7 @@ main:
     or_merge:
         sll x49, x40, 56
         srl x49, x49, 56
-        sw x49, -4(fp)
+        sw x49, -20(fp)
         li a0, 0
+        ld ra, -8(fp)
         ret

@@ -5,19 +5,21 @@ expression: codegen.to_string()
 main:
     prologue:
         mv fp, sp
-        sub sp, sp, 29
+        sub sp, sp, 45
     entry:
-        add x33, fp, -29
+        sd ra, -8(fp)
+        sd a0, -16(fp)
+        add x33, fp, -45
         add x32, x33, 0
-        add x35, fp, -29
+        add x35, fp, -45
         add x34, x35, 4
         mul x36, 3, 4
         add x37, x34, x36
         lw x38, x37
         sw x38, x32
-        add x40, fp, -29
+        add x40, fp, -45
         add x39, x40, 28
-        add x42, fp, -29
+        add x42, fp, -45
         add x41, x42, 28
         lbu x43, x41
         srl x43, x43, 2
@@ -31,4 +33,5 @@ main:
         or x43, x43, x44
         sb x43, x39
         li a0, 0
+        ld ra, -8(fp)
         ret

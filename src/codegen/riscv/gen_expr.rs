@@ -1124,9 +1124,10 @@ impl CodeGen {
                     _ => unreachable!(),
                 };
 
-                for arg in arguments {
+                for arg in arguments.iter().rev() {
                     let arg_value = self.visit_expr(arg)?;
-                    match &get_inner_type(arg.borrow().r#type.clone()).borrow().kind {
+                    let arg_type = get_inner_type(arg.borrow().r#type.clone());
+                    match arg_type.borrow().kind.clone() {
                         t if t.is_float_type() => {
                             if freg_used < 8 {
                                 self.add_instruction(
@@ -1135,7 +1136,7 @@ impl CodeGen {
                                 )?;
                                 freg_used += 1;
                             } else {
-                                self.add_instruction(Opcode::Push, &[arg_value])?;
+                                self.push_arg(&arg_value, &arg_type)?;
                             }
                         }
                         t if t.is_double() => {
@@ -1146,7 +1147,7 @@ impl CodeGen {
                                 )?;
                                 freg_used += 1;
                             } else {
-                                self.add_instruction(Opcode::Push, &[arg_value])?;
+                                self.push_arg(&arg_value, &arg_type)?;
                             }
                         }
                         //float和double也是scaler, 所以放到上面优先匹配
@@ -1158,7 +1159,7 @@ impl CodeGen {
                                 )?;
                                 ireg_used += 1;
                             } else {
-                                self.add_instruction(Opcode::Push, &[arg_value])?;
+                                self.push_arg(&arg_value, &arg_type)?;
                             }
                         }
                         //这时的arg_value应该代表指针
@@ -1184,7 +1185,7 @@ impl CodeGen {
                                         load_opcode,
                                         &[value.clone(), arg_value.clone()],
                                     )?;
-                                    self.add_instruction(Opcode::Push, &[value])?;
+                                    self.push_arg(&value, &arg_type)?;
                                 }
 
                                 if size > xsize {
@@ -1209,11 +1210,11 @@ impl CodeGen {
                                             load_opcode,
                                             &[value.clone(), arg_value],
                                         )?;
-                                        self.add_instruction(Opcode::Push, &[value])?;
+                                        self.push_arg(&value, &arg_type)?;
                                     }
                                 }
                             } else {
-                                self.add_instruction(Opcode::Push, &[arg_value])?;
+                                self.push_arg(&arg_value, &arg_type)?;
                             }
                         }
                         _ => {}

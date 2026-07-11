@@ -178,8 +178,6 @@ impl Display for Opcode {
                 Opcode::Move => "mv",
                 Opcode::Mul => "mul",
                 Opcode::Neg => "neg",
-                Opcode::Pop => "pop",
-                Opcode::Push => "push",
                 Opcode::Or => "or",
                 Opcode::RShiftA => "sra",
                 Opcode::RShiftL => "srl",

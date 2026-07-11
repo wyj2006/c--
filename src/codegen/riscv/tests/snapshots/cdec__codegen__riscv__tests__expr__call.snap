@@ -5,17 +5,19 @@ expression: codegen.to_string()
 f:
     prologue:
         mv fp, sp
-        sub sp, sp, 4
+        sub sp, sp, 20
     entry:
-        sd a0, -4(fp)
-        lw x33, -4(fp)
+        sd ra, -8(fp)
+        sd a0, -16(fp)
+        sd a0, -20(fp)
+        lw x33, -20(fp)
         sub x35, x33, 1
         seqz x34, x35
         snez x36, x34
         snez x32, x36
         bnez x32, or_merge
     or_right:
-        lw x37, -4(fp)
+        lw x37, -20(fp)
         sub x39, x37, 2
         seqz x38, x39
         snez x40, x38
@@ -26,34 +28,40 @@ f:
         beqz x41, if_else
     if_then:
         mv a0, 1
+        ld ra, -8(fp)
         ret 
         j if_merge
     if_else:
     if_merge:
-        lw x42, -4(fp)
+        lw x42, -20(fp)
         sub x43, x42, 1
         mv a0, x43
         lla x44, f
         call x44
-        lw x45, -4(fp)
+        lw x45, -20(fp)
         sub x46, x45, 2
         mv a0, x46
         lla x47, f
         call x47
         add x48, a0, a0
         mv a0, x48
+        ld ra, -8(fp)
         ret 
         li a0, 0
+        ld ra, -8(fp)
         ret 
 main:
     prologue:
         mv fp, sp
-        sub sp, sp, 8
+        sub sp, sp, 24
     entry:
-        lw x49, -8(fp)
+        sd ra, -8(fp)
+        sd a0, -16(fp)
+        lw x49, -24(fp)
         mv a0, x49
         lla x50, f
         call x50
-        sw a0, -4(fp)
+        sw a0, -20(fp)
         li a0, 0
+        ld ra, -8(fp)
         ret
