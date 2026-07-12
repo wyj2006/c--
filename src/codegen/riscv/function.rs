@@ -1,4 +1,4 @@
-use crate::codegen::riscv::{basic_block::BasicBlock, instruction::Operand};
+use crate::codegen::riscv::basic_block::BasicBlock;
 use indexmap::IndexMap;
 
 #[derive(Debug)]
@@ -11,8 +11,7 @@ pub struct Function {
     //参数中使用整数和浮点寄存器的数量
     pub ireg_used: u64,
     pub freg_used: u64,
-    pub ra_saved: Operand, //ra寄存器保存的地址
-    pub a0_saved: Operand,
+    pub ireg_saved: IndexMap<usize, i64>,
 }
 
 impl Function {
@@ -25,8 +24,7 @@ impl Function {
             cursor: usize::MAX,
             ireg_used: 0,
             freg_used: 0,
-            ra_saved: Operand::Immediate(0),
-            a0_saved: Operand::Immediate(0),
+            ireg_saved: IndexMap::new(),
         }
     }
 }

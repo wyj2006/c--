@@ -246,13 +246,13 @@ impl CodeGen {
                     let operand_value = self.load(&operand_ptr, r#type, symbol)?;
 
                     let offset = match pointee(operand.borrow().r#type.clone()) {
-                        Some(t) => Operand::Immediate(t.borrow().size().unwrap() as i64),
-                        None => Operand::Immediate(1),
+                        Some(t) => Operand::Immediate(-(t.borrow().size().unwrap() as i64)),
+                        None => Operand::Immediate(-1),
                     };
 
                     let value = self.assign_ireg()?;
                     self.add_instruction(
-                        Opcode::Sub,
+                        Opcode::Add,
                         &[value.clone(), operand_value.clone(), offset],
                     )?;
                     self.store(&operand_ptr, &value, r#type, symbol)?;
@@ -282,13 +282,13 @@ impl CodeGen {
                     let operand_value = self.load(&operand_ptr, r#type, symbol)?;
 
                     let offset = match pointee(operand.borrow().r#type.clone()) {
-                        Some(t) => Operand::Immediate(t.borrow().size().unwrap() as i64),
-                        None => Operand::Immediate(1),
+                        Some(t) => Operand::Immediate(-(t.borrow().size().unwrap() as i64)),
+                        None => Operand::Immediate(-1),
                     };
 
                     let value = self.assign_ireg()?;
                     self.add_instruction(
-                        Opcode::Sub,
+                        Opcode::Add,
                         &[value.clone(), operand_value.clone(), offset],
                     )?;
                     self.store(&operand_ptr, &value, r#type, symbol)?;
@@ -876,15 +876,8 @@ impl CodeGen {
                     | CastMethod::ArrayToPtr
                     | CastMethod::PtrToPtr
                     | CastMethod::PtrToInt
-                    | CastMethod::IntToPtr => Ok(target_value),
-                    CastMethod::FuncToPtr => match target_value {
-                        t @ Operand::Symbol(_) => {
-                            let value = self.assign_ireg()?;
-                            self.add_instruction(Opcode::LoadAddr, &[value.clone(), t.clone()])?;
-                            Ok(value)
-                        }
-                        _ => unreachable!(),
-                    },
+                    | CastMethod::IntToPtr
+                    | CastMethod::FuncToPtr => Ok(target_value),
                     CastMethod::LToRValue => {
                         Ok(self.load(&target_value, &target.borrow().r#type, symbol)?)
                     }
@@ -1090,7 +1083,6 @@ impl CodeGen {
                 }
             }
             ExprKind::FunctionCall { target, arguments } => {
-                //TODO 不定参数
                 let xsize = self.xlen / 8;
 
                 let (_, function) = self.functions.get_index_mut(self.cur_function).unwrap();
@@ -1108,8 +1100,8 @@ impl CodeGen {
 
                         if t.size().unwrap() > xsize * 2 {
                             self.add_instruction(
-                                Opcode::Sub,
-                                &[A0_REG, FP_REG, Operand::Immediate(frame_size as i64)],
+                                Opcode::Add,
+                                &[A0_REG, FP_REG, Operand::Immediate(-(frame_size as i64))],
                             )?;
 
                             ireg_used += 1;
@@ -1124,7 +1116,8 @@ impl CodeGen {
                     _ => unreachable!(),
                 };
 
-                for arg in arguments.iter().rev() {
+                self.call_arg_frame_size = 0;
+                for arg in arguments.iter() {
                     let arg_value = self.visit_expr(arg)?;
                     let arg_type = get_inner_type(arg.borrow().r#type.clone());
                     match arg_type.borrow().kind.clone() {

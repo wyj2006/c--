@@ -19,17 +19,17 @@ impl CodeGen {
         r#type: &Rc<RefCell<Type>>,
     ) -> std::fmt::Result {
         match value {
-            Variant::Bool(a) => writeln!(f, ".byte {}", (*a) as u64)?,
+            Variant::Bool(a) => writeln!(f, "    .byte {}", (*a) as u64)?,
             Variant::Int(a) => match r#type.borrow().size().unwrap() {
-                1 => writeln!(f, ".byte {}", a.to_i8().unwrap_or(i8::MAX))?,
-                2 => writeln!(f, ".half {}", a.to_i16().unwrap_or(i16::MAX))?,
-                4 => writeln!(f, ".word {}", a.to_i32().unwrap_or(i32::MAX))?,
-                8 => writeln!(f, ".dword {}", a.to_i64().unwrap_or(i64::MAX))?,
+                1 => writeln!(f, "    .byte {}", a.to_i8().unwrap_or(i8::MAX))?,
+                2 => writeln!(f, "    .half {}", a.to_i16().unwrap_or(i16::MAX))?,
+                4 => writeln!(f, "    .word {}", a.to_i32().unwrap_or(i32::MAX))?,
+                8 => writeln!(f, "    .dword {}", a.to_i64().unwrap_or(i64::MAX))?,
                 _ => unreachable!(),
             },
             Variant::Nullptr => match self.xlen {
-                32 => writeln!(f, ".word 0")?,
-                64 => writeln!(f, ".dword 0")?,
+                32 => writeln!(f, "    .word 0")?,
+                64 => writeln!(f, "    .dword 0")?,
                 _ => unreachable!(),
             },
             Variant::Array(a) => {
@@ -47,15 +47,22 @@ impl CodeGen {
 
 impl Display for CodeGen {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (name, (value, r#type)) in &self.globals {
-            writeln!(f, "{name}:")?;
-            match value {
-                Some(value) => self.display_variant(f, value, r#type)?,
-                None => writeln!(f, ".zero {}", r#type.borrow().size().unwrap())?,
+        for (_, function) in &self.functions {
+            if function.basic_blocks.len() > 0 {
+                write!(f, "{}", function)?;
             }
         }
-        for (_, function) in &self.functions {
-            write!(f, "{}", function)?;
+
+        for (name, (value, r#type)) in &self.globals {
+            if r#type.borrow().is_function() {
+                writeln!(f, "    .global {name}")?;
+            } else {
+                writeln!(f, "{name}:")?;
+                match value {
+                    Some(value) => self.display_variant(f, value, r#type)?,
+                    None => writeln!(f, "    .zero {}", r#type.borrow().size().unwrap())?,
+                }
+            }
         }
         Ok(())
     }
@@ -166,7 +173,7 @@ impl Display for Opcode {
                 Opcode::FSubS => "fsub.s",
                 Opcode::Jump => "j",
                 Opcode::LShift => "sll",
-                Opcode::LoadAddr => "lla",
+                Opcode::LoadAddr => "la",
                 Opcode::LoadB => "lb",
                 Opcode::LoadBU => "lbu",
                 Opcode::LoadD => "ld",

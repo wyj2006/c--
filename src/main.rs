@@ -153,9 +153,13 @@ fn gen_code_llvm<'ctx>(
     Ok((codegen.module, buffer))
 }
 
-fn gen_code_riscv(ast: Rc<RefCell<TranslationUnit>>) -> Result<(), Diagnostic<usize>> {
+fn gen_code_riscv(
+    output_path: &PathBuf,
+    ast: Rc<RefCell<TranslationUnit>>,
+) -> Result<(), Diagnostic<usize>> {
     let mut codegen = riscv::CodeGen::new();
     codegen.r#gen(&ast)?;
+    fs::write(output_path, codegen.to_string()).unwrap();
     println!("{codegen}");
     Ok(())
 }
@@ -187,7 +191,7 @@ fn do_frontend(
         option_symtab = Some(Rc::clone(&symtab));
 
         let output_path = if cli.compile_and_assemble {
-            get_output(&cli, &input_path, ".o")
+            get_output(&cli, &input_path, "o")
         } else {
             //此时的输出文件是用于链接的
             let mut path = Path::new(input_path).to_path_buf();
@@ -215,13 +219,13 @@ fn do_frontend(
             option_ir = Some(module.to_string());
 
             if cli.compile_only {
-                write(&get_output(&cli, &input_path, ".s"), buffer.as_slice())?;
+                write(&get_output(&cli, &input_path, "s"), buffer.as_slice())?;
                 return Ok(None);
             }
 
             write(&output_path, buffer.as_slice())?;
         } else {
-            gen_code_riscv(Rc::clone(&ast))?;
+            gen_code_riscv(&get_output(&cli, &input_path, "s"), Rc::clone(&ast))?;
         }
 
         if cli.compile_and_assemble {

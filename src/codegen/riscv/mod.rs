@@ -42,9 +42,13 @@ pub struct CodeGen {
     pub freg_num: usize,
     pub xlen: usize,
     pub globals: IndexMap<String, (Option<Variant>, Rc<RefCell<Type>>)>,
+    pub call_arg_frame_size: usize,
 }
 
-const RA_REG: Operand = Operand::IntReg(1);
+const RA_REG_INDEX: usize = 1;
+const SP_REG_INDEX: usize = 2;
+const FP_REG_INDEX: usize = 8;
+
 const SP_REG: Operand = Operand::IntReg(2);
 const FP_REG: Operand = Operand::IntReg(8);
 const A0_REG: Operand = Operand::IntReg(10);
@@ -64,6 +68,7 @@ impl CodeGen {
             freg_num: 32,
             xlen: 64,
             globals: IndexMap::new(),
+            call_arg_frame_size: 0,
         }
     }
 
@@ -127,6 +132,34 @@ impl CodeGen {
         Ok(())
     }
 
+    //将操作数转换成指令实际能接受的操作数
+    pub fn normalize(&mut self, operand: &Operand) -> Result<Operand, Diagnostic<usize>> {
+        match operand {
+            Operand::Address { base, offset } => {
+                let value = self.assign_ireg()?;
+                self.add_instruction(
+                    Opcode::Add,
+                    &[value.clone(), (**base).clone(), Operand::Immediate(*offset)],
+                )?;
+                Ok(value)
+            }
+            Operand::Symbol(name) => {
+                let value = self.assign_ireg()?;
+                self.add_instruction(
+                    Opcode::LoadAddr,
+                    &[value.clone(), Operand::Symbol(name.clone())],
+                )?;
+                Ok(value)
+            }
+            Operand::Immediate(_) => {
+                let t = self.assign_ireg()?;
+                self.add_instruction(Opcode::LoadImm, &[t.clone(), operand.clone()])?;
+                Ok(t)
+            }
+            _ => Ok(operand.clone()),
+        }
+    }
+
     pub fn add_instruction(
         &mut self,
         opcode: Opcode,
@@ -134,47 +167,43 @@ impl CodeGen {
     ) -> Result<(), Diagnostic<usize>> {
         let mut operands = operands.to_vec();
 
-        if !matches!(
-            opcode,
-            Opcode::LoadAddr
-                | Opcode::LoadB
-                | Opcode::LoadBU
-                | Opcode::LoadD
-                | Opcode::LoadH
-                | Opcode::LoadHU
-                | Opcode::LoadW
-                | Opcode::LoadWU
-                | Opcode::StoreB
-                | Opcode::StoreD
-                | Opcode::StoreH
-                | Opcode::StoreW
-                | Opcode::FStoreD
-                | Opcode::FStoreS
-                | Opcode::Call
-                | Opcode::BEq
-                | Opcode::BEqZ
-                | Opcode::BNeqZ
-                | Opcode::Jump
-        ) {
-            for operand in operands.iter_mut() {
-                match operand {
-                    Operand::Address { base, offset } => {
-                        let value = self.assign_ireg()?;
-                        self.add_instruction(
-                            Opcode::Add,
-                            &[value.clone(), (**base).clone(), Operand::Immediate(*offset)],
-                        )?;
-                        *operand = value;
-                    }
-                    Operand::Symbol(name) => {
-                        let value = self.assign_ireg()?;
-                        self.add_instruction(
-                            Opcode::LoadAddr,
-                            &[value.clone(), Operand::Symbol(name.clone())],
-                        )?;
-                        *operand = value;
-                    }
-                    _ => {}
+        match opcode {
+            Opcode::LoadB
+            | Opcode::LoadBU
+            | Opcode::LoadD
+            | Opcode::LoadH
+            | Opcode::LoadHU
+            | Opcode::LoadW
+            | Opcode::LoadWU
+            | Opcode::StoreB
+            | Opcode::StoreD
+            | Opcode::StoreH
+            | Opcode::StoreW
+            | Opcode::FStoreD
+            | Opcode::FStoreS => operands[0] = self.normalize(&operands[0])?,
+            Opcode::BEq | Opcode::BEqZ | Opcode::BNeqZ => {
+                for operand in &mut operands[..2] {
+                    *operand = self.normalize(operand)?;
+                }
+            }
+            Opcode::Call | Opcode::Jump | Opcode::LoadAddr | Opcode::LoadImm => {}
+            //这些指令都允许常量运算符
+            Opcode::Add
+            | Opcode::SetLt
+            | Opcode::SetLtU
+            | Opcode::Xor
+            | Opcode::Or
+            | Opcode::And
+            | Opcode::LShift
+            | Opcode::RShiftL
+            | Opcode::RShiftA => {
+                for operand in &mut operands[..2] {
+                    *operand = self.normalize(operand)?;
+                }
+            }
+            _ => {
+                for operand in &mut operands {
+                    *operand = self.normalize(operand)?;
                 }
             }
         }
@@ -596,11 +625,14 @@ impl CodeGen {
         r#type: &Rc<RefCell<Type>>,
     ) -> Result<(), Diagnostic<usize>> {
         let (_, function) = self.functions.get_index_mut(self.cur_function).unwrap();
+        //TODO 多次调用函数可能导致frame_size持续增大浪费空间
         function.frame_size += r#type.borrow().size().unwrap();
         let address = Operand::Address {
-            base: Box::new(FP_REG),
-            offset: -(function.frame_size as i64),
+            base: Box::new(SP_REG),
+            offset: self.call_arg_frame_size as i64,
         };
+        self.call_arg_frame_size += r#type.borrow().size().unwrap();
+
         match &r#type.borrow().kind {
             //对于复合类型来说, push的是它的指针, 也有可能是它的一部分数据, 所以不能直接用self.store
             //但不管怎么样, 入栈的数据的大小一定是xlen
@@ -641,5 +673,48 @@ impl CodeGen {
             }
             _ => self.load(ptr, r#type, &None),
         }
+    }
+
+    pub fn save_callee_regs(&mut self) -> Result<(), Diagnostic<usize>> {
+        let (_, function) = self.functions.get_index_mut(self.cur_function).unwrap();
+        for (ireg_index, frame_offset) in function.ireg_saved.clone() {
+            self.add_instruction(
+                match self.xlen {
+                    32 => Opcode::StoreW,
+                    64 => Opcode::StoreD,
+                    _ => unreachable!(),
+                },
+                &[
+                    Operand::IntReg(ireg_index as u64),
+                    Operand::Address {
+                        //假设这个时候fp和sp寄存器还没有改变
+                        base: Box::new(SP_REG),
+                        offset: frame_offset,
+                    },
+                ],
+            )?;
+        }
+        Ok(())
+    }
+
+    pub fn restore_callee_regs(&mut self) -> Result<(), Diagnostic<usize>> {
+        let (_, function) = self.functions.get_index_mut(self.cur_function).unwrap();
+        for (ireg_index, frame_offset) in function.ireg_saved.clone() {
+            self.add_instruction(
+                match self.xlen {
+                    32 => Opcode::LoadWU,
+                    64 => Opcode::LoadD,
+                    _ => unreachable!(),
+                },
+                &[
+                    Operand::IntReg(ireg_index as u64),
+                    Operand::Address {
+                        base: Box::new(FP_REG),
+                        offset: frame_offset,
+                    },
+                ],
+            )?;
+        }
+        Ok(())
     }
 }

@@ -1,7 +1,7 @@
 use crate::{
     ast::stmt::{Stmt, StmtKind},
     codegen::riscv::{
-        A0_REG, A1_REG, CodeGen, FA0_REG, RA_REG,
+        A0_REG, A1_REG, CodeGen, FA0_REG,
         instruction::{Opcode, Operand},
     },
     ctype::get_inner_type,
@@ -285,17 +285,6 @@ impl CodeGen {
                         t if t.is_aggregate() => {
                             let size = t.size().unwrap();
                             if size > xsize * 2 {
-                                let (_, function) =
-                                    self.functions.get_index(self.cur_function).unwrap();
-                                let a0_saved = function.a0_saved.clone();
-                                self.add_instruction(
-                                    match self.xlen {
-                                        32 => Opcode::LoadWU,
-                                        64 => Opcode::LoadD,
-                                        _ => unreachable!(),
-                                    },
-                                    &[A0_REG, a0_saved],
-                                )?;
                                 self.call_memcpy(
                                     &A0_REG,
                                     &ret_value,
@@ -327,16 +316,7 @@ impl CodeGen {
                     }
                 }
 
-                let (_, function) = self.functions.get_index(self.cur_function).unwrap();
-                let ra_address = function.ra_saved.clone();
-                self.add_instruction(
-                    match self.xlen {
-                        32 => Opcode::LoadWU,
-                        64 => Opcode::LoadD,
-                        _ => unreachable!(),
-                    },
-                    &[RA_REG, ra_address],
-                )?;
+                self.restore_callee_regs()?;
 
                 self.add_instruction(Opcode::Ret, &[])?;
             }
