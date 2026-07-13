@@ -4,34 +4,40 @@ expression: codegen.to_string()
 ---
 main:
     prologue:
+        sd ra, -8(sp)
+        sd sp, -16(sp)
+        sd fp, -24(sp)
         mv fp, sp
-        sub sp, sp, 45
+        add sp, sp, -53
     entry:
-        sd ra, -8(fp)
-        sd a0, -16(fp)
-        add x33, fp, -45
+        add x33, fp, -53
         add x32, x33, 0
-        add x35, fp, -45
+        add x35, fp, -53
         add x34, x35, 4
-        mul x36, 3, 4
-        add x37, x34, x36
-        lw x38, x37
-        sw x38, x32
-        add x40, fp, -45
-        add x39, x40, 28
-        add x42, fp, -45
+        li x37, 3
+        li x38, 4
+        mul x36, x37, x38
+        add x39, x34, x36
+        lw x40, x39
+        sw x40, x32
+        add x42, fp, -53
         add x41, x42, 28
-        lbu x43, x41
-        srl x43, x43, 2
-        and x43, x43, 15
-        sll x43, x43, 60
-        sra x43, x43, 60
-        lbu x44, x39
-        and x44, x44, -4
-        and x43, x43, 3
-        sll x43, x43, 0
-        or x43, x43, x44
-        sb x43, x39
+        add x44, fp, -53
+        add x43, x44, 28
+        lbu x45, x43
+        srl x45, x45, 2
+        and x45, x45, 15
+        sll x45, x45, 60
+        sra x45, x45, 60
+        lbu x46, x41
+        and x46, x46, -4
+        and x45, x45, 3
+        sll x45, x45, 0
+        or x45, x45, x46
+        sb x45, x41
         li a0, 0
         ld ra, -8(fp)
-        ret
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+    .global main

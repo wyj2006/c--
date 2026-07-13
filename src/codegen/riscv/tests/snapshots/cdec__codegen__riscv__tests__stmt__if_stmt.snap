@@ -4,24 +4,29 @@ expression: codegen.to_string()
 ---
 main:
     prologue:
+        sd ra, -8(sp)
+        sd sp, -16(sp)
+        sd fp, -24(sp)
         mv fp, sp
-        sub sp, sp, 20
+        add sp, sp, -28
     entry:
-        sd ra, -8(fp)
-        sd a0, -16(fp)
-        lw x32, -20(fp)
+        lw x32, -28(fp)
         snez x33, x32
-        beqz x33, if_else
+        la x34, if_else
+        beqz x33, x34
     if_then:
-        lw x34, -20(fp)
-        add x35, x34, 1
-        sw x35, -20(fp)
+        lw x35, -28(fp)
+        add x36, x35, 1
+        sw x36, -28(fp)
         j if_merge
     if_else:
-        lw x36, -20(fp)
-        sub x37, x36, 1
-        sw x37, -20(fp)
+        lw x37, -28(fp)
+        add x38, x37, -1
+        sw x38, -28(fp)
     if_merge:
         li a0, 0
         ld ra, -8(fp)
-        ret
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+    .global main

@@ -4,31 +4,47 @@ expression: codegen.to_string()
 ---
 main:
     prologue:
+        sd ra, -8(sp)
+        sd sp, -16(sp)
+        sd fp, -24(sp)
         mv fp, sp
-        sub sp, sp, 260
+        add sp, sp, -268
     entry:
-        sd ra, -8(fp)
-        sd a0, -16(fp)
-        mul x32, 2, 4
-        add x34, fp, -36
-        add x33, x34, x32
-        mul x35, 3, 4
-        add x37, fp, -36
-        add x36, x37, x35
-        lw x38, x36
-        sw x38, x33
-        mul x39, 4, 32
-        add x41, fp, -260
-        add x40, x41, x39
-        mul x42, 5, 4
-        add x43, x40, x42
-        mul x44, 6, 32
-        add x46, fp, -260
-        add x45, x46, x44
-        mul x47, 7, 4
-        add x48, x45, x47
-        lw x49, x48
-        sw x49, x43
+        li x33, 2
+        li x34, 4
+        mul x32, x33, x34
+        add x36, fp, -44
+        add x35, x36, x32
+        li x38, 3
+        li x39, 4
+        mul x37, x38, x39
+        add x41, fp, -44
+        add x40, x41, x37
+        lw x42, x40
+        sw x42, x35
+        li x44, 4
+        li x45, 32
+        mul x43, x44, x45
+        add x47, fp, -268
+        add x46, x47, x43
+        li x49, 5
+        li x50, 4
+        mul x48, x49, x50
+        add x51, x46, x48
+        li x53, 6
+        li x54, 32
+        mul x52, x53, x54
+        add x56, fp, -268
+        add x55, x56, x52
+        li x58, 7
+        li x59, 4
+        mul x57, x58, x59
+        add x60, x55, x57
+        lw x61, x60
+        sw x61, x51
         li a0, 0
         ld ra, -8(fp)
-        ret
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+    .global main

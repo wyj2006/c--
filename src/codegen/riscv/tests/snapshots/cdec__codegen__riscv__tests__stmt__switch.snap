@@ -4,28 +4,40 @@ expression: codegen.to_string()
 ---
 main:
     prologue:
+        sd ra, -8(sp)
+        sd sp, -16(sp)
+        sd fp, -24(sp)
         mv fp, sp
-        sub sp, sp, 20
+        add sp, sp, -28
     entry:
-        sd ra, -8(fp)
-        sd a0, -16(fp)
-        lw x32, -20(fp)
-        sw 1, -20(fp)
-        beq x32, 1, case
-        beq x32, 2, case2
-        beq x32, 3, case3
+        lw x32, -28(fp)
+        li x33, 1
+        sw x33, -28(fp)
+        li x38, 1
+        beq x32, x38, case
+        li x39, 2
+        beq x32, x39, case2
+        li x40, 3
+        beq x32, x40, case3
         j default
     case:
-        sw 2, -20(fp)
+        li x34, 2
+        sw x34, -28(fp)
         j switch_exit
     case2:
-        sw 3, -20(fp)
+        li x35, 3
+        sw x35, -28(fp)
     case3:
-        sw 4, -20(fp)
+        li x36, 4
+        sw x36, -28(fp)
         j switch_exit
     default:
-        sw 5, -20(fp)
+        li x37, 5
+        sw x37, -28(fp)
     switch_exit:
         li a0, 0
         ld ra, -8(fp)
-        ret
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+    .global main

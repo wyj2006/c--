@@ -1086,7 +1086,7 @@ impl CodeGen {
                 let xsize = self.xlen / 8;
 
                 let (_, function) = self.functions.get_index_mut(self.cur_function).unwrap();
-                let frame_size = function.frame_size;
+                let frame_size = function.local_frame_size;
 
                 let mut ireg_used = 0;
                 let mut freg_used = 0;
@@ -1096,7 +1096,7 @@ impl CodeGen {
                     //real float也是scaler, 所以放到上面优先匹配
                     t if t.is_scale() => A0_REG,
                     t if t.is_aggregate() => {
-                        function.frame_size += r#type.borrow().size().unwrap();
+                        function.local_frame_size += r#type.borrow().size().unwrap();
 
                         if t.size().unwrap() > xsize * 2 {
                             self.add_instruction(
@@ -1116,7 +1116,7 @@ impl CodeGen {
                     _ => unreachable!(),
                 };
 
-                self.call_arg_frame_size = 0;
+                let mut arg_frame_size = 0;
                 for arg in arguments.iter() {
                     let arg_value = self.visit_expr(arg)?;
                     let arg_type = get_inner_type(arg.borrow().r#type.clone());
@@ -1129,7 +1129,7 @@ impl CodeGen {
                                 )?;
                                 freg_used += 1;
                             } else {
-                                self.push_arg(&arg_value, &arg_type)?;
+                                self.push_arg(&arg_value, &arg_type, &mut arg_frame_size)?;
                             }
                         }
                         t if t.is_double() => {
@@ -1140,7 +1140,7 @@ impl CodeGen {
                                 )?;
                                 freg_used += 1;
                             } else {
-                                self.push_arg(&arg_value, &arg_type)?;
+                                self.push_arg(&arg_value, &arg_type, &mut arg_frame_size)?;
                             }
                         }
                         //float和double也是scaler, 所以放到上面优先匹配
@@ -1152,7 +1152,7 @@ impl CodeGen {
                                 )?;
                                 ireg_used += 1;
                             } else {
-                                self.push_arg(&arg_value, &arg_type)?;
+                                self.push_arg(&arg_value, &arg_type, &mut arg_frame_size)?;
                             }
                         }
                         //这时的arg_value应该代表指针
@@ -1178,7 +1178,7 @@ impl CodeGen {
                                         load_opcode,
                                         &[value.clone(), arg_value.clone()],
                                     )?;
-                                    self.push_arg(&value, &arg_type)?;
+                                    self.push_arg(&value, &arg_type, &mut arg_frame_size)?;
                                 }
 
                                 if size > xsize {
@@ -1203,16 +1203,19 @@ impl CodeGen {
                                             load_opcode,
                                             &[value.clone(), arg_value],
                                         )?;
-                                        self.push_arg(&value, &arg_type)?;
+                                        self.push_arg(&value, &arg_type, &mut arg_frame_size)?;
                                     }
                                 }
                             } else {
-                                self.push_arg(&arg_value, &arg_type)?;
+                                self.push_arg(&arg_value, &arg_type, &mut arg_frame_size)?;
                             }
                         }
                         _ => {}
                     }
                 }
+
+                let (_, function) = self.functions.get_index_mut(self.cur_function).unwrap();
+                function.arg_frame_size = function.arg_frame_size.max(arg_frame_size);
 
                 let target_value = self.visit_expr(target)?;
                 self.add_instruction(Opcode::Call, &[target_value])?;

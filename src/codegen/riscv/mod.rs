@@ -42,7 +42,6 @@ pub struct CodeGen {
     pub freg_num: usize,
     pub xlen: usize,
     pub globals: IndexMap<String, (Option<Variant>, Rc<RefCell<Type>>)>,
-    pub call_arg_frame_size: usize,
 }
 
 const RA_REG_INDEX: usize = 1;
@@ -68,7 +67,6 @@ impl CodeGen {
             freg_num: 32,
             xlen: 64,
             globals: IndexMap::new(),
-            call_arg_frame_size: 0,
         }
     }
 
@@ -623,15 +621,13 @@ impl CodeGen {
         &mut self,
         value: &Operand,
         r#type: &Rc<RefCell<Type>>,
+        arg_frame_size: &mut usize,
     ) -> Result<(), Diagnostic<usize>> {
-        let (_, function) = self.functions.get_index_mut(self.cur_function).unwrap();
-        //TODO 多次调用函数可能导致frame_size持续增大浪费空间
-        function.frame_size += r#type.borrow().size().unwrap();
         let address = Operand::Address {
             base: Box::new(SP_REG),
-            offset: self.call_arg_frame_size as i64,
+            offset: (*arg_frame_size) as i64,
         };
-        self.call_arg_frame_size += r#type.borrow().size().unwrap();
+        *arg_frame_size += r#type.borrow().size().unwrap();
 
         match &r#type.borrow().kind {
             //对于复合类型来说, push的是它的指针, 也有可能是它的一部分数据, 所以不能直接用self.store
@@ -653,9 +649,9 @@ impl CodeGen {
         let (_, function) = self.functions.get_index_mut(self.cur_function).unwrap();
         let ptr = &Operand::Address {
             base: Box::new(FP_REG),
-            offset: function.arg_frame_size as i64,
+            offset: function.param_frame_size as i64,
         };
-        function.arg_frame_size += r#type.borrow().size().unwrap();
+        function.param_frame_size += r#type.borrow().size().unwrap();
 
         match &r#type.borrow().kind {
             //对于复合类型来说, pop的是对应地址的值, 所以不能用self.load

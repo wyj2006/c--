@@ -4,42 +4,46 @@ expression: codegen.to_string()
 ---
 main:
     prologue:
+        sd ra, -8(sp)
+        sd sp, -16(sp)
+        sd fp, -24(sp)
         mv fp, sp
-        sub sp, sp, 44
+        add sp, sp, -52
     entry:
-        sd ra, -8(fp)
-        sd a0, -16(fp)
-        add x32, fp, -28
-        sd x32, -36(fp)
-        ld x33, -28(fp)
+        add x32, fp, -36
+        sd x32, -44(fp)
+        ld x33, -36(fp)
         lw x34, x33
-        sw x34, -20(fp)
-        lw x35, -20(fp)
+        sw x34, -28(fp)
+        lw x35, -28(fp)
         not x36, x35
-        sw x36, -20(fp)
-        add x37, fp, -44
+        sw x36, -28(fp)
+        add x37, fp, -52
         flw f32, x37
         fneg.s f33, f32
-        fsw f33, -40(fp)
-        ld x38, -28(fp)
-        lw x39, -20(fp)
+        fsw f33, -48(fp)
+        ld x38, -36(fp)
+        lw x39, -28(fp)
         snez x40, x39
         seqz x41, x40
         sll x42, x41, 56
         srl x42, x42, 56
         sw x42, x38
-        ld x43, -36(fp)
+        ld x43, -44(fp)
         add x44, x43, 8
-        sd x44, -36(fp)
-        ld x45, -36(fp)
-        sub x46, x45, 8
-        sd x46, -36(fp)
-        ld x47, -36(fp)
-        sub x48, x47, 8
-        sd x48, -36(fp)
-        ld x49, -36(fp)
+        sd x44, -44(fp)
+        ld x45, -44(fp)
+        add x46, x45, -8
+        sd x46, -44(fp)
+        ld x47, -44(fp)
+        add x48, x47, -8
+        sd x48, -44(fp)
+        ld x49, -44(fp)
         add x50, x49, 8
-        sd x50, -36(fp)
+        sd x50, -44(fp)
         li a0, 0
         ld ra, -8(fp)
-        ret
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+    .global main

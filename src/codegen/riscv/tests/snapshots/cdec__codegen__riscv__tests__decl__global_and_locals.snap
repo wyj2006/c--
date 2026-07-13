@@ -2,26 +2,27 @@
 source: src/codegen/riscv/tests/decl.rs
 expression: codegen.to_string()
 ---
-e:
-.word 1
-b:
-.zero 4
-e2:
-.zero 8
 main:
     prologue:
+        sd ra, -8(sp)
+        sd sp, -16(sp)
+        sd fp, -24(sp)
         mv fp, sp
-        sub sp, sp, 40
+        add sp, sp, -48
     entry:
-        sd ra, -8(fp)
-        sd a0, -16(fp)
-        sw 1, -24(fp)
-        add x32, fp, -20
-        mv a0, x32
-        add x33, fp, -24
-        mv a1, x33
-        mv a2, 4
-        call memcpy
+        li x32, 1
+        sw x32, -32(fp)
+        lw x33, -32(fp)
+        sw x33, -28(fp)
         li a0, 0
         ld ra, -8(fp)
-        ret
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+e:
+    .word 1
+b:
+    .zero 4
+    .global main
+e2:
+    .zero 8

@@ -4,50 +4,68 @@ expression: codegen.to_string()
 ---
 a:
     prologue:
+        sd ra, -8(sp)
+        sd sp, -16(sp)
+        sd fp, -24(sp)
         mv fp, sp
-        sub sp, sp, 16
+        add sp, sp, -24
     entry:
-        sd ra, -8(fp)
-        sd a0, -16(fp)
         ld ra, -8(fp)
+        ld sp, -16(fp)
+        ld fp, -24(fp)
         ret 
 b:
     prologue:
+        sd ra, -8(sp)
+        sd sp, -16(sp)
+        sd fp, -24(sp)
         mv fp, sp
-        sub sp, sp, 16
+        add sp, sp, -24
     entry:
-        sd ra, -8(fp)
-        sd a0, -16(fp)
         li a0, 0
         ld ra, -8(fp)
+        ld sp, -16(fp)
+        ld fp, -24(fp)
         ret 
 c:
     prologue:
+        sd ra, -8(sp)
+        sd sp, -16(sp)
+        sd fp, -24(sp)
         mv fp, sp
-        sub sp, sp, 17
+        add sp, sp, -25
     entry:
-        sd ra, -8(fp)
-        sd a0, -16(fp)
-        sd a0, -17(fp)
-        lb x32, -17(fp)
+        sd a0, -25(fp)
+        lb x32, -25(fp)
         fcvt.s.l f32, x32
         fmv.s fa0, f32
         ld ra, -8(fp)
+        ld sp, -16(fp)
+        ld fp, -24(fp)
         ret 
         li a0, 0
         fcvt.s.wu fa0, a0
         ld ra, -8(fp)
+        ld sp, -16(fp)
+        ld fp, -24(fp)
         ret 
 d:
     prologue:
+        sd ra, -8(sp)
+        sd sp, -16(sp)
+        sd fp, -24(sp)
         mv fp, sp
-        sub sp, sp, 24
+        add sp, sp, -32
     entry:
-        sd ra, -8(fp)
-        sd a0, -16(fp)
-        sd a0, -20(fp)
-        sd a1, -24(fp)
+        sd a0, -28(fp)
+        sd a1, -32(fp)
         li a0, 0
         fcvt.d.wu fa0, a0
         ld ra, -8(fp)
-        ret
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+    .global a
+    .global b
+    .global c
+    .global d

@@ -4,39 +4,43 @@ expression: codegen.to_string()
 ---
 main:
     prologue:
+        sd ra, -8(sp)
+        sd sp, -16(sp)
+        sd fp, -24(sp)
         mv fp, sp
-        sub sp, sp, 35
+        add sp, sp, -43
     entry:
-        sd ra, -8(fp)
-        sd a0, -16(fp)
-        lh x32, -19(fp)
+        lh x32, -27(fp)
         and x33, x32, 1
-        sb x33, -17(fp)
-        lwu x34, -23(fp)
+        sb x33, -25(fp)
+        lwu x34, -31(fp)
         and x35, x34, 1
-        sb x35, -17(fp)
-        lb x36, -17(fp)
+        sb x35, -25(fp)
+        lb x36, -25(fp)
         sll x37, x36, 56
         sra x37, x37, 56
-        sh x37, -19(fp)
-        lb x38, -17(fp)
+        sh x37, -27(fp)
+        lb x38, -25(fp)
         sll x39, x38, 56
         sra x39, x39, 56
-        sw x39, -23(fp)
-        add x40, fp, -27
+        sw x39, -31(fp)
+        add x40, fp, -35
         flw f32, x40
         fcvt.l.s x41, f32
-        sb x41, -17(fp)
-        lwu x42, -23(fp)
+        sb x41, -25(fp)
+        lwu x42, -31(fp)
         fcvt.s.lu f33, x42
-        fsw f33, -27(fp)
-        lh x43, -19(fp)
+        fsw f33, -35(fp)
+        lh x43, -27(fp)
         fcvt.d.l f34, x43
-        fsd f34, -35(fp)
-        add x44, fp, -35
+        fsd f34, -43(fp)
+        add x44, fp, -43
         fld f35, x44
         fcvt.l.d x45, f35
-        sh x45, -19(fp)
+        sh x45, -27(fp)
         li a0, 0
         ld ra, -8(fp)
-        ret
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+    .global main

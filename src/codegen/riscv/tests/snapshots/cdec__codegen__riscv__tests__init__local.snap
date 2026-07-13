@@ -4,28 +4,36 @@ expression: codegen.to_string()
 ---
 main:
     prologue:
+        sd ra, -8(sp)
+        sd sp, -16(sp)
+        sd fp, -24(sp)
         mv fp, sp
-        sub sp, sp, 64
+        add sp, sp, -72
     entry:
-        sd ra, -8(fp)
-        sd a0, -16(fp)
-        add x33, fp, -56
+        add x33, fp, -64
         add x32, x33, 8
-        sw 3, x32
-        add x35, fp, -56
-        add x34, x35, 12
-        sw 4, x34
-        add x36, fp, -36
-        mv a0, x36
-        add x37, fp, -56
-        mv a1, x37
-        mv a2, 20
+        li x34, 3
+        sw x34, x32
+        add x36, fp, -64
+        add x35, x36, 12
+        li x37, 4
+        sw x37, x35
+        add x38, fp, -64
+        mv a0, x38
+        add x39, fp, -44
+        mv a1, x39
+        li x40, 20
+        mv a2, x40
         call memcpy
-        add x39, fp, -64
-        add x38, x39, 0
-        sw 1, x38
-        lw x40, -64(fp)
-        sw x40, -60(fp)
+        add x42, fp, -72
+        add x41, x42, 0
+        li x43, 1
+        sw x43, x41
+        lw x44, -72(fp)
+        sw x44, -68(fp)
         li a0, 0
         ld ra, -8(fp)
-        ret
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+    .global main

@@ -3,14 +3,14 @@ source: src/codegen/riscv/tests/init.rs
 expression: codegen.to_string()
 ---
 x:
-.dword 1
-.word 2
-.byte 3
+    .dword 1
+    .word 2
+    .byte 3
 y:
-.zero 13
+    .zero 13
 z:
-.byte 102
-.byte 100
-.byte 97
-.byte 115
-.byte 0
+    .byte 102
+    .byte 100
+    .byte 97
+    .byte 115
+    .byte 0

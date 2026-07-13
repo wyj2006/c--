@@ -4,62 +4,70 @@ expression: codegen.to_string()
 ---
 main:
     prologue:
+        sd ra, -8(sp)
+        sd sp, -16(sp)
+        sd fp, -24(sp)
         mv fp, sp
-        sub sp, sp, 32
+        add sp, sp, -40
     entry:
-        sd ra, -8(fp)
-        sd a0, -16(fp)
-        sw 0, -32(fp)
-        add x32, fp, -28
-        mv a0, x32
-        add x33, fp, -32
-        mv a1, x33
-        mv a2, 4
-        call memcpy
+        li x32, 0
+        sw x32, -40(fp)
+        lw x33, -40(fp)
+        sw x33, -36(fp)
     for_cond:
-        lw x34, -28(fp)
-        lw x35, -24(fp)
+        lw x34, -36(fp)
+        lw x35, -32(fp)
         sub x37, x34, x35
         sgtz x36, x37
         seqz x36, x36
         snez x38, x36
-        beqz x38, for_exit
+        la x39, for_exit
+        beqz x38, x39
         j for_body
     for_body:
-        lw x39, -28(fp)
-        rem x40, x39, 2
-        sub x42, x40, 0
-        seqz x41, x42
-        snez x43, x41
-        beqz x43, if_else
+        lw x40, -36(fp)
+        li x42, 2
+        rem x41, x40, x42
+        li x45, 0
+        sub x44, x41, x45
+        seqz x43, x44
+        snez x46, x43
+        la x47, if_else
+        beqz x46, x47
     if_then:
         j for_exit
         j if_merge
     if_else:
     if_merge:
-        lw x44, -28(fp)
-        rem x45, x44, 3
-        sub x47, x45, 0
-        seqz x46, x47
-        snez x48, x46
-        beqz x48, if_else2
+        lw x48, -36(fp)
+        li x50, 3
+        rem x49, x48, x50
+        li x53, 0
+        sub x52, x49, x53
+        seqz x51, x52
+        snez x54, x51
+        la x55, if_else2
+        beqz x54, x55
     if_then2:
         j for_iter
         j if_merge2
     if_else2:
     if_merge2:
-        lw x49, -20(fp)
-        lw x50, -28(fp)
-        lw x51, x50
-        add x52, x49, x51
-        sw x52, -20(fp)
+        lw x56, -28(fp)
+        lw x57, -36(fp)
+        lw x58, x57
+        add x59, x56, x58
+        sw x59, -28(fp)
         j for_iter
     for_iter:
-        lw x53, -28(fp)
-        add x54, x53, 1
-        sw x54, -28(fp)
+        lw x60, -36(fp)
+        add x61, x60, 1
+        sw x61, -36(fp)
         j for_cond
     for_exit:
         li a0, 0
         ld ra, -8(fp)
-        ret
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+    .global main

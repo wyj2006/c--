@@ -4,64 +4,80 @@ expression: codegen.to_string()
 ---
 f:
     prologue:
+        sd ra, -8(sp)
+        sd sp, -16(sp)
+        sd fp, -24(sp)
         mv fp, sp
-        sub sp, sp, 20
+        add sp, sp, -28
     entry:
-        sd ra, -8(fp)
-        sd a0, -16(fp)
-        sd a0, -20(fp)
-        lw x33, -20(fp)
-        sub x35, x33, 1
+        sd a0, -28(fp)
+        lw x33, -28(fp)
+        li x36, 1
+        sub x35, x33, x36
         seqz x34, x35
-        snez x36, x34
-        snez x32, x36
-        bnez x32, or_merge
+        snez x37, x34
+        snez x32, x37
+        la x38, or_merge
+        bnez x32, x38
     or_right:
-        lw x37, -20(fp)
-        sub x39, x37, 2
-        seqz x38, x39
-        snez x40, x38
-        snez x32, x40
+        lw x39, -28(fp)
+        li x42, 2
+        sub x41, x39, x42
+        seqz x40, x41
+        snez x43, x40
+        snez x32, x43
         j x32, or_merge
     or_merge:
-        snez x41, x32
-        beqz x41, if_else
+        snez x44, x32
+        la x45, if_else
+        beqz x44, x45
     if_then:
-        mv a0, 1
+        li x46, 1
+        mv a0, x46
         ld ra, -8(fp)
+        ld sp, -16(fp)
+        ld fp, -24(fp)
         ret 
         j if_merge
     if_else:
     if_merge:
-        lw x42, -20(fp)
-        sub x43, x42, 1
-        mv a0, x43
-        lla x44, f
-        call x44
-        lw x45, -20(fp)
-        sub x46, x45, 2
-        mv a0, x46
-        lla x47, f
-        call x47
-        add x48, a0, a0
+        lw x47, -28(fp)
+        li x49, 1
+        sub x48, x47, x49
         mv a0, x48
+        call f
+        lw x50, -28(fp)
+        li x52, 2
+        sub x51, x50, x52
+        mv a0, x51
+        call f
+        add x53, a0, a0
+        mv a0, x53
         ld ra, -8(fp)
+        ld sp, -16(fp)
+        ld fp, -24(fp)
         ret 
         li a0, 0
         ld ra, -8(fp)
+        ld sp, -16(fp)
+        ld fp, -24(fp)
         ret 
 main:
     prologue:
+        sd ra, -8(sp)
+        sd sp, -16(sp)
+        sd fp, -24(sp)
         mv fp, sp
-        sub sp, sp, 24
+        add sp, sp, -32
     entry:
-        sd ra, -8(fp)
-        sd a0, -16(fp)
-        lw x49, -24(fp)
-        mv a0, x49
-        lla x50, f
-        call x50
-        sw a0, -20(fp)
+        lw x54, -32(fp)
+        mv a0, x54
+        call f
+        sw a0, -28(fp)
         li a0, 0
         ld ra, -8(fp)
-        ret
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+    .global f
+    .global main
