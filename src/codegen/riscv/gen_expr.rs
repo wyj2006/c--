@@ -768,7 +768,7 @@ impl CodeGen {
                         self.add_instruction(Opcode::SetNeqZ, &[value.clone(), right_value])?;
                         self.add_instruction(
                             Opcode::Jump,
-                            &[value.clone(), Operand::Symbol(merge_block.clone())],
+                            &[Operand::Symbol(merge_block.clone())],
                         )?;
 
                         self.position_at_end(&merge_block)?;
@@ -799,7 +799,7 @@ impl CodeGen {
                         self.add_instruction(Opcode::SetNeqZ, &[value.clone(), right_value])?;
                         self.add_instruction(
                             Opcode::Jump,
-                            &[value.clone(), Operand::Symbol(merge_block.clone())],
+                            &[Operand::Symbol(merge_block.clone())],
                         )?;
 
                         self.position_at_end(&merge_block)?;
@@ -1086,17 +1086,18 @@ impl CodeGen {
                 let xsize = self.xlen / 8;
 
                 let (_, function) = self.functions.get_index_mut(self.cur_function).unwrap();
-                let frame_size = function.local_frame_size;
+                let mut frame_size = function.local_frame_size;
 
                 let mut ireg_used = 0;
                 let mut freg_used = 0;
 
-                let value = match &get_inner_type(r#type.clone()).borrow().kind {
-                    t if t.is_real_float() => FA0_REG,
-                    //real float也是scaler, 所以放到上面优先匹配
-                    t if t.is_scale() => A0_REG,
+                match &get_inner_type(r#type.clone()).borrow().kind {
                     t if t.is_aggregate() => {
-                        function.local_frame_size += r#type.borrow().size().unwrap();
+                        function.adjust_local_frame_size(
+                            r#type.borrow().size().unwrap(),
+                            r#type.borrow().align().unwrap(),
+                        );
+                        frame_size = function.local_frame_size;
 
                         if t.size().unwrap() > xsize * 2 {
                             self.add_instruction(
@@ -1105,20 +1106,18 @@ impl CodeGen {
                             )?;
 
                             ireg_used += 1;
-                            A0_REG
-                        } else {
-                            //将在后面重新调整
-                            A0_REG
                         }
                     }
-                    //随便选的
-                    t if t.is_void() => A0_REG,
-                    _ => unreachable!(),
+                    _ => {}
                 };
 
-                let mut arg_frame_size = 0;
+                let mut arg_values = vec![];
                 for arg in arguments.iter() {
-                    let arg_value = self.visit_expr(arg)?;
+                    arg_values.push(self.visit_expr(arg)?);
+                }
+
+                let mut arg_frame_size = 0;
+                for (arg, arg_value) in arguments.iter().zip(arg_values) {
                     let arg_type = get_inner_type(arg.borrow().r#type.clone());
                     match arg_type.borrow().kind.clone() {
                         t if t.is_float_type() => {
@@ -1232,7 +1231,11 @@ impl CodeGen {
                         let value = self.assign_ireg()?;
                         self.add_instruction(
                             Opcode::Add,
-                            &[value.clone(), FP_REG, Operand::Immediate(frame_size as i64)],
+                            &[
+                                value.clone(),
+                                FP_REG,
+                                Operand::Immediate(-(frame_size as i64)),
+                            ],
                         )?;
 
                         self.add_instruction(
@@ -1261,7 +1264,26 @@ impl CodeGen {
 
                         Ok(value)
                     }
-                    _ => Ok(value),
+                    t if t.is_aggregate() && t.size().unwrap() <= xsize * 2 => {
+                        //a0存的就是地址
+                        let t = self.assign_ireg()?;
+                        self.add_instruction(Opcode::Move, &[t.clone(), A0_REG])?;
+                        Ok(t)
+                    }
+                    t if t.is_real_float() => {
+                        let t = self.assign_freg()?;
+                        self.add_instruction(Opcode::FMoveD, &[t.clone(), FA0_REG])?;
+                        Ok(t)
+                    }
+                    //real float也是scaler, 所以放到上面优先匹配
+                    t if t.is_scale() => {
+                        let t = self.assign_ireg()?;
+                        self.add_instruction(Opcode::Move, &[t.clone(), A0_REG])?;
+                        Ok(t)
+                    }
+                    //随便选的
+                    t if t.is_void() => Ok(A0_REG),
+                    _ => unreachable!(),
                 }
             }
             _ => unreachable!(),

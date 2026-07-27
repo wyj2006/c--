@@ -6,6 +6,7 @@ pub mod gen_expr;
 pub mod gen_init;
 pub mod gen_stmt;
 pub mod instruction;
+pub mod reg_allocator;
 #[cfg(test)]
 pub mod tests;
 
@@ -101,15 +102,17 @@ impl CodeGen {
 
     ///在当前函数的当前位置后插入一个basic block, 并返回这个block的名称
     pub fn append_basic_block(&mut self, name: &str) -> Result<String, Diagnostic<usize>> {
-        let (_, function) = self.functions.get_index_mut(self.cur_function).unwrap();
-
         let base_name = name;
         let mut name = base_name.to_string();
         let mut i = 2;
-        while function.basic_blocks.contains_key(&name) {
-            name = format!("{base_name}{i}");
-            i += 1;
+        for (_, function) in &self.functions {
+            while function.basic_blocks.contains_key(&name) {
+                name = format!("{base_name}{i}");
+                i += 1;
+            }
         }
+
+        let (_, function) = self.functions.get_index_mut(self.cur_function).unwrap();
 
         function.basic_blocks.insert_before(
             function.cursor + 1,
@@ -130,8 +133,8 @@ impl CodeGen {
         Ok(())
     }
 
-    //将操作数转换成指令实际能接受的操作数
-    pub fn normalize(&mut self, operand: &Operand) -> Result<Operand, Diagnostic<usize>> {
+    //将其它类型的操作数转换成寄存器的形式
+    pub fn normalize_to_reg(&mut self, operand: &Operand) -> Result<Operand, Diagnostic<usize>> {
         match operand {
             Operand::Address { base, offset } => {
                 let value = self.assign_ireg()?;
@@ -158,6 +161,50 @@ impl CodeGen {
         }
     }
 
+    //将其它类型的操作数转换成寄存器或立即数的形式
+    pub fn normalize_to_reg_or_imm(
+        &mut self,
+        operand: &Operand,
+    ) -> Result<Operand, Diagnostic<usize>> {
+        match operand {
+            Operand::Immediate(_) => Ok(operand.clone()),
+            _ => self.normalize_to_reg(operand),
+        }
+    }
+
+    //将其它类型的操作数转换成地址的形式
+    pub fn normalize_to_address(
+        &mut self,
+        operand: &Operand,
+    ) -> Result<Operand, Diagnostic<usize>> {
+        match operand {
+            Operand::Symbol(name) => {
+                let value = self.assign_ireg()?;
+                self.add_instruction(
+                    Opcode::LoadAddr,
+                    &[value.clone(), Operand::Symbol(name.clone())],
+                )?;
+                Ok(Operand::Address {
+                    base: Box::new(value),
+                    offset: 0,
+                })
+            }
+            Operand::Immediate(_) => {
+                let t = self.assign_ireg()?;
+                self.add_instruction(Opcode::LoadImm, &[t.clone(), operand.clone()])?;
+                Ok(Operand::Address {
+                    base: Box::new(t),
+                    offset: 0,
+                })
+            }
+            Operand::IntReg(_) => Ok(Operand::Address {
+                base: Box::new(operand.clone()),
+                offset: 0,
+            }),
+            _ => Ok(operand.clone()),
+        }
+    }
+
     pub fn add_instruction(
         &mut self,
         opcode: Opcode,
@@ -165,6 +212,7 @@ impl CodeGen {
     ) -> Result<(), Diagnostic<usize>> {
         let mut operands = operands.to_vec();
 
+        //规范指令的操作数
         match opcode {
             Opcode::LoadB
             | Opcode::LoadBU
@@ -178,10 +226,16 @@ impl CodeGen {
             | Opcode::StoreH
             | Opcode::StoreW
             | Opcode::FStoreD
-            | Opcode::FStoreS => operands[0] = self.normalize(&operands[0])?,
-            Opcode::BEq | Opcode::BEqZ | Opcode::BNeqZ => {
+            | Opcode::FStoreS => {
+                operands[0] = self.normalize_to_reg(&operands[0])?;
+                operands[1] = self.normalize_to_address(&operands[1])?;
+            }
+            Opcode::BEqZ | Opcode::BNeqZ => {
+                operands[0] = self.normalize_to_reg(&operands[0])?;
+            }
+            Opcode::BEq => {
                 for operand in &mut operands[..2] {
-                    *operand = self.normalize(operand)?;
+                    *operand = self.normalize_to_reg(operand)?;
                 }
             }
             Opcode::Call | Opcode::Jump | Opcode::LoadAddr | Opcode::LoadImm => {}
@@ -196,12 +250,13 @@ impl CodeGen {
             | Opcode::RShiftL
             | Opcode::RShiftA => {
                 for operand in &mut operands[..2] {
-                    *operand = self.normalize(operand)?;
+                    *operand = self.normalize_to_reg(operand)?;
                 }
+                operands[2] = self.normalize_to_reg_or_imm(&operands[2])?;
             }
             _ => {
                 for operand in &mut operands {
-                    *operand = self.normalize(operand)?;
+                    *operand = self.normalize_to_reg(operand)?;
                 }
             }
         }
@@ -212,10 +267,7 @@ impl CodeGen {
             .get_index_mut(function.cursor)
             .unwrap();
 
-        basic_block
-            .instructions
-            .insert(basic_block.cursor, Instruction { opcode, operands });
-        basic_block.cursor += 1;
+        basic_block.add_instruction(Instruction::new(opcode, &operands));
 
         Ok(())
     }

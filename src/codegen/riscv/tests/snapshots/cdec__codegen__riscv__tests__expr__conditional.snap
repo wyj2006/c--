@@ -8,23 +8,22 @@ main:
         sd sp, -16(sp)
         sd fp, -24(sp)
         mv fp, sp
-        add sp, sp, -40
+        add sp, sp, -64
     entry:
-        lw x33, -32(fp)
-        snez x34, x33
-        la x35, cond_false
-        beqz x34, x35
+        lw t0, -40(fp)
+        snez t0, t0
+        beqz t0, cond_false
         j cond_true
     cond_true:
-        lw x36, -36(fp)
-        mv x32, x36
+        lw t0, -48(fp)
+        mv t0, t0
         j cond_merge
     cond_false:
-        lw x37, -40(fp)
-        mv x32, x37
+        lw t0, -56(fp)
+        mv t0, t0
         j cond_merge
     cond_merge:
-        sw x32, -28(fp)
+        sw t0, -32(fp)
         li a0, 0
         ld ra, -8(fp)
         ld sp, -16(fp)

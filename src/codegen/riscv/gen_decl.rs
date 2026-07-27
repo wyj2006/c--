@@ -4,6 +4,7 @@ use crate::{
         A0_REG, A1_REG, CodeGen, FA0_REG, FP_REG, FP_REG_INDEX, RA_REG_INDEX, SP_REG, SP_REG_INDEX,
         function::Function,
         instruction::{Opcode, Operand},
+        reg_allocator::RegAllocator,
     },
     ctype::{TypeKind, get_inner_type},
     optimizer::constfolder::ConstFolder,
@@ -76,7 +77,7 @@ impl CodeGen {
                     let (_, function) = self.functions.get_index_mut(self.cur_function).unwrap();
                     //fp寄存器必须放在最后
                     for ireg_index in [RA_REG_INDEX, SP_REG_INDEX, FP_REG_INDEX] {
-                        function.local_frame_size += self.xlen / 8;
+                        function.adjust_local_frame_size(self.xlen / 8, self.xlen / 8);
                         function
                             .ireg_saved
                             .insert(ireg_index, -(function.local_frame_size as i64));
@@ -90,13 +91,20 @@ impl CodeGen {
 
                     let epilogue_block = self.current_basic_block();
 
+                    //先分配, 再写函数序言
+                    //因为寄存器分配可能也需要使用栈空间
+                    let (_, function) = self.functions.get_index_mut(self.cur_function).unwrap();
+                    RegAllocator::new(function, self.xlen).allocate();
+
                     //函数序言
                     self.position_at_end(&prologue_block)?;
 
                     self.save_callee_regs()?;
 
                     let (_, function) = self.functions.get_index(self.cur_function).unwrap();
-                    let frame_size = function.local_frame_size + function.arg_frame_size;
+                    //16字节对齐
+                    let frame_size =
+                        (function.local_frame_size + function.arg_frame_size + 15) / 16 * 16;
 
                     self.add_instruction(Opcode::Move, &[FP_REG, SP_REG])?;
                     self.add_instruction(
@@ -196,8 +204,11 @@ impl CodeGen {
                         .any(|x| x.kind == StorageClassKind::Static),
                 ) {
                     (Some((_, function)), false) => {
-                        function.local_frame_size +=
-                            symbol.borrow().r#type.borrow().size().unwrap();
+                        let symbol_type = symbol.borrow().r#type.clone();
+                        function.adjust_local_frame_size(
+                            symbol_type.borrow().size().unwrap(),
+                            symbol_type.borrow().align().unwrap(),
+                        );
                         let value = Operand::Address {
                             base: Box::new(FP_REG),
                             offset: -(function.local_frame_size as i64),
@@ -236,7 +247,11 @@ impl CodeGen {
                 let key = symbol.as_ptr() as usize;
 
                 let (_, function) = self.functions.get_index_mut(self.cur_function).unwrap();
-                function.local_frame_size += symbol.borrow().r#type.borrow().size().unwrap();
+                let symbol_type = symbol.borrow().r#type.clone();
+                function.adjust_local_frame_size(
+                    symbol_type.borrow().size().unwrap(),
+                    symbol_type.borrow().align().unwrap(),
+                );
                 let value = Operand::Address {
                     base: Box::new(FP_REG),
                     offset: -(function.local_frame_size as i64),

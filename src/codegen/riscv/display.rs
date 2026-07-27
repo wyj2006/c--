@@ -86,7 +86,7 @@ impl Display for Function {
 impl Display for BasicBlock {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "{}:", self.name)?;
-        for instruction in &self.instructions {
+        for (_, instruction) in &self.instructions {
             writeln!(f, "    {instruction}")?;
         }
         Ok(())
@@ -216,7 +216,9 @@ impl Display for Operand {
             match self {
                 Operand::Address { base, offset } => format!("{offset}({base})"),
                 Operand::FPReg(a) => match a {
+                    0..=7 => format!("ft{}", a),
                     10..=17 => format!("fa{}", a - 10),
+                    28..=31 => format!("ft{}", a - 28 + 8),
                     _ => format!("f{a}"),
                 },
                 Operand::Immediate(a) => format!("{a}"),
@@ -225,8 +227,10 @@ impl Display for Operand {
                     2 => "sp".to_string(),
                     3 => "gp".to_string(),
                     4 => "tp".to_string(),
+                    5..=7 => format!("t{}", a - 5),
                     8 => "fp".to_string(),
                     10..=17 => format!("a{}", a - 10),
+                    28..=31 => format!("t{}", a - 28 + 3),
                     _ => format!("x{a}"),
                 },
                 Operand::Symbol(a) => format!("{a}"),

@@ -112,7 +112,10 @@ impl CodeGen {
             base
         } else {
             let (_, function) = self.functions.get_index_mut(self.cur_function).unwrap();
-            function.local_frame_size += r#type.borrow().size().unwrap();
+            function.adjust_local_frame_size(
+                r#type.borrow().size().unwrap(),
+                r#type.borrow().align().unwrap(),
+            );
             let base = Operand::Address {
                 base: Box::new(FP_REG),
                 offset: -(function.local_frame_size as i64),

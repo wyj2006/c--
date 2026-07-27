@@ -8,40 +8,40 @@ main:
         sd sp, -16(sp)
         sd fp, -24(sp)
         mv fp, sp
-        add sp, sp, -268
+        add sp, sp, -272
     entry:
-        li x33, 2
-        li x34, 4
-        mul x32, x33, x34
-        add x36, fp, -44
-        add x35, x36, x32
-        li x38, 3
-        li x39, 4
-        mul x37, x38, x39
-        add x41, fp, -44
-        add x40, x41, x37
-        lw x42, x40
-        sw x42, x35
-        li x44, 4
-        li x45, 32
-        mul x43, x44, x45
-        add x47, fp, -268
-        add x46, x47, x43
-        li x49, 5
-        li x50, 4
-        mul x48, x49, x50
-        add x51, x46, x48
-        li x53, 6
-        li x54, 32
-        mul x52, x53, x54
-        add x56, fp, -268
-        add x55, x56, x52
-        li x58, 7
-        li x59, 4
-        mul x57, x58, x59
-        add x60, x55, x57
-        lw x61, x60
-        sw x61, x51
+        li t1, 2
+        li t0, 4
+        mul t1, t1, t0
+        add t0, fp, -48
+        add t2, t0, t1
+        li t1, 3
+        li t0, 4
+        mul t1, t1, t0
+        add t0, fp, -48
+        add t0, t0, t1
+        lw t0, 0(t0)
+        sw t0, 0(t2)
+        li t1, 4
+        li t0, 32
+        mul t1, t1, t0
+        add t0, fp, -272
+        add t2, t0, t1
+        li t1, 5
+        li t0, 4
+        mul t0, t1, t0
+        add t2, t2, t0
+        li t1, 6
+        li t0, 32
+        mul t1, t1, t0
+        add t0, fp, -272
+        add t3, t0, t1
+        li t1, 7
+        li t0, 4
+        mul t0, t1, t0
+        add t0, t3, t0
+        lw t0, 0(t0)
+        sw t0, 0(t2)
         li a0, 0
         ld ra, -8(fp)
         ld sp, -16(fp)

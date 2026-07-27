@@ -8,32 +8,32 @@ main:
         sd sp, -16(sp)
         sd fp, -24(sp)
         mv fp, sp
-        add sp, sp, -28
+        add sp, sp, -32
     entry:
-        lw x32, -28(fp)
-        li x33, 1
-        sw x33, -28(fp)
-        li x38, 1
-        beq x32, x38, case
-        li x39, 2
-        beq x32, x39, case2
-        li x40, 3
-        beq x32, x40, case3
+        lw t1, -32(fp)
+        li t0, 1
+        sw t0, -32(fp)
+        li t0, 1
+        beq t1, t0, case
+        li t0, 2
+        beq t1, t0, case2
+        li t0, 3
+        beq t1, t0, case3
         j default
     case:
-        li x34, 2
-        sw x34, -28(fp)
+        li t0, 2
+        sw t0, -32(fp)
         j switch_exit
     case2:
-        li x35, 3
-        sw x35, -28(fp)
+        li t0, 3
+        sw t0, -32(fp)
     case3:
-        li x36, 4
-        sw x36, -28(fp)
+        li t0, 4
+        sw t0, -32(fp)
         j switch_exit
     default:
-        li x37, 5
-        sw x37, -28(fp)
+        li t0, 5
+        sw t0, -32(fp)
     switch_exit:
         li a0, 0
         ld ra, -8(fp)

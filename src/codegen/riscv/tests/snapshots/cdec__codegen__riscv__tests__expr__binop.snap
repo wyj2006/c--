@@ -8,53 +8,51 @@ main:
         sd sp, -16(sp)
         sd fp, -24(sp)
         mv fp, sp
-        add sp, sp, -44
+        add sp, sp, -64
     entry:
-        lw x32, -28(fp)
-        ld x33, -36(fp)
-        lw x34, x33
-        add x35, x32, x34
-        sw x35, -28(fp)
-        ld x36, -36(fp)
-        li x38, 4
-        sub x37, x36, x38
-        sd x37, -36(fp)
-        add x39, fp, -40
-        flw f32, x39
-        add x40, fp, -44
-        flw f33, x40
-        fmul.s f34, f32, f33
-        fsw f34, -40(fp)
-        ld x43, -36(fp)
-        snez x44, x43
-        snez x42, x44
-        la x45, and_merge
-        beqz x42, x45
+        lw t1, -32(fp)
+        ld t0, -40(fp)
+        lw t0, 0(t0)
+        add t0, t1, t0
+        sw t0, -32(fp)
+        ld t1, -40(fp)
+        li t0, 4
+        sub t0, t1, t0
+        sd t0, -40(fp)
+        add t0, fp, -48
+        flw ft1, t0
+        add t0, fp, -56
+        flw ft0, t0
+        fmul.s ft0, ft1, ft0
+        fsw ft0, -48(fp)
+        ld t0, -40(fp)
+        snez t0, t0
+        snez t0, t0
+        beqz t0, and_merge
     and_right:
-        add x46, fp, -40
-        flw f35, x46
-        li x47, 0
-        fmv.s.x f36, x47
-        feq.s x47, f35, f36
-        snez x42, x47
-        j x42, and_merge
+        add t0, fp, -48
+        flw ft1, t0
+        li t0, 0
+        fmv.s.x ft0, t0
+        feq.s t0, ft1, ft0
+        snez t0, t0
+        j and_merge
     and_merge:
-        snez x48, x42
-        snez x41, x48
-        la x49, or_merge
-        bnez x41, x49
+        snez t0, t0
+        snez t0, t0
+        bnez t0, or_merge
     or_right:
-        add x50, fp, -44
-        flw f37, x50
-        li x51, 0
-        fmv.s.x f38, x51
-        feq.s x51, f37, f38
-        snez x41, x51
-        j x41, or_merge
+        add t0, fp, -56
+        flw ft1, t0
+        li t0, 0
+        fmv.s.x ft0, t0
+        feq.s t0, ft1, ft0
+        snez t0, t0
+        j or_merge
     or_merge:
-        sll x52, x41, 56
-        srl x52, x52, 56
-        sw x52, -28(fp)
+        sll t0, t0, 56
+        srl t0, t0, 56
+        sw t0, -32(fp)
         li a0, 0
         ld ra, -8(fp)
         ld sp, -16(fp)

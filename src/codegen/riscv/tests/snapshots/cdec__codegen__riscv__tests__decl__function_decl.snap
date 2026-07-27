@@ -8,37 +8,37 @@ a:
         sd sp, -16(sp)
         sd fp, -24(sp)
         mv fp, sp
-        add sp, sp, -24
+        add sp, sp, -32
     entry:
         ld ra, -8(fp)
         ld sp, -16(fp)
         ld fp, -24(fp)
         ret 
 b:
-    prologue:
+    prologue2:
         sd ra, -8(sp)
         sd sp, -16(sp)
         sd fp, -24(sp)
         mv fp, sp
-        add sp, sp, -24
-    entry:
+        add sp, sp, -32
+    entry2:
         li a0, 0
         ld ra, -8(fp)
         ld sp, -16(fp)
         ld fp, -24(fp)
         ret 
 c:
-    prologue:
+    prologue3:
         sd ra, -8(sp)
         sd sp, -16(sp)
         sd fp, -24(sp)
         mv fp, sp
-        add sp, sp, -25
-    entry:
-        sd a0, -25(fp)
-        lb x32, -25(fp)
-        fcvt.s.l f32, x32
-        fmv.s fa0, f32
+        add sp, sp, -32
+    entry3:
+        sd a0, -32(fp)
+        lb t0, -32(fp)
+        fcvt.s.l ft0, t0
+        fmv.s fa0, ft0
         ld ra, -8(fp)
         ld sp, -16(fp)
         ld fp, -24(fp)
@@ -50,15 +50,15 @@ c:
         ld fp, -24(fp)
         ret 
 d:
-    prologue:
+    prologue4:
         sd ra, -8(sp)
         sd sp, -16(sp)
         sd fp, -24(sp)
         mv fp, sp
-        add sp, sp, -32
-    entry:
-        sd a0, -28(fp)
-        sd a1, -32(fp)
+        add sp, sp, -48
+    entry4:
+        sd a0, -32(fp)
+        sd a1, -40(fp)
         li a0, 0
         fcvt.d.wu fa0, a0
         ld ra, -8(fp)

@@ -8,36 +8,36 @@ main:
         sd sp, -16(sp)
         sd fp, -24(sp)
         mv fp, sp
-        add sp, sp, -43
+        add sp, sp, -64
     entry:
-        lh x32, -27(fp)
-        and x33, x32, 1
-        sb x33, -25(fp)
-        lwu x34, -31(fp)
-        and x35, x34, 1
-        sb x35, -25(fp)
-        lb x36, -25(fp)
-        sll x37, x36, 56
-        sra x37, x37, 56
-        sh x37, -27(fp)
-        lb x38, -25(fp)
-        sll x39, x38, 56
-        sra x39, x39, 56
-        sw x39, -31(fp)
-        add x40, fp, -35
-        flw f32, x40
-        fcvt.l.s x41, f32
-        sb x41, -25(fp)
-        lwu x42, -31(fp)
-        fcvt.s.lu f33, x42
-        fsw f33, -35(fp)
-        lh x43, -27(fp)
-        fcvt.d.l f34, x43
-        fsd f34, -43(fp)
-        add x44, fp, -43
-        fld f35, x44
-        fcvt.l.d x45, f35
-        sh x45, -27(fp)
+        lh t0, -40(fp)
+        and t0, t0, 1
+        sb t0, -32(fp)
+        lwu t0, -48(fp)
+        and t0, t0, 1
+        sb t0, -32(fp)
+        lb t0, -32(fp)
+        sll t0, t0, 56
+        sra t0, t0, 56
+        sh t0, -40(fp)
+        lb t0, -32(fp)
+        sll t0, t0, 56
+        sra t0, t0, 56
+        sw t0, -48(fp)
+        add t0, fp, -56
+        flw ft0, t0
+        fcvt.l.s t0, ft0
+        sb t0, -32(fp)
+        lwu t0, -48(fp)
+        fcvt.s.lu ft0, t0
+        fsw ft0, -56(fp)
+        lh t0, -40(fp)
+        fcvt.d.l ft0, t0
+        fsd ft0, -64(fp)
+        add t0, fp, -64
+        fld ft0, t0
+        fcvt.l.d t0, ft0
+        sh t0, -40(fp)
         li a0, 0
         ld ra, -8(fp)
         ld sp, -16(fp)

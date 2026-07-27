@@ -1,10 +1,19 @@
-#[derive(Debug)]
+#[derive(Debug, Hash, PartialEq, Eq)]
 pub struct Instruction {
     pub opcode: Opcode,
     pub operands: Vec<Operand>,
 }
 
-#[derive(Debug, Clone, Copy)]
+impl Instruction {
+    pub fn new(opcode: Opcode, operands: &[Operand]) -> Instruction {
+        Instruction {
+            opcode,
+            operands: operands.to_vec(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum Opcode {
     Add,
     And,
@@ -97,7 +106,7 @@ pub enum Opcode {
     Xor,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum Operand {
     Immediate(i64),
     IntReg(u64),

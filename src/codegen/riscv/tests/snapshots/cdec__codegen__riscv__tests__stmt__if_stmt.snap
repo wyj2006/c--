@@ -8,21 +8,20 @@ main:
         sd sp, -16(sp)
         sd fp, -24(sp)
         mv fp, sp
-        add sp, sp, -28
+        add sp, sp, -32
     entry:
-        lw x32, -28(fp)
-        snez x33, x32
-        la x34, if_else
-        beqz x33, x34
+        lw t0, -32(fp)
+        snez t0, t0
+        beqz t0, if_else
     if_then:
-        lw x35, -28(fp)
-        add x36, x35, 1
-        sw x36, -28(fp)
+        lw t0, -32(fp)
+        add t0, t0, 1
+        sw t0, -32(fp)
         j if_merge
     if_else:
-        lw x37, -28(fp)
-        add x38, x37, -1
-        sw x38, -28(fp)
+        lw t0, -32(fp)
+        add t0, t0, -1
+        sw t0, -32(fp)
     if_merge:
         li a0, 0
         ld ra, -8(fp)

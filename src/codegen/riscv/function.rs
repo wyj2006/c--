@@ -29,4 +29,12 @@ impl Function {
             ireg_saved: IndexMap::new(),
         }
     }
+
+    //根据变量的大小和对齐要求重新调整frame_size
+    pub fn adjust_local_frame_size(&mut self, size: usize, alignment: usize) {
+        //将不足8字节的强行对齐到8字节上
+        let alignment = alignment.max(8);
+        self.local_frame_size += size;
+        self.local_frame_size = (self.local_frame_size + alignment - 1) & !(alignment - 1);
+    }
 }

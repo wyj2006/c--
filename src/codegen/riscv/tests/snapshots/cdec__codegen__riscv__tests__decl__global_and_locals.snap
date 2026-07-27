@@ -8,12 +8,12 @@ main:
         sd sp, -16(sp)
         sd fp, -24(sp)
         mv fp, sp
-        add sp, sp, -48
+        add sp, sp, -64
     entry:
-        li x32, 1
-        sw x32, -32(fp)
-        lw x33, -32(fp)
-        sw x33, -28(fp)
+        li t0, 1
+        sw t0, -40(fp)
+        lw t0, -40(fp)
+        sw t0, -32(fp)
         li a0, 0
         ld ra, -8(fp)
         ld sp, -16(fp)

@@ -8,39 +8,39 @@ main:
         sd sp, -16(sp)
         sd fp, -24(sp)
         mv fp, sp
-        add sp, sp, -52
+        add sp, sp, -64
     entry:
-        add x32, fp, -36
-        sd x32, -44(fp)
-        ld x33, -36(fp)
-        lw x34, x33
-        sw x34, -28(fp)
-        lw x35, -28(fp)
-        not x36, x35
-        sw x36, -28(fp)
-        add x37, fp, -52
-        flw f32, x37
-        fneg.s f33, f32
-        fsw f33, -48(fp)
-        ld x38, -36(fp)
-        lw x39, -28(fp)
-        snez x40, x39
-        seqz x41, x40
-        sll x42, x41, 56
-        srl x42, x42, 56
-        sw x42, x38
-        ld x43, -44(fp)
-        add x44, x43, 8
-        sd x44, -44(fp)
-        ld x45, -44(fp)
-        add x46, x45, -8
-        sd x46, -44(fp)
-        ld x47, -44(fp)
-        add x48, x47, -8
-        sd x48, -44(fp)
-        ld x49, -44(fp)
-        add x50, x49, 8
-        sd x50, -44(fp)
+        add t0, fp, -40
+        sd t0, -48(fp)
+        ld t0, -40(fp)
+        lw t0, 0(t0)
+        sw t0, -32(fp)
+        lw t0, -32(fp)
+        not t0, t0
+        sw t0, -32(fp)
+        add t0, fp, -64
+        flw ft0, t0
+        fneg.s ft0, ft0
+        fsw ft0, -56(fp)
+        ld t1, -40(fp)
+        lw t0, -32(fp)
+        snez t0, t0
+        seqz t0, t0
+        sll t0, t0, 56
+        srl t0, t0, 56
+        sw t0, 0(t1)
+        ld t0, -48(fp)
+        add t0, t0, 8
+        sd t0, -48(fp)
+        ld t0, -48(fp)
+        add t0, t0, -8
+        sd t0, -48(fp)
+        ld t0, -48(fp)
+        add t0, t0, -8
+        sd t0, -48(fp)
+        ld t0, -48(fp)
+        add t0, t0, 8
+        sd t0, -48(fp)
         li a0, 0
         ld ra, -8(fp)
         ld sp, -16(fp)

@@ -8,29 +8,29 @@ main:
         sd sp, -16(sp)
         sd fp, -24(sp)
         mv fp, sp
-        add sp, sp, -72
+        add sp, sp, -96
     entry:
-        add x33, fp, -64
-        add x32, x33, 8
-        li x34, 3
-        sw x34, x32
-        add x36, fp, -64
-        add x35, x36, 12
-        li x37, 4
-        sw x37, x35
-        add x38, fp, -64
-        mv a0, x38
-        add x39, fp, -44
-        mv a1, x39
-        li x40, 20
-        mv a2, x40
+        add t0, fp, -72
+        add t1, t0, 8
+        li t0, 3
+        sw t0, 0(t1)
+        add t0, fp, -72
+        add t1, t0, 12
+        li t0, 4
+        sw t0, 0(t1)
+        add t0, fp, -72
+        mv a0, t0
+        add t0, fp, -48
+        mv a1, t0
+        li t0, 20
+        mv a2, t0
         call memcpy
-        add x42, fp, -72
-        add x41, x42, 0
-        li x43, 1
-        sw x43, x41
-        lw x44, -72(fp)
-        sw x44, -68(fp)
+        add t0, fp, -88
+        add t1, t0, 0
+        li t0, 1
+        sw t0, 0(t1)
+        lw t0, -88(fp)
+        sw t0, -80(fp)
         li a0, 0
         ld ra, -8(fp)
         ld sp, -16(fp)
