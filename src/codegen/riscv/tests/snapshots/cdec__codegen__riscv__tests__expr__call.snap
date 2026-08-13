@@ -16,7 +16,6 @@ f:
         sub t0, t1, t0
         seqz t0, t0
         snez t0, t0
-        snez t0, t0
         bnez t0, or_merge
     or_right:
         lw t1, -32(fp)
@@ -24,14 +23,11 @@ f:
         sub t0, t1, t0
         seqz t0, t0
         snez t0, t0
-        snez t0, t0
         j or_merge
     or_merge:
-        snez t0, t0
         beqz t0, if_else
     if_then:
-        li t0, 1
-        mv a0, t0
+        li a0, 1
         ld ra, -8(fp)
         ld sp, -16(fp)
         ld fp, -24(fp)

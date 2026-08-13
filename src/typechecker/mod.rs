@@ -6,8 +6,6 @@ pub mod check_type;
 #[cfg(test)]
 pub mod tests;
 
-use codespan_reporting::diagnostic::Diagnostic;
-
 use crate::{
     ast::{
         InitializerKind, TranslationUnit,
@@ -18,6 +16,7 @@ use crate::{
     ctype::Type,
     symtab::SymbolTable,
 };
+use codespan_reporting::diagnostic::Diagnostic;
 use std::{cell::RefCell, rc::Rc};
 
 pub struct TypeChecker {

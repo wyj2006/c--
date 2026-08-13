@@ -202,7 +202,7 @@ impl Print for Initializer {
     fn children_display(&self, indent: usize) -> Vec<String> {
         let mut lines = Vec::new();
 
-        lines.extend(self.designation.print_line(indent));
+        lines.extend(self.designations.print_line(indent));
 
         match &self.kind {
             InitializerKind::Braced(t) => lines.extend(t.print_line(indent)),
@@ -516,6 +516,8 @@ impl Print for Attribute {
                 ),
                 AttributeKind::PtrFromArray { array_type } =>
                     format!("ArrayPtr {}", array_type.borrow().to_string()),
+                AttributeKind::TypeBeforeLegalize { origin_type } =>
+                    format!("TypeBeforeLegalize {}", origin_type.borrow().to_string()),
                 AttributeKind::Deprecated { reason } => format!(
                     "Deprecated {}",
                     if let Some(t) = reason {

@@ -158,7 +158,7 @@ impl<'ctx> CodeGen<'ctx> {
                         break;
                     }
                     let designation =
-                        ConstDesignation::from_designation(&initializer.borrow().designation)?;
+                        ConstDesignation::from_designation(&initializer.borrow().designations)?;
                     let value = match BasicValueEnum::try_from(
                         self.visit_initializer(Rc::clone(initializer))?,
                     ) {

@@ -9,7 +9,7 @@ TranslationUnit <(1, 1), (10, 1)>
     Compound <(5, 1), (9, 2)>
       DeclStmt <(6, 5), (6, 15)>
         VarDecl <(6, 9), (6, 11)> a int 
-          Initializer <(6, 13), (6, 14)> int 1 
+          Initializer <(6, 13), (6, 14)> int 1 has_side_effects
             Integer 10 1 [] <(6, 13), (6, 14)> int 1  
       ExprStmt <(7, 5), (7, 8)>
         FunctionCall <(7, 6), (7, 8)> void   
@@ -17,7 +17,7 @@ TranslationUnit <(1, 1), (10, 1)>
             Name f <(7, 5), (7, 6)> void()   
       DeclStmt <(8, 5), (8, 19)>
         VarDecl <(8, 9), (8, 11)> b int 
-          Initializer <(8, 13), (8, 18)> int  
+          Initializer <(8, 13), (8, 18)> int  has_side_effects
             BinOp Add <(8, 15), (8, 16)> int   
               ImplicitCast <LToRValue> <(8, 13), (8, 14)> int   
                 Name a <(8, 13), (8, 14)> int  lvalue 

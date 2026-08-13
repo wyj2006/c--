@@ -7,19 +7,20 @@ TranslationUnit <(1, 1), (11, 1)>
     Compound <(3, 1), (10, 2)>
       DeclStmt <(4, 5), (4, 15)>
         VarDecl <(4, 9), (4, 11)> a int 
-          Initializer <(4, 13), (4, 14)> int 5 
+          Initializer <(4, 13), (4, 14)> int 5 has_side_effects
             Integer 10 5 [] <(4, 13), (4, 14)> int 5  
       DeclStmt <(5, 5), (5, 11)>
         VarDecl <(5, 9), (5, 10)> b int 
       While <(6, 5), (6, 19)>
-        ImplicitCast <LToRValue> <(6, 12), (6, 13)> int   
-          Name b <(6, 12), (6, 13)> int  lvalue 
+        ImplicitCast <ToBool> <(6, 12), (6, 13)> bool   
+          ImplicitCast <LToRValue> <(6, 12), (6, 13)> int   
+            Name b <(6, 12), (6, 13)> int  lvalue 
         ExprStmt <(6, 15), (6, 18)>
           UnaryOp PostfixInc <(6, 16), (6, 18)> int   has_side_effects
             Name a <(6, 15), (6, 16)> int  lvalue 
       DeclStmt <(7, 5), (7, 19)>
         VarDecl <(7, 9), (7, 11)> c int 
-          Initializer <(7, 13), (7, 18)> int  
+          Initializer <(7, 13), (7, 18)> int  has_side_effects
             BinOp Add <(7, 15), (7, 16)> int   
               ImplicitCast <LToRValue> <(7, 13), (7, 14)> int   
                 Name a <(7, 13), (7, 14)> int  lvalue 

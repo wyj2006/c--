@@ -85,7 +85,7 @@ impl ConstFolder {
                         break;
                     }
                     let designation =
-                        ConstDesignation::from_designation(&initializer.borrow().designation)?;
+                        ConstDesignation::from_designation(&initializer.borrow().designations)?;
                     vars = self.visit_initializer(Rc::clone(initializer), vars)?;
                     let value = initializer.borrow().value.clone();
                     init_values.insert(designation, value);

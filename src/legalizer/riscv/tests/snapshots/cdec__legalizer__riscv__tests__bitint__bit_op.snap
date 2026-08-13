@@ -1,0 +1,119 @@
+---
+source: src/legalizer/riscv/tests/bitint.rs
+expression: codegen.to_string()
+---
+main:
+    prologue:
+        sd ra, -8(sp)
+        sd sp, -16(sp)
+        sd fp, -24(sp)
+        mv fp, sp
+        add sp, sp, -160
+    entry:
+        add t0, fp, -136
+        add t2, t0, 0
+        add t0, fp, -56
+        add t0, t0, 0
+        ld t1, 0(t0)
+        add t0, fp, -72
+        add t0, t0, 0
+        ld t0, 0(t0)
+        and t3, t1, t0
+        add t0, fp, -88
+        add t0, t0, 0
+        ld t1, 0(t0)
+        add t0, fp, -104
+        add t0, t0, 0
+        ld t0, 0(t0)
+        xor t0, t1, t0
+        or t0, t3, t0
+        sd t0, 0(t2)
+        add t0, fp, -136
+        add t3, t0, 8
+        add t0, fp, -56
+        add t0, t0, 8
+        ld t2, 0(t0)
+        srl t2, t2, 0
+        li t0, 68719476735
+        and t2, t2, t0
+        sll t2, t2, 56
+        srl t2, t2, 56
+        add t0, fp, -72
+        add t0, t0, 8
+        ld t1, 0(t0)
+        srl t1, t1, 0
+        li t0, 68719476735
+        and t1, t1, t0
+        sll t1, t1, 56
+        srl t1, t1, 56
+        and t2, t2, t1
+        add t0, fp, -88
+        add t0, t0, 8
+        ld t4, 0(t0)
+        srl t4, t4, 0
+        li t0, 68719476735
+        and t4, t4, t0
+        sll t4, t4, 56
+        srl t4, t4, 56
+        add t0, fp, -104
+        add t0, t0, 8
+        ld t1, 0(t0)
+        srl t1, t1, 0
+        li t0, 68719476735
+        and t1, t1, t0
+        sll t1, t1, 56
+        srl t1, t1, 56
+        xor t0, t4, t1
+        or t2, t2, t0
+        ld t1, 0(t3)
+        li t0, -68719476736
+        and t1, t1, t0
+        li t0, 68719476735
+        and t2, t2, t0
+        sll t2, t2, 0
+        or t2, t2, t1
+        sd t2, 0(t3)
+        add t0, fp, -136
+        mv a0, t0
+        add t0, fp, -40
+        mv a1, t0
+        li a2, 16
+        call memcpy
+        add t0, fp, -152
+        add t1, t0, 0
+        add t0, fp, -120
+        add t0, t0, 0
+        ld t0, 0(t0)
+        not t0, t0
+        sd t0, 0(t1)
+        add t0, fp, -152
+        add t3, t0, 8
+        add t0, fp, -120
+        add t0, t0, 8
+        ld t1, 0(t0)
+        srl t1, t1, 0
+        li t0, 68719476735
+        and t1, t1, t0
+        sll t1, t1, 56
+        srl t1, t1, 56
+        not t2, t1
+        ld t1, 0(t3)
+        li t0, -68719476736
+        and t1, t1, t0
+        li t0, 68719476735
+        and t2, t2, t0
+        sll t2, t2, 0
+        or t2, t2, t1
+        sd t2, 0(t3)
+        add t0, fp, -152
+        mv a0, t0
+        add t0, fp, -40
+        mv a1, t0
+        li a2, 16
+        call memcpy
+        li a0, 0
+        ld ra, -8(fp)
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+    .global main

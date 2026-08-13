@@ -1,0 +1,81 @@
+---
+source: src/legalizer/riscv/tests/complex.rs
+expression: codegen.to_string()
+---
+main:
+    prologue:
+        sd ra, -8(sp)
+        sd sp, -16(sp)
+        sd fp, -24(sp)
+        mv fp, sp
+        add sp, sp, -80
+    entry:
+        add t0, fp, -72
+        add t1, t0, 0
+        add t0, fp, -32
+        add t0, t0, 0
+        flw ft1, 0(t0)
+        add t0, fp, -40
+        add t0, t0, 0
+        flw ft0, 0(t0)
+        feq.s t0, ft1, ft0
+        snez t0, t0
+        beqz t0, and_merge2
+    and_right2:
+        add t0, fp, -32
+        add t0, t0, 4
+        flw ft1, 0(t0)
+        add t0, fp, -40
+        add t0, t0, 4
+        flw ft0, 0(t0)
+        feq.s t0, ft1, ft0
+        snez t0, t0
+        j and_merge2
+    and_merge2:
+        snez t0, t0
+        beqz t0, and_merge
+    and_right:
+        add t0, fp, -48
+        add t0, t0, 0
+        flw ft1, 0(t0)
+        add t0, fp, -56
+        add t0, t0, 0
+        flw ft0, 0(t0)
+        feq.s t0, ft1, ft0
+        seqz t0, t0
+        snez t0, t0
+        bnez t0, or_merge
+    or_right:
+        add t0, fp, -48
+        add t0, t0, 4
+        flw ft1, 0(t0)
+        add t0, fp, -56
+        add t0, t0, 4
+        flw ft0, 0(t0)
+        feq.s t0, ft1, ft0
+        seqz t0, t0
+        snez t0, t0
+        j or_merge
+    or_merge:
+        snez t0, t0
+        j and_merge
+    and_merge:
+        fcvt.s.lu ft0, t0
+        fsw ft0, 0(t1)
+        add t0, fp, -72
+        add t1, t0, 4
+        li t0, 0
+        fmv.s.x ft0, t0
+        fsw ft0, 0(t1)
+        add t0, fp, -72
+        mv a0, t0
+        add t0, fp, -64
+        mv a1, t0
+        li a2, 8
+        call memcpy
+        li a0, 0
+        ld ra, -8(fp)
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+    .global main

@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Designation, DesignationKind, expr::Expr},
+    ast::{Designation, DesignationKind},
     ctype::{RecordKind, Type, TypeKind},
     match_inner_type,
     symtab::SymbolKind,
@@ -95,9 +95,9 @@ pub fn compute_layout(r#type: Rc<RefCell<Type>>) -> Option<Layout> {
             ..
         } => {
             let mut children = vec![];
-            let mut offset: usize = 0;
+            let mut offset: usize = 0; //以byte为单位
             let mut bitfield_children = vec![];
-            let mut bitfield_offset = 0;
+            let mut bitfield_offset = 0; //以bit为单位
 
             for (i, (_, member)) in members.iter().enumerate() {
                 let bit_field = match &mut member.borrow_mut().kind {
@@ -121,27 +121,22 @@ pub fn compute_layout(r#type: Rc<RefCell<Type>>) -> Option<Layout> {
                         ..compute_layout(Rc::clone(&member_type))?
                     });
                     bitfield_offset += bit_field;
+                    //TODO 超出32/64位时不再continue
                     if i < members.len() - 1 {
                         continue;
                     }
                 }
+
                 if bitfield_children.len() > 0 {
                     //处理位域
                     let bitfield_type = Type {
-                        kind: TypeKind::BitInt {
-                            unsigned: true,
-                            width_expr: Rc::new(RefCell::new(Expr::new_const_int(
-                                member_type.borrow().file_id,
-                                member_type.borrow().span,
-                                bitfield_offset,
-                                Rc::new(RefCell::new(Type {
-                                    kind: TypeKind::LongLong,
-                                    ..Type::new(
-                                        member_type.borrow().file_id,
-                                        member_type.borrow().span,
-                                    )
-                                })),
-                            ))),
+                        //32位机器上unsigned long是32位, 64位机器上unsigned long是64位
+                        kind: if bitfield_offset <= 8 {
+                            TypeKind::UnsignedChar
+                        } else if bitfield_offset <= 16 {
+                            TypeKind::UShort
+                        } else {
+                            TypeKind::ULong
                         },
                         ..Type::new(member_type.borrow().file_id, member_type.borrow().span)
                     };

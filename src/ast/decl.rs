@@ -18,6 +18,7 @@ pub struct Declaration {
     pub r#type: Rc<RefCell<Type>>,
     pub storage_classes: Vec<StorageClass>,
     pub kind: DeclarationKind,
+    //类型中可能包含的函数类型
     pub children: Vec<Rc<RefCell<Declaration>>>,
 }
 

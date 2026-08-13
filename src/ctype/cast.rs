@@ -1,10 +1,12 @@
-use codespan_reporting::diagnostic::{Diagnostic, Label};
-
 use crate::{
-    ast::{Attribute, AttributeKind},
+    ast::{
+        Attribute, AttributeKind,
+        expr::{CastMethod, Expr, ExprKind},
+    },
     ctype::{Type, TypeKind, get_inner_type, is_compatible},
     match_inner_type,
 };
+use codespan_reporting::diagnostic::{Diagnostic, Label};
 use std::{cell::RefCell, rc::Rc};
 
 pub fn remove_qualifier(a: Rc<RefCell<Type>>) -> Rc<RefCell<Type>> {
@@ -150,7 +152,7 @@ pub fn usual_arith_cast(
                         })),
                     ))
                 } else {
-                    Ok((x, y))
+                    unreachable!()
                 }
             }
         }
@@ -235,5 +237,187 @@ pub fn usual_arith_cast(
             ))
         }
         _ => Ok((Rc::clone(&a), Rc::clone(&b))),
+    }
+}
+
+pub fn wrap_implicit_cast(
+    expr: Rc<RefCell<Expr>>,
+    r#type: Rc<RefCell<Type>>,
+    method: CastMethod,
+) -> Expr {
+    Expr {
+        r#type,
+        has_side_effects: expr.borrow().has_side_effects,
+        symbol: expr.borrow().symbol.clone(),
+        ..Expr::new(
+            expr.borrow().file_id,
+            expr.borrow().span,
+            ExprKind::Cast {
+                is_implicit: true,
+                target: Rc::clone(&expr),
+                decls: Vec::new(),
+                method,
+            },
+        )
+    }
+}
+
+//尝试进行隐式转换, 失败返回None, 成功返回修改后的表达式
+pub fn try_implicit_cast(
+    source: Rc<RefCell<Expr>>,
+    target_type: Rc<RefCell<Type>>,
+) -> Result<Rc<RefCell<Expr>>, Diagnostic<usize>> {
+    let source_type = &source.borrow().r#type;
+    if is_compatible(Rc::clone(&target_type), Rc::clone(source_type)) {
+        Ok(Rc::clone(&source))
+    }
+    //尝试所有可能的转换方式
+    else if is_compatible(
+        Rc::clone(&target_type),
+        array_to_ptr(Rc::clone(source_type)),
+    ) {
+        Ok(Rc::new(RefCell::new(wrap_implicit_cast(
+            Rc::clone(&source),
+            target_type,
+            CastMethod::ArrayToPtr,
+        ))))
+    } else if is_compatible(Rc::clone(&target_type), func_to_ptr(Rc::clone(source_type))) {
+        Ok(Rc::new(RefCell::new(wrap_implicit_cast(
+            Rc::clone(&source),
+            target_type,
+            CastMethod::FuncToPtr,
+        ))))
+    } else if is_compatible(Rc::clone(&target_type), lvalue_cast(Rc::clone(source_type))) {
+        Ok(Rc::new(RefCell::new(wrap_implicit_cast(
+            Rc::clone(&source),
+            target_type,
+            CastMethod::LToRValue,
+        ))))
+    } else if (target_type.borrow().is_void_ptr() || target_type.borrow().is_pointer())
+        && (target_type.borrow().is_void_ptr()
+            || source_type.borrow().is_pointer()
+            || source_type.borrow().is_nullptr())
+        || (target_type.borrow().is_nullptr() && source_type.borrow().is_nullptr())
+    {
+        Ok(Rc::new(RefCell::new(wrap_implicit_cast(
+            Rc::clone(&source),
+            target_type,
+            CastMethod::PtrToPtr,
+        ))))
+    } else if target_type.borrow().is_real_float() && source_type.borrow().is_real_float() {
+        Ok(Rc::new(RefCell::new(wrap_implicit_cast(
+            Rc::clone(&source),
+            target_type.clone(),
+            if source_type.borrow().size().unwrap() > target_type.borrow().size().unwrap() {
+                CastMethod::FloatTrunc
+            } else {
+                CastMethod::FloatExtend
+            },
+        ))))
+    } else if target_type.borrow().is_integer() && source_type.borrow().is_real_float() {
+        Ok(Rc::new(RefCell::new(wrap_implicit_cast(
+            Rc::clone(&source),
+            target_type.clone(),
+            if target_type.borrow().is_unsigned().unwrap() {
+                CastMethod::FloatToUInt
+            } else {
+                CastMethod::FloatToSInt
+            },
+        ))))
+    } else if target_type.borrow().is_real_float() && source_type.borrow().is_integer() {
+        Ok(Rc::new(RefCell::new(wrap_implicit_cast(
+            Rc::clone(&source),
+            target_type.clone(),
+            if source_type.borrow().is_unsigned().unwrap() {
+                CastMethod::UIntToFloat
+            } else {
+                CastMethod::SIntToFloat
+            },
+        ))))
+    } else if target_type.borrow().is_bool() && source_type.borrow().is_scale() {
+        Ok(Rc::new(RefCell::new(wrap_implicit_cast(
+            Rc::clone(&source),
+            target_type,
+            CastMethod::ToBool,
+        ))))
+    } else if target_type.borrow().is_integer() && source_type.borrow().is_integer() {
+        if source_type.borrow().size().unwrap() < target_type.borrow().size().unwrap() {
+            Ok(Rc::new(RefCell::new(wrap_implicit_cast(
+                Rc::clone(&source),
+                target_type.clone(),
+                if source_type.borrow().is_unsigned().unwrap() {
+                    CastMethod::ZeroExtand
+                } else {
+                    CastMethod::SignedExtend
+                },
+            ))))
+        } else {
+            Ok(Rc::new(RefCell::new(wrap_implicit_cast(
+                Rc::clone(&source),
+                target_type,
+                CastMethod::IntTrunc,
+            ))))
+        }
+    } else if target_type.borrow().is_complex() && source_type.borrow().is_complex() {
+        Ok(Rc::new(RefCell::new(wrap_implicit_cast(
+            Rc::clone(&source),
+            target_type.clone(),
+            match (source_type.borrow().size(), target_type.borrow().size()) {
+                (Some(a), Some(b)) => {
+                    if a > b {
+                        CastMethod::ComplexTrunc
+                    } else {
+                        CastMethod::ComplexExtend
+                    }
+                }
+                (None, _) => {
+                    return Err(Diagnostic::error()
+                        .with_message(format!("incomplete type: '{}'", source_type.borrow()))
+                        .with_label(Label::primary(
+                            source_type.borrow().file_id,
+                            source_type.borrow().span,
+                        )));
+                }
+                (_, None) => {
+                    return Err(Diagnostic::error()
+                        .with_message(format!("incomplete type: '{}'", target_type.borrow()))
+                        .with_label(Label::primary(
+                            target_type.borrow().file_id,
+                            target_type.borrow().span,
+                        )));
+                }
+            },
+        ))))
+    } else if target_type.borrow().is_complex() && source_type.borrow().is_real_float() {
+        Ok(Rc::new(RefCell::new(wrap_implicit_cast(
+            Rc::clone(&source),
+            target_type,
+            CastMethod::FloatToComplex,
+        ))))
+    } else if target_type.borrow().is_real_float() && source_type.borrow().is_complex() {
+        Ok(Rc::new(RefCell::new(wrap_implicit_cast(
+            Rc::clone(&source),
+            target_type,
+            CastMethod::ComplexToFloat,
+        ))))
+    } else if target_type.borrow().is_complex() && source_type.borrow().is_integer()
+        || target_type.borrow().is_integer() && source_type.borrow().is_complex()
+    {
+        let new_source = match &target_type.borrow().kind {
+            TypeKind::Complex(Some(t)) => try_implicit_cast(Rc::clone(&source), Rc::clone(t))?,
+            _ => unreachable!(),
+        };
+        Ok(try_implicit_cast(new_source, target_type)?)
+    } else {
+        Err(Diagnostic::error()
+            .with_message(format!(
+                "cannot convert '{}' to '{}'",
+                source_type.borrow().to_string(),
+                target_type.borrow().to_string()
+            ))
+            .with_label(Label::primary(
+                source.borrow().file_id,
+                source.borrow().span,
+            )))
     }
 }

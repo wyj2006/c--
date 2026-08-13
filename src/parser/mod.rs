@@ -245,7 +245,7 @@ impl CParser {
                 Rule::designation => designation.extend(self.parse_designation(rule)?),
                 Rule::initializer => {
                     let initializer = self.parse_initializer(rule)?;
-                    initializer.borrow_mut().designation.extend(designation);
+                    initializer.borrow_mut().designations.extend(designation);
                     initializers.push(initializer);
                     designation = Vec::new();
                 }

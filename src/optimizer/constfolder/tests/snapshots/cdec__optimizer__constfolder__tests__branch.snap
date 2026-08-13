@@ -7,13 +7,14 @@ TranslationUnit <(1, 1), (20, 1)>
     Compound <(3, 1), (19, 2)>
       DeclStmt <(4, 5), (4, 15)>
         VarDecl <(4, 9), (4, 11)> a int 
-          Initializer <(4, 13), (4, 14)> int 5 
+          Initializer <(4, 13), (4, 14)> int 5 has_side_effects
             Integer 10 5 [] <(4, 13), (4, 14)> int 5  
       DeclStmt <(5, 5), (5, 11)>
         VarDecl <(5, 9), (5, 10)> b int 
       If <(6, 5), (9, 15)>
-        ImplicitCast <LToRValue> <(6, 9), (6, 10)> int   
-          Name b <(6, 9), (6, 10)> int  lvalue 
+        ImplicitCast <ToBool> <(6, 9), (6, 10)> bool   
+          ImplicitCast <LToRValue> <(6, 9), (6, 10)> int   
+            Name b <(6, 9), (6, 10)> int  lvalue 
         ExprStmt <(7, 9), (7, 14)>
           BinOp Assign <(7, 9), (7, 14)> int 6  has_side_effects
             Name a <(7, 9), (7, 10)> int 5 lvalue 
@@ -24,7 +25,7 @@ TranslationUnit <(1, 1), (20, 1)>
             Integer 10 7 [] <(9, 13), (9, 14)> int 7  
       DeclStmt <(10, 5), (10, 19)>
         VarDecl <(10, 9), (10, 11)> c int 
-          Initializer <(10, 13), (10, 18)> int  
+          Initializer <(10, 13), (10, 18)> int  has_side_effects
             BinOp Add <(10, 15), (10, 16)> int   
               ImplicitCast <LToRValue> <(10, 13), (10, 14)> int   
                 Name a <(10, 13), (10, 14)> int  lvalue 
@@ -34,8 +35,9 @@ TranslationUnit <(1, 1), (20, 1)>
           Name a <(11, 5), (11, 6)> int  lvalue 
           Integer 10 9 [] <(11, 9), (11, 10)> int 9  
       If <(12, 5), (15, 15)>
-        ImplicitCast <LToRValue> <(12, 9), (12, 10)> int   
-          Name b <(12, 9), (12, 10)> int  lvalue 
+        ImplicitCast <ToBool> <(12, 9), (12, 10)> bool   
+          ImplicitCast <LToRValue> <(12, 9), (12, 10)> int   
+            Name b <(12, 9), (12, 10)> int  lvalue 
         ExprStmt <(13, 9), (13, 14)>
           BinOp Assign <(13, 9), (13, 14)> int 9  has_side_effects
             Name a <(13, 9), (13, 10)> int 9 lvalue 
@@ -52,8 +54,9 @@ TranslationUnit <(1, 1), (20, 1)>
               Name a <(16, 9), (16, 10)> int 9 lvalue 
             Integer 10 9 [] <(16, 13), (16, 14)> int 9  
       If <(17, 5), (18, 5)>
-        ImplicitCast <LToRValue> <(17, 9), (17, 10)> int   
-          Name b <(17, 9), (17, 10)> int  lvalue 
+        ImplicitCast <ToBool> <(17, 9), (17, 10)> bool   
+          ImplicitCast <LToRValue> <(17, 9), (17, 10)> int   
+            Name b <(17, 9), (17, 10)> int  lvalue 
         ExprStmt <(17, 12), (17, 18)>
           BinOp Assign <(17, 12), (17, 18)> int 10  has_side_effects
             Name a <(17, 12), (17, 13)> int 9 lvalue 

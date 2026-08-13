@@ -13,7 +13,7 @@ use expr::Expr;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TranslationUnit {
     pub file_id: usize,
     pub span: Span,
@@ -65,6 +65,10 @@ pub enum AttributeKind {
     PtrFromArray {
         array_type: Rc<RefCell<Type>>,
     },
+    //在类型合法化之前的类型
+    TypeBeforeLegalize {
+        origin_type: Rc<RefCell<Type>>,
+    },
     Deprecated {
         reason: Option<String>,
     },
@@ -85,7 +89,7 @@ pub enum AttributeKind {
 pub struct Initializer {
     pub file_id: usize,
     pub span: Span,
-    pub designation: Vec<Designation>, //只有braced initializer中的initializer才有可能有
+    pub designations: Vec<Designation>, //只有braced initializer中的initializer才有可能有
     pub kind: InitializerKind,
     pub r#type: Rc<RefCell<Type>>,
     pub value: Variant,
@@ -98,7 +102,7 @@ impl Initializer {
         Initializer {
             file_id,
             span,
-            designation: vec![],
+            designations: vec![],
             kind,
             r#type: Rc::new(RefCell::new(Type::new(file_id, span))),
             value: Variant::Unknown,
@@ -141,9 +145,9 @@ impl Initializer {
     pub fn unparse(&self) -> String {
         format!(
             "{}{}",
-            if self.designation.len() > 0 {
+            if self.designations.len() > 0 {
                 let mut s = String::new();
-                for designation in &self.designation {
+                for designation in &self.designations {
                     match &designation.kind {
                         DesignationKind::MemberAccess(name) => s += format!(".{name}").as_str(),
                         DesignationKind::Subscript(index) => {

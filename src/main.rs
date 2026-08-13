@@ -3,6 +3,7 @@ pub mod codegen;
 pub mod ctype;
 pub mod diagnostic;
 pub mod file_map;
+pub mod legalizer;
 pub mod optimizer;
 pub mod parser;
 pub mod preprocessor;
@@ -15,6 +16,7 @@ use crate::{
     codegen::{llvm, riscv},
     diagnostic::print_diag,
     file_map::{FileMap, source_map},
+    legalizer::riscv::Legalizer,
     optimizer::constfolder::ConstFolder,
     preprocessor::{
         include_paths,
@@ -156,12 +158,11 @@ fn gen_code_llvm<'ctx>(
 fn gen_code_riscv(
     output_path: &PathBuf,
     ast: Rc<RefCell<TranslationUnit>>,
-) -> Result<(), Diagnostic<usize>> {
+) -> Result<String, Diagnostic<usize>> {
     let mut codegen = riscv::CodeGen::new();
     codegen.r#gen(&ast)?;
     fs::write(output_path, codegen.to_string()).unwrap();
-    println!("{codegen}");
-    Ok(())
+    Ok(codegen.to_string())
 }
 
 fn do_frontend(
@@ -199,6 +200,11 @@ fn do_frontend(
             path
         };
 
+        if !cli.use_llvm {
+            let mut legalizer = Legalizer::new();
+            legalizer.legalize(&ast)?;
+        }
+
         if cli.fold_constant {
             ConstFolder::new().fold(Rc::clone(&ast))?;
         }
@@ -225,7 +231,10 @@ fn do_frontend(
 
             write(&output_path, buffer.as_slice())?;
         } else {
-            gen_code_riscv(&get_output(&cli, &input_path, "s"), Rc::clone(&ast))?;
+            option_ir = Some(gen_code_riscv(
+                &get_output(&cli, &input_path, "s"),
+                Rc::clone(&ast),
+            )?);
         }
 
         if cli.compile_and_assemble {

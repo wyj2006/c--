@@ -1,0 +1,397 @@
+---
+source: src/legalizer/riscv/tests/bitint.rs
+expression: codegen.to_string()
+---
+__bitint_lt_signed_100:
+    prologue3:
+        sd ra, -8(sp)
+        sd sp, -16(sp)
+        sd fp, -24(sp)
+        mv fp, sp
+        add sp, sp, -80
+    entry3:
+        sd a0, -40(fp)
+        sd a1, -32(fp)
+        sd a2, -56(fp)
+        sd a3, -48(fp)
+        li t0, 1
+        sb t0, -64(fp)
+        add t0, fp, -40
+        add t0, t0, 0
+        ld t1, 0(t0)
+        add t0, fp, -56
+        add t0, t0, 0
+        ld t0, 0(t0)
+        sltu t0, t1, t0
+        seqz t0, t0
+        beqz t0, if_else6
+    if_then6:
+        li t0, 0
+        sb t0, -64(fp)
+        j finished2
+        j if_merge6
+    if_else6:
+    if_merge6:
+        add t0, fp, -40
+        add t0, t0, 8
+        ld t2, 0(t0)
+        srl t2, t2, 0
+        li t0, 68719476735
+        and t2, t2, t0
+        sll t2, t2, 56
+        srl t2, t2, 56
+        add t0, fp, -56
+        add t0, t0, 8
+        ld t1, 0(t0)
+        srl t1, t1, 0
+        li t0, 68719476735
+        and t1, t1, t0
+        sll t1, t1, 56
+        srl t1, t1, 56
+        sltu t0, t2, t1
+        seqz t0, t0
+        beqz t0, if_else7
+    if_then7:
+        li t0, 0
+        sb t0, -64(fp)
+        j finished2
+        j if_merge7
+    if_else7:
+    if_merge7:
+    finished2:
+        add t0, fp, -40
+        add t0, t0, 8
+        ld t1, 0(t0)
+        srl t1, t1, 0
+        li t0, 68719476735
+        and t1, t1, t0
+        sll t1, t1, 56
+        srl t1, t1, 56
+        srl t0, t1, 35
+        and t0, t0, 1
+        sd t0, -72(fp)
+        add t0, fp, -56
+        add t0, t0, 8
+        ld t1, 0(t0)
+        srl t1, t1, 0
+        li t0, 68719476735
+        and t1, t1, t0
+        sll t1, t1, 56
+        srl t1, t1, 56
+        srl t0, t1, 35
+        and t0, t0, 1
+        sd t0, -80(fp)
+        ld t0, -72(fp)
+        and t1, t0, 15
+        li t0, 0
+        sub t0, t1, t0
+        seqz t0, t0
+        snez t0, t0
+        beqz t0, and_merge5
+    and_right5:
+        ld t0, -80(fp)
+        and t1, t0, 15
+        li t0, 1
+        sub t0, t1, t0
+        seqz t0, t0
+        snez t0, t0
+        j and_merge5
+    and_merge5:
+        beqz t0, if_else8
+    if_then8:
+        li t0, 0
+        sb t0, -64(fp)
+        j if_merge8
+    if_else8:
+        ld t0, -72(fp)
+        and t1, t0, 15
+        li t0, 1
+        sub t0, t1, t0
+        seqz t0, t0
+        snez t0, t0
+        beqz t0, and_merge6
+    and_right6:
+        ld t0, -80(fp)
+        and t1, t0, 15
+        li t0, 0
+        sub t0, t1, t0
+        seqz t0, t0
+        snez t0, t0
+        j and_merge6
+    and_merge6:
+        beqz t0, if_else9
+    if_then9:
+        li t0, 1
+        sb t0, -64(fp)
+        j if_merge9
+    if_else9:
+        ld t0, -72(fp)
+        and t1, t0, 15
+        li t0, 1
+        sub t0, t1, t0
+        seqz t0, t0
+        snez t0, t0
+        beqz t0, and_merge7
+    and_right7:
+        ld t0, -80(fp)
+        and t1, t0, 15
+        li t0, 1
+        sub t0, t1, t0
+        seqz t0, t0
+        snez t0, t0
+        j and_merge7
+    and_merge7:
+        beqz t0, if_else10
+    if_then10:
+        lbu t0, -64(fp)
+        seqz t0, t0
+        sb t0, -64(fp)
+        j if_merge10
+    if_else10:
+    if_merge10:
+    if_merge9:
+    if_merge8:
+        lbu t0, -64(fp)
+        mv a0, t0
+        ld ra, -8(fp)
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+        li a0, 0
+        ld ra, -8(fp)
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+__bitint_gt_signed_100:
+    prologue2:
+        sd ra, -8(sp)
+        sd sp, -16(sp)
+        sd fp, -24(sp)
+        mv fp, sp
+        add sp, sp, -80
+    entry2:
+        sd a0, -40(fp)
+        sd a1, -32(fp)
+        sd a2, -56(fp)
+        sd a3, -48(fp)
+        li t0, 1
+        sb t0, -64(fp)
+        add t0, fp, -40
+        add t0, t0, 0
+        ld t1, 0(t0)
+        add t0, fp, -56
+        add t0, t0, 0
+        ld t0, 0(t0)
+        sub t0, t1, t0
+        sgtz t0, t0
+        seqz t0, t0
+        beqz t0, if_else
+    if_then:
+        li t0, 0
+        sb t0, -64(fp)
+        j finished
+        j if_merge
+    if_else:
+    if_merge:
+        add t0, fp, -40
+        add t0, t0, 8
+        ld t2, 0(t0)
+        srl t2, t2, 0
+        li t0, 68719476735
+        and t2, t2, t0
+        sll t2, t2, 56
+        srl t2, t2, 56
+        add t0, fp, -56
+        add t0, t0, 8
+        ld t1, 0(t0)
+        srl t1, t1, 0
+        li t0, 68719476735
+        and t1, t1, t0
+        sll t1, t1, 56
+        srl t1, t1, 56
+        sub t0, t2, t1
+        sgtz t0, t0
+        seqz t0, t0
+        beqz t0, if_else2
+    if_then2:
+        li t0, 0
+        sb t0, -64(fp)
+        j finished
+        j if_merge2
+    if_else2:
+    if_merge2:
+    finished:
+        add t0, fp, -40
+        add t0, t0, 8
+        ld t1, 0(t0)
+        srl t1, t1, 0
+        li t0, 68719476735
+        and t1, t1, t0
+        sll t1, t1, 56
+        srl t1, t1, 56
+        srl t0, t1, 35
+        and t0, t0, 1
+        sd t0, -72(fp)
+        add t0, fp, -56
+        add t0, t0, 8
+        ld t1, 0(t0)
+        srl t1, t1, 0
+        li t0, 68719476735
+        and t1, t1, t0
+        sll t1, t1, 56
+        srl t1, t1, 56
+        srl t0, t1, 35
+        and t0, t0, 1
+        sd t0, -80(fp)
+        ld t0, -72(fp)
+        and t1, t0, 15
+        li t0, 0
+        sub t0, t1, t0
+        seqz t0, t0
+        snez t0, t0
+        beqz t0, and_merge2
+    and_right2:
+        ld t0, -80(fp)
+        and t1, t0, 15
+        li t0, 1
+        sub t0, t1, t0
+        seqz t0, t0
+        snez t0, t0
+        j and_merge2
+    and_merge2:
+        beqz t0, if_else3
+    if_then3:
+        li t0, 1
+        sb t0, -64(fp)
+        j if_merge3
+    if_else3:
+        ld t0, -72(fp)
+        and t1, t0, 15
+        li t0, 1
+        sub t0, t1, t0
+        seqz t0, t0
+        snez t0, t0
+        beqz t0, and_merge3
+    and_right3:
+        ld t0, -80(fp)
+        and t1, t0, 15
+        li t0, 0
+        sub t0, t1, t0
+        seqz t0, t0
+        snez t0, t0
+        j and_merge3
+    and_merge3:
+        beqz t0, if_else4
+    if_then4:
+        li t0, 0
+        sb t0, -64(fp)
+        j if_merge4
+    if_else4:
+        ld t0, -72(fp)
+        and t1, t0, 15
+        li t0, 1
+        sub t0, t1, t0
+        seqz t0, t0
+        snez t0, t0
+        beqz t0, and_merge4
+    and_right4:
+        ld t0, -80(fp)
+        and t1, t0, 15
+        li t0, 1
+        sub t0, t1, t0
+        seqz t0, t0
+        snez t0, t0
+        j and_merge4
+    and_merge4:
+        beqz t0, if_else5
+    if_then5:
+        lbu t0, -64(fp)
+        seqz t0, t0
+        sb t0, -64(fp)
+        j if_merge5
+    if_else5:
+    if_merge5:
+    if_merge4:
+    if_merge3:
+        lbu t0, -64(fp)
+        mv a0, t0
+        ld ra, -8(fp)
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+        li a0, 0
+        ld ra, -8(fp)
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+main:
+    prologue:
+        sd ra, -8(sp)
+        sd sp, -16(sp)
+        sd fp, -24(sp)
+        mv fp, sp
+        add sp, sp, -128
+    entry:
+        add t0, fp, -48
+        ld a0, 0(t0)
+        add t0, t0, 8
+        ld a1, 0(t0)
+        add t0, fp, -64
+        ld a2, 0(t0)
+        add t0, t0, 8
+        ld a3, 0(t0)
+        call __bitint_gt_signed_100
+        mv t0, a0
+        sb t0, -32(fp)
+        add t0, fp, -80
+        ld a0, 0(t0)
+        add t0, t0, 8
+        ld a1, 0(t0)
+        add t0, fp, -96
+        ld a2, 0(t0)
+        add t0, t0, 8
+        ld a3, 0(t0)
+        call __bitint_lt_signed_100
+        mv t0, a0
+        sb t0, -32(fp)
+        add t0, fp, -112
+        add t0, t0, 0
+        ld t1, 0(t0)
+        add t0, fp, -128
+        add t0, t0, 0
+        ld t0, 0(t0)
+        sub t0, t1, t0
+        seqz t0, t0
+        snez t0, t0
+        beqz t0, and_merge
+    and_right:
+        add t0, fp, -112
+        add t0, t0, 8
+        ld t2, 0(t0)
+        srl t2, t2, 0
+        li t0, 68719476735
+        and t2, t2, t0
+        sll t2, t2, 56
+        srl t2, t2, 56
+        add t0, fp, -128
+        add t0, t0, 8
+        ld t1, 0(t0)
+        srl t1, t1, 0
+        li t0, 68719476735
+        and t1, t1, t0
+        sll t1, t1, 56
+        srl t1, t1, 56
+        sub t0, t2, t1
+        seqz t0, t0
+        snez t0, t0
+        j and_merge
+    and_merge:
+        sb t0, -32(fp)
+        li a0, 0
+        ld ra, -8(fp)
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+    .global main
+    .global __bitint_gt_signed_100
+    .global __bitint_lt_signed_100

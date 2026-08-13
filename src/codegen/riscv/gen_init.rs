@@ -134,7 +134,7 @@ impl CodeGen {
                         break;
                     }
                     let designation =
-                        ConstDesignation::from_designation(&initializer.borrow().designation)?;
+                        ConstDesignation::from_designation(&initializer.borrow().designations)?;
                     let (offset, symbol) =
                         self.compute_offset_and_symbol(&r#type, designation, 0)?;
                     let ptr = self.assign_ireg()?;

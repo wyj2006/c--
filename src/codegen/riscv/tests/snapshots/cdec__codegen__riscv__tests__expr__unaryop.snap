@@ -18,8 +18,7 @@ main:
         lw t0, -32(fp)
         not t0, t0
         sw t0, -32(fp)
-        add t0, fp, -64
-        flw ft0, t0
+        flw ft0, -64(fp)
         fneg.s ft0, ft0
         fsw ft0, -56(fp)
         ld t1, -40(fp)

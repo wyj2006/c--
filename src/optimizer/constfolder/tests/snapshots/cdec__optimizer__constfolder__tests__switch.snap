@@ -7,10 +7,10 @@ TranslationUnit <(1, 1), (13, 1)>
     Compound <(3, 1), (12, 2)>
       DeclStmt <(4, 5), (4, 22)>
         VarDecl <(4, 9), (4, 11)> a int 
-          Initializer <(4, 13), (4, 14)> int 1 
+          Initializer <(4, 13), (4, 14)> int 1 has_side_effects
             Integer 10 1 [] <(4, 13), (4, 14)> int 1  
         VarDecl <(4, 16), (4, 18)> b int 
-          Initializer <(4, 20), (4, 21)> int 2 
+          Initializer <(4, 20), (4, 21)> int 2 has_side_effects
             Integer 10 2 [] <(4, 20), (4, 21)> int 2  
       DeclStmt <(5, 5), (5, 11)>
         VarDecl <(5, 9), (5, 10)> c int 

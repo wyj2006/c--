@@ -1,6 +1,6 @@
 use crate::ast::expr::{EncodePrefix, Expr, ExprKind};
 use crate::ast::{Designation, DesignationKind};
-use crate::ctype::cast::remove_qualifier;
+use crate::ctype::cast::{remove_qualifier, try_implicit_cast};
 use crate::ctype::layout::ConstDesignation;
 use crate::ctype::{TypeKind, is_compatible};
 use crate::diagnostic::warning;
@@ -192,8 +192,8 @@ impl TypeChecker {
         node.r#type = Rc::clone(&r#type);
 
         let mut max_index: usize = 0; //用于补全数组类型
-
-        let mut has_side_effects = false;
+        //初始化列表肯定要读写内存
+        let mut has_side_effects = true;
 
         match &node.kind {
             InitializerKind::Braced(initializers) => {
@@ -225,10 +225,10 @@ impl TypeChecker {
                     let span = initializer.borrow().span;
                     let mut keep_num = 2; //保留的节点数
 
-                    if initializer.borrow().designation.len() > 0 {
+                    if initializer.borrow().designations.len() > 0 {
                         //从头开始匹配
                         path = self.new_designation_path(Rc::clone(&r#type))?;
-                        let designations = &initializer.borrow().designation;
+                        let designations = &initializer.borrow().designations;
                         let mut i = 0;
                         //尝试匹配
                         while i < designations.len() && i + 1 < path.len() {
@@ -293,11 +293,11 @@ impl TypeChecker {
                         },
                     }
 
-                    let start = initializer.borrow().designation.len() + 1;
+                    let start = initializer.borrow().designations.len() + 1;
                     for node in &path[start..] {
                         initializer
                             .borrow_mut()
-                            .designation
+                            .designations
                             .push(node.designation.to_designation(file_id, span));
                     }
 
@@ -416,7 +416,7 @@ impl TypeChecker {
                 } else {
                     match &mut node.kind {
                         InitializerKind::Expr(expr) => {
-                            *expr = self.try_implicit_cast(
+                            *expr = try_implicit_cast(
                                 Rc::clone(expr),
                                 remove_qualifier(Rc::clone(&r#type)),
                             )?;

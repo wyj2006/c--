@@ -93,6 +93,7 @@ impl CodeGen {
 
                     //先分配, 再写函数序言
                     //因为寄存器分配可能也需要使用栈空间
+                    //需要保证后续不会出现新的虚拟寄存器
                     let (_, function) = self.functions.get_index_mut(self.cur_function).unwrap();
                     RegAllocator::new(function, self.xlen).allocate();
 
@@ -215,9 +216,7 @@ impl CodeGen {
                         };
 
                         if let Some(initializer) = initializer {
-                            let init_value = self.visit_initializer(initializer, None, &None)?;
-                            let t = self.load(&init_value, r#type, &Some(symbol.clone()))?;
-                            self.store(&value, &t, r#type, &Some(symbol))?;
+                            self.visit_initializer(initializer, Some(value.clone()), &None)?;
                         }
 
                         value

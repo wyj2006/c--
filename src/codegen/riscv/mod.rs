@@ -12,7 +12,7 @@ pub mod tests;
 
 use codespan_reporting::diagnostic::Diagnostic;
 use indexmap::IndexMap;
-use num::ToPrimitive;
+use num::{ToPrimitive, traits::ToBytes};
 
 use crate::{
     ast::TranslationUnit,
@@ -100,18 +100,27 @@ impl CodeGen {
             .lookup(namespace, name)
     }
 
-    ///在当前函数的当前位置后插入一个basic block, 并返回这个block的名称
-    pub fn append_basic_block(&mut self, name: &str) -> Result<String, Diagnostic<usize>> {
-        let base_name = name;
+    pub fn gen_unique_label_name(&self, base_name: &str) -> String {
         let mut name = base_name.to_string();
         let mut i = 2;
-        for (_, function) in &self.functions {
-            while function.basic_blocks.contains_key(&name) {
-                name = format!("{base_name}{i}");
-                i += 1;
+
+        'outer: loop {
+            for (_, function) in &self.functions {
+                if function.basic_blocks.contains_key(&name) {
+                    name = format!("{base_name}{i}");
+                    i += 1;
+                    continue 'outer;
+                }
             }
+            break;
         }
 
+        name
+    }
+
+    ///在当前函数的当前位置后插入一个basic block, 并返回这个block的名称
+    pub fn append_basic_block(&mut self, name: &str) -> Result<String, Diagnostic<usize>> {
+        let name = self.gen_unique_label_name(name);
         let (_, function) = self.functions.get_index_mut(self.cur_function).unwrap();
 
         function.basic_blocks.insert_before(
@@ -167,6 +176,11 @@ impl CodeGen {
         operand: &Operand,
     ) -> Result<Operand, Diagnostic<usize>> {
         match operand {
+            Operand::Immediate(a) if !(-(1 << 12) <= *a && *a <= (1 << 12 - 1)) => {
+                let t = self.assign_ireg()?;
+                self.add_instruction(Opcode::LoadImm, &[t.clone(), operand.clone()])?;
+                Ok(t)
+            }
             Operand::Immediate(_) => Ok(operand.clone()),
             _ => self.normalize_to_reg(operand),
         }
@@ -207,12 +221,13 @@ impl CodeGen {
 
     pub fn add_instruction(
         &mut self,
-        opcode: Opcode,
+        mut opcode: Opcode,
         operands: &[Operand],
     ) -> Result<(), Diagnostic<usize>> {
         let mut operands = operands.to_vec();
 
         //规范指令的操作数
+        //TODO 严格区分
         match opcode {
             Opcode::LoadB
             | Opcode::LoadBU
@@ -226,9 +241,23 @@ impl CodeGen {
             | Opcode::StoreH
             | Opcode::StoreW
             | Opcode::FStoreD
-            | Opcode::FStoreS => {
+            | Opcode::FStoreS
+            | Opcode::FLoadD
+            | Opcode::FLoadS => {
                 operands[0] = self.normalize_to_reg(&operands[0])?;
                 operands[1] = self.normalize_to_address(&operands[1])?;
+                match &operands[1] {
+                    Operand::Address { base, offset: b } => match &**base {
+                        Operand::Address { base, offset: a } => {
+                            operands[1] = Operand::Address {
+                                base: base.clone(),
+                                offset: *a + *b,
+                            };
+                        }
+                        _ => {}
+                    },
+                    _ => {}
+                }
             }
             Opcode::BEqZ | Opcode::BNeqZ => {
                 operands[0] = self.normalize_to_reg(&operands[0])?;
@@ -254,6 +283,16 @@ impl CodeGen {
                 }
                 operands[2] = self.normalize_to_reg_or_imm(&operands[2])?;
             }
+            Opcode::Move => match operands[1] {
+                Operand::Immediate(_) => {
+                    operands[0] = self.normalize_to_reg(&operands[0])?;
+                    opcode = Opcode::LoadImm;
+                }
+                _ => {
+                    operands[0] = self.normalize_to_reg(&operands[0])?;
+                    operands[1] = self.normalize_to_reg(&operands[1])?;
+                }
+            },
             _ => {
                 for operand in &mut operands {
                     *operand = self.normalize_to_reg(operand)?;
@@ -287,12 +326,20 @@ impl CodeGen {
         variant: &Variant,
         r#type: &Rc<RefCell<Type>>,
     ) -> Result<Operand, Diagnostic<usize>> {
-        //TODO variant的类型可能不等于type
-        match variant {
+        let value = match variant {
             Variant::Bool(a) => Ok(Operand::Immediate(*a as i64)),
             Variant::Nullptr => Ok(Operand::Immediate(0)),
-            Variant::Int(a) => Ok(Operand::Immediate(a.to_i64().unwrap_or(i64::MAX))),
-            Variant::Rational(a) => {
+            Variant::Int(a) => {
+                let bytes = a.to_le_bytes();
+                let mut buf = [0u8; 8];
+                let n = bytes.len().min(8);
+                buf[..n].copy_from_slice(&bytes[..n]);
+                Ok(Operand::Immediate(i64::from_le_bytes(buf)))
+            }
+            Variant::Rational(a) if r#type.borrow().is_integer() => Ok(Operand::Immediate(
+                to_decimal(a).to_f64().unwrap_or(f64::MAX) as i64,
+            )),
+            Variant::Rational(a) if r#type.borrow().is_real_float() => {
                 let value_str = to_decimal(a).to_string();
                 let t = self.assign_ireg()?;
                 self.add_instruction(
@@ -325,6 +372,37 @@ impl CodeGen {
                 Ok(value)
             }
             _ => Err(Diagnostic::error()),
+        }?;
+
+        match value {
+            Operand::Immediate(_) if r#type.borrow().is_real_float() => {
+                let t = self.assign_ireg()?;
+                self.add_instruction(Opcode::LoadImm, &[t.clone(), value.clone()])?;
+
+                let value = self.assign_freg()?;
+                self.add_instruction(
+                    match self.xlen {
+                        32 => {
+                            if r#type.borrow().is_float_type() {
+                                Opcode::FCvtSW
+                            } else {
+                                Opcode::FCvtDW
+                            }
+                        }
+                        64 => {
+                            if r#type.borrow().is_float_type() {
+                                Opcode::FCvtSL
+                            } else {
+                                Opcode::FCvtDL
+                            }
+                        }
+                        _ => unreachable!(),
+                    },
+                    &[value.clone(), t.clone()],
+                )?;
+                Ok(value)
+            }
+            t => Ok(t),
         }
     }
 
@@ -365,20 +443,21 @@ impl CodeGen {
                     None => None,
                 };
 
-                if let Some(symbol) = symbol
+                if let Some(symbol) = &symbol
                     && let Symbol {
                         name,
                         kind:
                             SymbolKind::Member {
                                 index,
                                 belong_record,
-                                ..
+                                bit_field: Some(_),
                             },
                         ..
                     } = symbol
                 {
                     let layout = compute_layout(Rc::clone(&belong_record)).unwrap();
-                    let layout = &layout.children[index];
+                    let layout = &layout.children[*index];
+                    let mut found = false;
                     for child in &layout.children {
                         if let Some(ConstDesignation::MemberAccess(t)) = &child.designation
                             && *t == *name
@@ -437,9 +516,12 @@ impl CodeGen {
                                     Operand::Immediate((self.xlen - size) as i64),
                                 ],
                             )?;
+                            found = true;
                             break;
                         }
                     }
+
+                    assert!(found);
                 } else {
                     self.add_instruction(
                         match (size, unsigned) {
@@ -493,7 +575,7 @@ impl CodeGen {
                             SymbolKind::Member {
                                 index,
                                 belong_record,
-                                ..
+                                bit_field: Some(_),
                             },
                         ..
                     } = symbol

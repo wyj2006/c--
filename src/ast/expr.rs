@@ -5,7 +5,7 @@ use crate::file_map::source_lookup;
 use crate::symtab::Symbol;
 use crate::variant::Variant;
 use codespan::Span;
-use num::BigInt;
+use num::{BigInt, BigRational};
 use std::cell::RefCell;
 use std::fmt::Display;
 use std::rc::Rc;
@@ -195,7 +195,7 @@ pub enum EncodePrefix {
     Wide,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum BinOpKind {
     Add,
     Sub,
@@ -229,7 +229,7 @@ pub enum BinOpKind {
     BitXOrAssign,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Copy)]
 pub enum UnaryOpKind {
     Positive,
     Negative,
@@ -285,6 +285,34 @@ impl Expr {
                 ExprKind::Integer {
                     base: 10,
                     text: format!("{value}"),
+                    type_suffix: vec![],
+                },
+            )
+        }
+    }
+
+    pub fn new_const_rational<T>(
+        file_id: usize,
+        span: Span,
+        value: T,
+        r#type: Rc<RefCell<Type>>,
+    ) -> Expr
+    where
+        BigRational: From<T>,
+    {
+        let value = BigRational::from(value);
+        Expr {
+            r#type,
+            value: Variant::Rational(value.clone()),
+            has_side_effects: false,
+            ..Expr::new(
+                file_id,
+                span,
+                ExprKind::Float {
+                    base: 10,
+                    digits: value.to_string(),
+                    exp_base: 10,
+                    exponent: "0".to_string(),
                     type_suffix: vec![],
                 },
             )

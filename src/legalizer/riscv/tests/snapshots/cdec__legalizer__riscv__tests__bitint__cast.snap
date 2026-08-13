@@ -1,0 +1,377 @@
+---
+source: src/legalizer/riscv/tests/bitint.rs
+expression: codegen.to_string()
+---
+__struct___SignedBitInt100_to_float:
+    prologue6:
+        sd ra, -8(sp)
+        sd sp, -16(sp)
+        sd fp, -24(sp)
+        mv fp, sp
+        add sp, sp, -48
+    entry6:
+        sd a0, -40(fp)
+        sd a1, -32(fp)
+        add t0, fp, -40
+        add t0, t0, 0
+        ld t0, 0(t0)
+        and t0, t0, 255
+        fcvt.s.l ft0, t0
+        fmv.s fa0, ft0
+        ld ra, -8(fp)
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+        li a0, 0
+        fcvt.s.wu fa0, a0
+        ld ra, -8(fp)
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+__float_to_struct___SignedBitInt100:
+    prologue4:
+        sd ra, -8(sp)
+        sd sp, -16(sp)
+        sd fp, -24(sp)
+        mv fp, sp
+        add sp, sp, -48
+    entry4:
+        fsw fa0, -32(fp)
+        flw ft0, -32(fp)
+        fcvt.l.s t0, ft0
+        mv a0, t0
+        call __bitint_sext_long_struct___SignedBitInt100
+        add t0, fp, -48
+        sd a0, 0(t0)
+        sd a1, 8(t0)
+        ld a0, 0(t0)
+        ld a1, 8(t0)
+        ld ra, -8(fp)
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+        li a0, 0
+        li a1, 0
+        ld ra, -8(fp)
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+__bitint_sext_long_struct___SignedBitInt100:
+    prologue5:
+        sd ra, -8(sp)
+        sd sp, -16(sp)
+        sd fp, -24(sp)
+        mv fp, sp
+        add sp, sp, -64
+    entry5:
+        sd a0, -32(fp)
+        ld t0, -32(fp)
+        sra t0, t0, 63
+        and t0, t0, 255
+        and t0, t0, 1
+        sd t0, -56(fp)
+        li t0, 0
+        sd t0, -64(fp)
+        ld t0, -56(fp)
+        snez t0, t0
+        beqz t0, cond_false3
+        j cond_true3
+    cond_true3:
+        li t0, -1
+        j cond_merge3
+    cond_false3:
+        li t0, 0
+        j cond_merge3
+    cond_merge3:
+        sd t0, -64(fp)
+        add t0, fp, -48
+        add t1, t0, 0
+        ld t0, -32(fp)
+        and t0, t0, 255
+        sd t0, 0(t1)
+        add t0, fp, -48
+        add t3, t0, 8
+        ld t2, -64(fp)
+        ld t1, 0(t3)
+        li t0, -68719476736
+        and t1, t1, t0
+        li t0, 68719476735
+        and t2, t2, t0
+        sll t2, t2, 0
+        or t2, t2, t1
+        sd t2, 0(t3)
+        ld a0, -48(fp)
+        ld a1, -40(fp)
+        ld ra, -8(fp)
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+        li a0, 0
+        li a1, 0
+        ld ra, -8(fp)
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+__bitint_sext_struct___SignedBitInt100_struct___SignedBitInt200:
+    prologue3:
+        sd ra, -8(sp)
+        sd sp, -16(sp)
+        sd fp, -24(sp)
+        mv fp, sp
+        add sp, sp, -96
+    entry3:
+        sd a0, -40(fp)
+        sd a1, -32(fp)
+        li t0, 0
+        sd t0, -88(fp)
+        add t0, fp, -72
+        add t1, t0, 0
+        add t0, fp, -40
+        add t0, t0, 0
+        ld t0, 0(t0)
+        sd t0, 0(t1)
+        add t0, fp, -72
+        add t2, t0, 8
+        add t0, fp, -40
+        add t0, t0, 8
+        ld t1, 0(t0)
+        srl t1, t1, 0
+        li t0, 68719476735
+        and t1, t1, t0
+        sll t1, t1, 56
+        srl t1, t1, 56
+        and t0, t1, 255
+        sll t0, t0, 28
+        sra t0, t0, 28
+        and t0, t0, 255
+        sd t0, 0(t2)
+        add t0, fp, -40
+        add t0, t0, 8
+        ld t1, 0(t0)
+        srl t1, t1, 0
+        li t0, 68719476735
+        and t1, t1, t0
+        sll t1, t1, 56
+        srl t1, t1, 56
+        srl t0, t1, 35
+        and t0, t0, 1
+        sd t0, -80(fp)
+        ld t0, -80(fp)
+        snez t0, t0
+        beqz t0, cond_false2
+        j cond_true2
+    cond_true2:
+        li t0, -1
+        j cond_merge2
+    cond_false2:
+        li t0, 0
+        j cond_merge2
+    cond_merge2:
+        sd t0, -88(fp)
+        add t0, fp, -72
+        add t1, t0, 8
+        ld t0, -88(fp)
+        sd t0, 0(t1)
+        add t0, fp, -72
+        add t1, t0, 16
+        ld t0, -88(fp)
+        sd t0, 0(t1)
+        add t0, fp, -72
+        add t2, t0, 24
+        ld t1, -88(fp)
+        lbu t0, 0(t2)
+        and t0, t0, -256
+        and t1, t1, 255
+        sll t1, t1, 0
+        or t1, t1, t0
+        sb t1, 0(t2)
+        mv a0, a0
+        add t0, fp, -72
+        mv a1, t0
+        li a2, 25
+        call memcpy
+        ld ra, -8(fp)
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+        mv a0, a0
+        li a1, 0
+        li a2, 25
+        call memset
+        ld ra, -8(fp)
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+__bitint_sext_int_struct___SignedBitInt100:
+    prologue2:
+        sd ra, -8(sp)
+        sd sp, -16(sp)
+        sd fp, -24(sp)
+        mv fp, sp
+        add sp, sp, -64
+    entry2:
+        sd a0, -32(fp)
+        lw t0, -32(fp)
+        sra t0, t0, 31
+        and t0, t0, 15
+        and t0, t0, 1
+        sll t0, t0, 32
+        srl t0, t0, 32
+        sd t0, -56(fp)
+        li t0, 0
+        sd t0, -64(fp)
+        ld t0, -56(fp)
+        snez t0, t0
+        beqz t0, cond_false
+        j cond_true
+    cond_true:
+        li t0, -1
+        j cond_merge
+    cond_false:
+        li t0, 0
+        j cond_merge
+    cond_merge:
+        sd t0, -64(fp)
+        add t0, fp, -48
+        add t1, t0, 0
+        lw t0, -32(fp)
+        sll t0, t0, 32
+        sra t0, t0, 32
+        sd t0, 0(t1)
+        add t0, fp, -48
+        add t3, t0, 8
+        ld t2, -64(fp)
+        ld t1, 0(t3)
+        li t0, -68719476736
+        and t1, t1, t0
+        li t0, 68719476735
+        and t2, t2, t0
+        sll t2, t2, 0
+        or t2, t2, t1
+        sd t2, 0(t3)
+        ld a0, -48(fp)
+        ld a1, -40(fp)
+        ld ra, -8(fp)
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+        li a0, 0
+        li a1, 0
+        ld ra, -8(fp)
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+main:
+    prologue:
+        sd ra, -8(sp)
+        sd sp, -16(sp)
+        sd fp, -24(sp)
+        mv fp, sp
+        add sp, sp, -176
+    entry:
+        add t0, fp, -112
+        add t1, t0, 0
+        add t0, fp, -72
+        add t0, t0, 0
+        ld t0, 0(t0)
+        sd t0, 0(t1)
+        add t0, fp, -112
+        add t3, t0, 8
+        add t0, fp, -72
+        add t0, t0, 8
+        ld t2, 0(t0)
+        ld t1, 0(t3)
+        li t0, -68719476736
+        and t1, t1, t0
+        li t0, 68719476735
+        and t2, t2, t0
+        sll t2, t2, 0
+        or t2, t2, t1
+        sd t2, 0(t3)
+        add t0, fp, -112
+        mv a0, t0
+        add t0, fp, -40
+        mv a1, t0
+        li a2, 16
+        call memcpy
+        add a0, fp, -144
+        add t0, fp, -40
+        ld a1, 0(t0)
+        add t0, t0, 8
+        ld a2, 0(t0)
+        call __bitint_sext_struct___SignedBitInt100_struct___SignedBitInt200
+        mv t0, a0
+        mv a0, t0
+        add t0, fp, -72
+        mv a1, t0
+        li a2, 25
+        call memcpy
+        lw t0, -80(fp)
+        mv a0, t0
+        call __bitint_sext_int_struct___SignedBitInt100
+        add t0, fp, -160
+        sd a0, 0(t0)
+        sd a1, 8(t0)
+        mv a0, t0
+        add t0, fp, -40
+        mv a1, t0
+        li a2, 16
+        call memcpy
+        add t0, fp, -40
+        add t0, t0, 0
+        ld t0, 0(t0)
+        and t0, t0, 15
+        sw t0, -80(fp)
+        add t0, fp, -40
+        add t0, t0, 0
+        ld t1, 0(t0)
+        li t0, 0
+        sub t0, t1, t0
+        snez t0, t0
+        snez t0, t0
+        beqz t0, and_merge
+    and_right:
+        add t0, fp, -40
+        add t0, t0, 8
+        ld t1, 0(t0)
+        srl t1, t1, 0
+        li t0, 68719476735
+        and t1, t1, t0
+        sll t1, t1, 56
+        srl t1, t1, 56
+        li t0, 0
+        sub t0, t1, t0
+        snez t0, t0
+        snez t0, t0
+        j and_merge
+    and_merge:
+        sb t0, -88(fp)
+        add t0, fp, -40
+        ld a0, 0(t0)
+        add t0, t0, 8
+        ld a1, 0(t0)
+        call __struct___SignedBitInt100_to_float
+        fmv.d ft0, fa0
+        fsw ft0, -96(fp)
+        flw ft0, -96(fp)
+        fmv.s fa0, ft0
+        call __float_to_struct___SignedBitInt100
+        add t0, fp, -176
+        sd a0, 0(t0)
+        sd a1, 8(t0)
+        mv a0, t0
+        add t0, fp, -40
+        mv a1, t0
+        li a2, 16
+        call memcpy
+        li a0, 0
+        ld ra, -8(fp)
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+    .global main
+    .global __bitint_sext_int_struct___SignedBitInt100
+    .global __bitint_sext_struct___SignedBitInt100_struct___SignedBitInt200
+    .global __float_to_struct___SignedBitInt100
+    .global __bitint_sext_long_struct___SignedBitInt100
+    .global __struct___SignedBitInt100_to_float

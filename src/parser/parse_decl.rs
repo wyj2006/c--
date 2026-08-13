@@ -577,7 +577,6 @@ impl CParser {
             "unsigned" => TypeKind::Unsigned,
             "float" => TypeKind::Float,
             "double" => TypeKind::Double,
-
             "bool" => TypeKind::Bool,
             "_Complex" => TypeKind::Complex(None),
             "_Decimal32" => TypeKind::Decimal32,

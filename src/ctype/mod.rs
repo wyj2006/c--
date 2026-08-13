@@ -418,6 +418,18 @@ pub fn is_compatible(a: Rc<RefCell<Type>>, b: Rc<RefCell<Type>>) -> bool {
         (TypeKind::Complex(Some(a)), TypeKind::Complex(Some(b))) => {
             is_compatible(Rc::clone(a), Rc::clone(b))
         }
+        (
+            TypeKind::BitInt {
+                unsigned: a_unsigned,
+                width_expr: a_width_expr,
+            },
+            TypeKind::BitInt {
+                unsigned: b_unsigned,
+                width_expr: b_width_expr,
+            },
+        ) => {
+            *a_unsigned == *b_unsigned && a_width_expr.borrow().value == b_width_expr.borrow().value
+        }
         (a, b) => discriminant(a) == discriminant(b),
     }
 }
@@ -459,5 +471,12 @@ pub fn get_qualifiers(a: Rc<RefCell<Type>>) -> Vec<TypeQual> {
             qualifiers
         }
         _ => match_inner_type!(&a.borrow().kind, get_qualifiers, vec![]),
+    }
+}
+
+pub fn complex_part_type(a: &Rc<RefCell<Type>>) -> Option<Rc<RefCell<Type>>> {
+    match &get_inner_type(a.clone()).borrow().kind {
+        TypeKind::Complex(Some(t)) => Some(t.clone()),
+        _ => None,
     }
 }

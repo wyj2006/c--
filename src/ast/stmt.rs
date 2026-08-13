@@ -58,6 +58,7 @@ pub enum StmtKind {
         body: Rc<RefCell<Stmt>>,
     },
     Goto(String),
+    //要跳出或继续循环的语句
     Continue(Option<Rc<RefCell<Stmt>>>),
     Break(Option<Rc<RefCell<Stmt>>>),
     Return {

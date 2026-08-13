@@ -7,13 +7,14 @@ TranslationUnit <(1, 1), (31, 1)>
     Compound <(3, 1), (30, 2)>
       DeclStmt <(4, 5), (4, 15)>
         VarDecl <(4, 9), (4, 11)> a int 
-          Initializer <(4, 13), (4, 14)> int 1 
+          Initializer <(4, 13), (4, 14)> int 1 has_side_effects
             Integer 10 1 [] <(4, 13), (4, 14)> int 1  
       DeclStmt <(5, 5), (5, 11)>
         VarDecl <(5, 9), (5, 10)> x int 
       While <(6, 5), (10, 6)>
-        ImplicitCast <LToRValue> <(6, 12), (6, 13)> int   
-          Name x <(6, 12), (6, 13)> int  lvalue 
+        ImplicitCast <ToBool> <(6, 12), (6, 13)> bool   
+          ImplicitCast <LToRValue> <(6, 12), (6, 13)> int   
+            Name x <(6, 12), (6, 13)> int  lvalue 
         Compound <(7, 5), (10, 6)>
           ExprStmt <(8, 9), (8, 14)>
             BinOp Assign <(8, 9), (8, 14)> int 2  has_side_effects
@@ -25,7 +26,7 @@ TranslationUnit <(1, 1), (31, 1)>
               Integer 10 1 [] <(9, 13), (9, 14)> int 1  
       DeclStmt <(11, 5), (11, 19)>
         VarDecl <(11, 9), (11, 11)> b int 
-          Initializer <(11, 13), (11, 18)> int 4 
+          Initializer <(11, 13), (11, 18)> int 4 has_side_effects
             BinOp Add <(11, 15), (11, 16)> int 4  
               ImplicitCast <LToRValue> <(11, 13), (11, 14)> int 1  
                 Name a <(11, 13), (11, 14)> int 1 lvalue 
@@ -35,8 +36,9 @@ TranslationUnit <(1, 1), (31, 1)>
           Name a <(13, 5), (13, 6)> int 1 lvalue 
           Integer 10 1 [] <(13, 9), (13, 10)> int 1  
       While <(14, 5), (19, 6)>
-        ImplicitCast <LToRValue> <(14, 12), (14, 13)> int   
-          Name x <(14, 12), (14, 13)> int  lvalue 
+        ImplicitCast <ToBool> <(14, 12), (14, 13)> bool   
+          ImplicitCast <LToRValue> <(14, 12), (14, 13)> int   
+            Name x <(14, 12), (14, 13)> int  lvalue 
         Compound <(15, 5), (19, 6)>
           ExprStmt <(16, 9), (16, 14)>
             BinOp Assign <(16, 9), (16, 14)> int 2  has_side_effects
@@ -59,8 +61,9 @@ TranslationUnit <(1, 1), (31, 1)>
           Name a <(22, 5), (22, 6)> int  lvalue 
           Integer 10 1 [] <(22, 9), (22, 10)> int 1  
       While <(23, 5), (28, 6)>
-        ImplicitCast <LToRValue> <(23, 12), (23, 13)> int   
-          Name x <(23, 12), (23, 13)> int  lvalue 
+        ImplicitCast <ToBool> <(23, 12), (23, 13)> bool   
+          ImplicitCast <LToRValue> <(23, 12), (23, 13)> int   
+            Name x <(23, 12), (23, 13)> int  lvalue 
         Compound <(24, 5), (28, 6)>
           ExprStmt <(25, 9), (25, 14)>
             BinOp Assign <(25, 9), (25, 14)> int 1  has_side_effects

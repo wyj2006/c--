@@ -295,15 +295,18 @@ impl<'a> RegAllocator<'a> {
                     let mut next_instr_ids = vec![];
                     let mut jumps = vec![];
 
-                    if let Some((id, _)) = basic_block.instructions.get_index(instr_index + 1) {
-                        //下一条指令在当前基本块
-                        next_instr_ids.push(id.clone());
-                    } else {
-                        //下一条指令在下一个基本块
-                        if let Some((name, _)) =
-                            self.function.basic_blocks.get_index(block_index + 1)
-                        {
-                            jumps.push(name.clone());
+                    //jmp/ret后的指令是不可达的
+                    if !matches!(instruction.opcode, Opcode::Jump | Opcode::Ret) {
+                        if let Some((id, _)) = basic_block.instructions.get_index(instr_index + 1) {
+                            //下一条指令在当前基本块
+                            next_instr_ids.push(id.clone());
+                        } else {
+                            //下一条指令在下一个基本块
+                            if let Some((name, _)) =
+                                self.function.basic_blocks.get_index(block_index + 1)
+                            {
+                                jumps.push(name.clone());
+                            }
                         }
                     }
 
@@ -450,7 +453,7 @@ impl<'a> RegAllocator<'a> {
                     };
                     for reg in live_out {
                         //只处理虚拟寄存器
-                        if reg.index >= 32 {
+                        if reg.index >= 32 && !removed.contains(reg) {
                             removed.insert(*reg);
                             spilled.insert(*reg);
 
@@ -561,8 +564,87 @@ impl<'a> RegAllocator<'a> {
                 let instruction = basic_block.instructions.get_mut(instr_id).unwrap();
 
                 //替换溢出的寄存器
-                for operand in instruction.operands.iter_mut() {
-                    Self::replace_reg(operand, &reg, reg_num, true);
+                match instruction.opcode {
+                    Opcode::Add
+                    | Opcode::And
+                    | Opcode::Div
+                    | Opcode::DivU
+                    | Opcode::FAddD
+                    | Opcode::FAddS
+                    | Opcode::FEqD
+                    | Opcode::FEqS
+                    | Opcode::FLeD
+                    | Opcode::FLeS
+                    | Opcode::FLtD
+                    | Opcode::FLtS
+                    | Opcode::FMulD
+                    | Opcode::FMulS
+                    | Opcode::FSubD
+                    | Opcode::FSubS
+                    | Opcode::LShift
+                    | Opcode::Mul
+                    | Opcode::Or
+                    | Opcode::RShiftA
+                    | Opcode::RShiftL
+                    | Opcode::Rem
+                    | Opcode::RemU
+                    | Opcode::SetLt
+                    | Opcode::SetLtU
+                    | Opcode::Sub
+                    | Opcode::Xor
+                    | Opcode::FCvtDL
+                    | Opcode::FCvtDLU
+                    | Opcode::FCvtDS
+                    | Opcode::FCvtDW
+                    | Opcode::FCvtDWU
+                    | Opcode::FCvtLD
+                    | Opcode::FCvtLS
+                    | Opcode::FCvtLUD
+                    | Opcode::FCvtLUS
+                    | Opcode::FCvtSD
+                    | Opcode::FCvtSL
+                    | Opcode::FCvtSLU
+                    | Opcode::FCvtSW
+                    | Opcode::FCvtSWU
+                    | Opcode::FCvtWD
+                    | Opcode::FCvtWS
+                    | Opcode::FCvtWUD
+                    | Opcode::FCvtWUS
+                    | Opcode::FDivD
+                    | Opcode::FDivS
+                    | Opcode::FLoadD
+                    | Opcode::FLoadS
+                    | Opcode::FMoveD
+                    | Opcode::FMoveDL
+                    | Opcode::FMoveDW
+                    | Opcode::FMoveLD
+                    | Opcode::FMoveLS
+                    | Opcode::FMoveS
+                    | Opcode::FMoveSL
+                    | Opcode::FMoveSW
+                    | Opcode::FMoveWD
+                    | Opcode::FMoveWS
+                    | Opcode::FNegD
+                    | Opcode::FNegS
+                    | Opcode::LoadB
+                    | Opcode::LoadBU
+                    | Opcode::LoadD
+                    | Opcode::LoadH
+                    | Opcode::LoadHU
+                    | Opcode::LoadW
+                    | Opcode::LoadWU
+                    | Opcode::Move
+                    | Opcode::Neg
+                    | Opcode::SetEqZ
+                    | Opcode::SetGtZ
+                    | Opcode::SetLtZ
+                    | Opcode::SetNeqZ
+                    | Opcode::BitNot
+                    | Opcode::LoadAddr
+                    | Opcode::LoadImm => {
+                        Self::replace_reg(&mut instruction.operands[0], &reg, reg_num, true);
+                    }
+                    _ => {}
                 }
 
                 //生成保存指令
@@ -598,8 +680,102 @@ impl<'a> RegAllocator<'a> {
                 let instruction = basic_block.instructions.get_mut(instr_id).unwrap();
 
                 //替换溢出的寄存器
-                for operand in instruction.operands.iter_mut() {
-                    Self::replace_reg(operand, &reg, reg_num, true);
+                match instruction.opcode {
+                    Opcode::Add
+                    | Opcode::And
+                    | Opcode::Div
+                    | Opcode::DivU
+                    | Opcode::FAddD
+                    | Opcode::FAddS
+                    | Opcode::FEqD
+                    | Opcode::FEqS
+                    | Opcode::FLeD
+                    | Opcode::FLeS
+                    | Opcode::FLtD
+                    | Opcode::FLtS
+                    | Opcode::FMulD
+                    | Opcode::FMulS
+                    | Opcode::FSubD
+                    | Opcode::FSubS
+                    | Opcode::LShift
+                    | Opcode::Mul
+                    | Opcode::Or
+                    | Opcode::RShiftA
+                    | Opcode::RShiftL
+                    | Opcode::Rem
+                    | Opcode::RemU
+                    | Opcode::SetLt
+                    | Opcode::SetLtU
+                    | Opcode::Sub
+                    | Opcode::Xor => {
+                        Self::replace_reg(&mut instruction.operands[1], &reg, reg_num, true);
+                        Self::replace_reg(&mut instruction.operands[2], &reg, reg_num, true);
+                    }
+                    Opcode::BEq
+                    | Opcode::FStoreD
+                    | Opcode::FStoreS
+                    | Opcode::StoreB
+                    | Opcode::StoreD
+                    | Opcode::StoreH
+                    | Opcode::StoreW => {
+                        Self::replace_reg(&mut instruction.operands[0], &reg, reg_num, true);
+                        Self::replace_reg(&mut instruction.operands[1], &reg, reg_num, true);
+                    }
+                    Opcode::BEqZ | Opcode::BNeqZ => {
+                        Self::replace_reg(&mut instruction.operands[0], &reg, reg_num, true);
+                    }
+                    Opcode::Call | Opcode::Jump | Opcode::Ret => {}
+                    Opcode::FCvtDL
+                    | Opcode::FCvtDLU
+                    | Opcode::FCvtDS
+                    | Opcode::FCvtDW
+                    | Opcode::FCvtDWU
+                    | Opcode::FCvtLD
+                    | Opcode::FCvtLS
+                    | Opcode::FCvtLUD
+                    | Opcode::FCvtLUS
+                    | Opcode::FCvtSD
+                    | Opcode::FCvtSL
+                    | Opcode::FCvtSLU
+                    | Opcode::FCvtSW
+                    | Opcode::FCvtSWU
+                    | Opcode::FCvtWD
+                    | Opcode::FCvtWS
+                    | Opcode::FCvtWUD
+                    | Opcode::FCvtWUS
+                    | Opcode::FDivD
+                    | Opcode::FDivS
+                    | Opcode::FLoadD
+                    | Opcode::FLoadS
+                    | Opcode::FMoveD
+                    | Opcode::FMoveDL
+                    | Opcode::FMoveDW
+                    | Opcode::FMoveLD
+                    | Opcode::FMoveLS
+                    | Opcode::FMoveS
+                    | Opcode::FMoveSL
+                    | Opcode::FMoveSW
+                    | Opcode::FMoveWD
+                    | Opcode::FMoveWS
+                    | Opcode::FNegD
+                    | Opcode::FNegS
+                    | Opcode::LoadB
+                    | Opcode::LoadBU
+                    | Opcode::LoadD
+                    | Opcode::LoadH
+                    | Opcode::LoadHU
+                    | Opcode::LoadW
+                    | Opcode::LoadWU
+                    | Opcode::Move
+                    | Opcode::Neg
+                    | Opcode::SetEqZ
+                    | Opcode::SetGtZ
+                    | Opcode::SetLtZ
+                    | Opcode::SetNeqZ
+                    | Opcode::BitNot => {
+                        Self::replace_reg(&mut instruction.operands[1], &reg, reg_num, true);
+                    }
+                    _ => {}
                 }
 
                 //生成加载指令

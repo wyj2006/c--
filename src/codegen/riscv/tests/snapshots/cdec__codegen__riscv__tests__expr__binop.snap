@@ -19,10 +19,8 @@ main:
         li t0, 4
         sub t0, t1, t0
         sd t0, -40(fp)
-        add t0, fp, -48
-        flw ft1, t0
-        add t0, fp, -56
-        flw ft0, t0
+        flw ft1, -48(fp)
+        flw ft0, -56(fp)
         fmul.s ft0, ft1, ft0
         fsw ft0, -48(fp)
         ld t0, -40(fp)
@@ -30,23 +28,16 @@ main:
         snez t0, t0
         beqz t0, and_merge
     and_right:
-        add t0, fp, -48
-        flw ft1, t0
-        li t0, 0
-        fmv.s.x ft0, t0
-        feq.s t0, ft1, ft0
+        flw ft0, -48(fp)
+        fcvt.lu.s t0, ft0
         snez t0, t0
         j and_merge
     and_merge:
         snez t0, t0
-        snez t0, t0
         bnez t0, or_merge
     or_right:
-        add t0, fp, -56
-        flw ft1, t0
-        li t0, 0
-        fmv.s.x ft0, t0
-        feq.s t0, ft1, ft0
+        flw ft0, -56(fp)
+        fcvt.lu.s t0, ft0
         snez t0, t0
         j or_merge
     or_merge:

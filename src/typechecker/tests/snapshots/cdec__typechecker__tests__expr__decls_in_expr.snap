@@ -8,12 +8,12 @@ TranslationUnit <(1, 1), (16, 1)>
       DeclStmt <(4, 5), (4, 22)>
         VarDecl <(4, 20), (4, 21)> a int 
       ExprStmt <(5, 5), (5, 26)>
-        ImplicitCast <LToRValue> <(5, 5), (5, 26)> struct A   
-          CompoundLiteral  struct A <(5, 5), (5, 26)> struct A  lvalue 
+        ImplicitCast <LToRValue> <(5, 5), (5, 26)> struct A   has_side_effects
+          CompoundLiteral  struct A <(5, 5), (5, 26)> struct A  lvalue has_side_effects
             RecordDecl <(5, 6), (5, 22)> A struct A 
               MemberDecl <(5, 19), (5, 20)> a int 
-            Initializer <(5, 23), (5, 26)> struct A  
-              Initializer <(5, 24), (5, 25)> int  
+            Initializer <(5, 23), (5, 26)> struct A  has_side_effects
+              Initializer <(5, 24), (5, 25)> int  has_side_effects
                 Designation <(5, 24), (5, 25)> a
                 Integer 10 1 [] <(5, 24), (5, 25)> int 1  
       ExprStmt <(6, 5), (6, 29)>

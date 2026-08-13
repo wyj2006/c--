@@ -9,7 +9,7 @@ use crate::{
         Type, TypeKind, TypeQual, arith_result_type, array_element,
         cast::{
             array_to_ptr, func_to_ptr, integer_promote, lvalue_cast, remove_qualifier,
-            usual_arith_cast,
+            try_implicit_cast, usual_arith_cast, wrap_implicit_cast,
         },
         get_inner_type, get_qualifiers, is_compatible, pointee,
     },
@@ -24,193 +24,10 @@ use num::{BigInt, BigRational, FromPrimitive, Num};
 use std::{cell::RefCell, rc::Rc, str::FromStr};
 
 impl TypeChecker {
-    pub fn wrap_implicit_cast(
-        &self,
-        expr: Rc<RefCell<Expr>>,
-        r#type: Rc<RefCell<Type>>,
-        method: CastMethod,
-    ) -> Expr {
-        Expr {
-            r#type,
-            has_side_effects: expr.borrow().has_side_effects,
-            symbol: expr.borrow().symbol.clone(),
-            ..Expr::new(
-                expr.borrow().file_id,
-                expr.borrow().span,
-                ExprKind::Cast {
-                    is_implicit: true,
-                    target: Rc::clone(&expr),
-                    decls: Vec::new(),
-                    method,
-                },
-            )
-        }
-    }
-
-    //尝试进行隐式转换, 失败返回None, 成功返回修改后的表达式
-    pub fn try_implicit_cast(
-        &self,
-        source: Rc<RefCell<Expr>>,
-        target_type: Rc<RefCell<Type>>,
-    ) -> Result<Rc<RefCell<Expr>>, Diagnostic<usize>> {
-        let source_type = &source.borrow().r#type;
-        if is_compatible(Rc::clone(&target_type), Rc::clone(source_type)) {
-            Ok(Rc::clone(&source))
-        }
-        //尝试所有可能的转换方式
-        else if is_compatible(
-            Rc::clone(&target_type),
-            array_to_ptr(Rc::clone(source_type)),
-        ) {
-            Ok(Rc::new(RefCell::new(self.wrap_implicit_cast(
-                Rc::clone(&source),
-                target_type,
-                CastMethod::ArrayToPtr,
-            ))))
-        } else if is_compatible(Rc::clone(&target_type), func_to_ptr(Rc::clone(source_type))) {
-            Ok(Rc::new(RefCell::new(self.wrap_implicit_cast(
-                Rc::clone(&source),
-                target_type,
-                CastMethod::FuncToPtr,
-            ))))
-        } else if is_compatible(Rc::clone(&target_type), lvalue_cast(Rc::clone(source_type))) {
-            Ok(Rc::new(RefCell::new(self.wrap_implicit_cast(
-                Rc::clone(&source),
-                target_type,
-                CastMethod::LToRValue,
-            ))))
-        } else if (target_type.borrow().is_void_ptr() || target_type.borrow().is_pointer())
-            && (target_type.borrow().is_void_ptr()
-                || source_type.borrow().is_pointer()
-                || source_type.borrow().is_nullptr())
-            || (target_type.borrow().is_nullptr() && source_type.borrow().is_nullptr())
-        {
-            Ok(Rc::new(RefCell::new(self.wrap_implicit_cast(
-                Rc::clone(&source),
-                target_type,
-                CastMethod::PtrToPtr,
-            ))))
-        } else if target_type.borrow().is_real_float() && source_type.borrow().is_real_float() {
-            Ok(Rc::new(RefCell::new(self.wrap_implicit_cast(
-                Rc::clone(&source),
-                target_type.clone(),
-                if source_type.borrow().size().unwrap() > target_type.borrow().size().unwrap() {
-                    CastMethod::FloatTrunc
-                } else {
-                    CastMethod::FloatExtend
-                },
-            ))))
-        } else if target_type.borrow().is_integer() && source_type.borrow().is_real_float() {
-            Ok(Rc::new(RefCell::new(self.wrap_implicit_cast(
-                Rc::clone(&source),
-                target_type.clone(),
-                if target_type.borrow().is_unsigned().unwrap() {
-                    CastMethod::FloatToUInt
-                } else {
-                    CastMethod::FloatToSInt
-                },
-            ))))
-        } else if target_type.borrow().is_real_float() && source_type.borrow().is_integer() {
-            Ok(Rc::new(RefCell::new(self.wrap_implicit_cast(
-                Rc::clone(&source),
-                target_type.clone(),
-                if source_type.borrow().is_unsigned().unwrap() {
-                    CastMethod::UIntToFloat
-                } else {
-                    CastMethod::SIntToFloat
-                },
-            ))))
-        } else if target_type.borrow().is_integer() && source_type.borrow().is_integer() {
-            if source_type.borrow().size().unwrap() < target_type.borrow().size().unwrap() {
-                Ok(Rc::new(RefCell::new(self.wrap_implicit_cast(
-                    Rc::clone(&source),
-                    target_type.clone(),
-                    if source_type.borrow().is_unsigned().unwrap() {
-                        CastMethod::ZeroExtand
-                    } else {
-                        CastMethod::SignedExtend
-                    },
-                ))))
-            } else {
-                Ok(Rc::new(RefCell::new(self.wrap_implicit_cast(
-                    Rc::clone(&source),
-                    target_type,
-                    CastMethod::IntTrunc,
-                ))))
-            }
-        } else if target_type.borrow().is_bool() && source_type.borrow().is_scale() {
-            Ok(Rc::new(RefCell::new(self.wrap_implicit_cast(
-                Rc::clone(&source),
-                target_type,
-                CastMethod::ToBool,
-            ))))
-        } else if target_type.borrow().is_complex() && source_type.borrow().is_complex() {
-            Ok(Rc::new(RefCell::new(self.wrap_implicit_cast(
-                Rc::clone(&source),
-                target_type.clone(),
-                match (source_type.borrow().size(), target_type.borrow().size()) {
-                    (Some(a), Some(b)) => {
-                        if a > b {
-                            CastMethod::ComplexTrunc
-                        } else {
-                            CastMethod::ComplexExtend
-                        }
-                    }
-                    (None, _) => {
-                        return Err(Diagnostic::error()
-                            .with_message(format!("incomplete type: '{}'", source_type.borrow()))
-                            .with_label(Label::primary(
-                                source_type.borrow().file_id,
-                                source_type.borrow().span,
-                            )));
-                    }
-                    (_, None) => {
-                        return Err(Diagnostic::error()
-                            .with_message(format!("incomplete type: '{}'", target_type.borrow()))
-                            .with_label(Label::primary(
-                                target_type.borrow().file_id,
-                                target_type.borrow().span,
-                            )));
-                    }
-                },
-            ))))
-        } else if target_type.borrow().is_complex() && source_type.borrow().is_real_float() {
-            Ok(Rc::new(RefCell::new(self.wrap_implicit_cast(
-                Rc::clone(&source),
-                target_type,
-                CastMethod::FloatToComplex,
-            ))))
-        } else if target_type.borrow().is_real_float() && source_type.borrow().is_complex() {
-            Ok(Rc::new(RefCell::new(self.wrap_implicit_cast(
-                Rc::clone(&source),
-                target_type,
-                CastMethod::ComplexToFloat,
-            ))))
-        } else if target_type.borrow().is_complex() && source_type.borrow().is_integer()
-            || target_type.borrow().is_integer() && source_type.borrow().is_complex()
-        {
-            let new_source = match &target_type.borrow().kind {
-                TypeKind::Complex(Some(t)) => {
-                    self.try_implicit_cast(Rc::clone(&source), Rc::clone(t))?
-                }
-                _ => unreachable!(),
-            };
-            Ok(self.try_implicit_cast(new_source, target_type)?)
-        } else {
-            Err(Diagnostic::error()
-                .with_message(format!(
-                    "cannot convert '{}' to '{}'",
-                    source_type.borrow().to_string(),
-                    target_type.borrow().to_string()
-                ))
-                .with_label(Label::primary(
-                    source.borrow().file_id,
-                    source.borrow().span,
-                )))
-        }
-    }
-
     pub fn visit_expr(&mut self, node: Rc<RefCell<Expr>>) -> Result<(), Diagnostic<usize>> {
+        let file_id = node.borrow().file_id;
+        let span = node.borrow().span;
+
         let allow_lvalue_cast = match self.contexts.last() {
             Some(Context::Expr(
                 ExprKind::UnaryOp {
@@ -867,8 +684,7 @@ impl TypeChecker {
                         {
                             CastMethod::IntToPtr
                         } else {
-                            match &self
-                                .try_implicit_cast(Rc::clone(target), target_type)?
+                            match &try_implicit_cast(Rc::clone(target), target_type)?
                                 .borrow()
                                 .kind
                             {
@@ -1035,7 +851,7 @@ impl TypeChecker {
                                 _ => {}
                             }
 
-                            *argument = self.try_implicit_cast(
+                            *argument = try_implicit_cast(
                                 Rc::clone(argument),
                                 remove_qualifier(Rc::clone(parameter_type)),
                             )?;
@@ -1048,15 +864,13 @@ impl TypeChecker {
                             if r#type.borrow().is_integer() {
                                 let target_type =
                                     integer_promote(Rc::clone(&argument.borrow().r#type));
-                                *argument =
-                                    self.try_implicit_cast(Rc::clone(argument), target_type)?;
+                                *argument = try_implicit_cast(Rc::clone(argument), target_type)?;
                             } else if let TypeKind::Float = r#type.borrow().kind {
                                 let target_type = Rc::new(RefCell::new(Type {
                                     kind: TypeKind::Double,
                                     ..Type::new(argument.borrow().file_id, argument.borrow().span)
                                 }));
-                                *argument =
-                                    self.try_implicit_cast(Rc::clone(argument), target_type)?;
+                                *argument = try_implicit_cast(Rc::clone(argument), target_type)?;
                             }
                             i = i + 1;
                         }
@@ -1200,10 +1014,21 @@ impl TypeChecker {
                     match op {
                         UnaryOpKind::Not => {
                             if operand.borrow().r#type.borrow().is_scale() {
-                                node.r#type = Rc::new(RefCell::new(Type {
+                                let r#type = Rc::new(RefCell::new(Type {
                                     kind: TypeKind::Bool, //标准里说的是int类型
                                     ..Type::new(node.file_id, node.span)
                                 }));
+                                node.r#type = r#type.clone();
+                                match &mut node.kind {
+                                    ExprKind::UnaryOp {
+                                        op: UnaryOpKind::Not,
+                                        operand,
+                                    } => {
+                                        *operand =
+                                            try_implicit_cast(Rc::clone(operand), r#type.clone())?;
+                                    }
+                                    _ => unreachable!(),
+                                }
                             } else {
                                 return Err(Diagnostic::error()
                                     .with_message(format!(
@@ -1223,7 +1048,7 @@ impl TypeChecker {
 
                                 match &mut node.kind {
                                     ExprKind::UnaryOp { operand, .. } => {
-                                        *operand = self.try_implicit_cast(
+                                        *operand = try_implicit_cast(
                                             Rc::clone(operand),
                                             Rc::clone(&promote_type),
                                         )?;
@@ -1251,7 +1076,7 @@ impl TypeChecker {
 
                                 match &mut node.kind {
                                     ExprKind::UnaryOp { operand, .. } => {
-                                        *operand = self.try_implicit_cast(
+                                        *operand = try_implicit_cast(
                                             Rc::clone(operand),
                                             Rc::clone(&promote_type),
                                         )?;
@@ -1421,10 +1246,23 @@ impl TypeChecker {
                                         right.borrow().span,
                                     )));
                             } else {
-                                node.r#type = Rc::new(RefCell::new(Type {
+                                let r#type = Rc::new(RefCell::new(Type {
                                     kind: TypeKind::Bool, //标准里说的是int类型
                                     ..Type::new(node.file_id, node.span)
                                 }));
+                                node.r#type = r#type.clone();
+                                match &mut node.kind {
+                                    ExprKind::BinOp {
+                                        op: BinOpKind::And | BinOpKind::Or,
+                                        left,
+                                        right,
+                                    } => {
+                                        *left = try_implicit_cast(Rc::clone(left), r#type.clone())?;
+                                        *right =
+                                            try_implicit_cast(Rc::clone(right), r#type.clone())?;
+                                    }
+                                    _ => unreachable!(),
+                                }
                             }
                         }
                         BinOpKind::Lt | BinOpKind::Le | BinOpKind::Gt | BinOpKind::Ge => {
@@ -1438,8 +1276,8 @@ impl TypeChecker {
 
                                 match &mut node.kind {
                                     ExprKind::BinOp { left, right, .. } => {
-                                        *left = self.try_implicit_cast(Rc::clone(left), a)?;
-                                        *right = self.try_implicit_cast(Rc::clone(right), b)?;
+                                        *left = try_implicit_cast(Rc::clone(left), a)?;
+                                        *right = try_implicit_cast(Rc::clone(right), b)?;
                                     }
                                     _ => unreachable!(),
                                 }
@@ -1483,8 +1321,8 @@ impl TypeChecker {
 
                                 match &mut node.kind {
                                     ExprKind::BinOp { left, right, .. } => {
-                                        *left = self.try_implicit_cast(Rc::clone(left), a)?;
-                                        *right = self.try_implicit_cast(Rc::clone(right), b)?;
+                                        *left = try_implicit_cast(Rc::clone(left), a)?;
+                                        *right = try_implicit_cast(Rc::clone(right), b)?;
                                     }
                                     _ => unreachable!(),
                                 }
@@ -1495,7 +1333,7 @@ impl TypeChecker {
                             {
                                 match &mut node.kind {
                                     ExprKind::BinOp { left, right, .. } => {
-                                        let new_left = self.try_implicit_cast(
+                                        let new_left = try_implicit_cast(
                                             Rc::clone(left),
                                             Rc::new(RefCell::new(Type {
                                                 kind: TypeKind::Pointer(Rc::new(RefCell::new(
@@ -1513,7 +1351,7 @@ impl TypeChecker {
                                                 )
                                             })),
                                         )?;
-                                        let new_right = self.try_implicit_cast(
+                                        let new_right = try_implicit_cast(
                                             Rc::clone(right),
                                             Rc::new(RefCell::new(Type {
                                                 kind: TypeKind::Pointer(Rc::new(RefCell::new(
@@ -1558,10 +1396,9 @@ impl TypeChecker {
 
                                 match &mut node.kind {
                                     ExprKind::BinOp { left, right, .. } => {
-                                        *left =
-                                            self.try_implicit_cast(Rc::clone(left), Rc::clone(&a))?;
-                                        *right = self
-                                            .try_implicit_cast(Rc::clone(right), Rc::clone(&b))?;
+                                        *left = try_implicit_cast(Rc::clone(left), Rc::clone(&a))?;
+                                        *right =
+                                            try_implicit_cast(Rc::clone(right), Rc::clone(&b))?;
                                     }
                                     _ => unreachable!(),
                                 }
@@ -1622,10 +1459,9 @@ impl TypeChecker {
 
                                 match &mut node.kind {
                                     ExprKind::BinOp { left, right, .. } => {
-                                        *left =
-                                            self.try_implicit_cast(Rc::clone(left), Rc::clone(&a))?;
-                                        *right = self
-                                            .try_implicit_cast(Rc::clone(right), Rc::clone(&b))?;
+                                        *left = try_implicit_cast(Rc::clone(left), Rc::clone(&a))?;
+                                        *right =
+                                            try_implicit_cast(Rc::clone(right), Rc::clone(&b))?;
                                     }
                                     _ => unreachable!(),
                                 }
@@ -1656,10 +1492,9 @@ impl TypeChecker {
 
                                 match &mut node.kind {
                                     ExprKind::BinOp { left, right, .. } => {
-                                        *left =
-                                            self.try_implicit_cast(Rc::clone(left), Rc::clone(&a))?;
-                                        *right = self
-                                            .try_implicit_cast(Rc::clone(right), Rc::clone(&b))?;
+                                        *left = try_implicit_cast(Rc::clone(left), Rc::clone(&a))?;
+                                        *right =
+                                            try_implicit_cast(Rc::clone(right), Rc::clone(&b))?;
                                     }
                                     _ => unreachable!(),
                                 }
@@ -1688,10 +1523,9 @@ impl TypeChecker {
 
                                 match &mut node.kind {
                                     ExprKind::BinOp { left, right, .. } => {
-                                        *left =
-                                            self.try_implicit_cast(Rc::clone(left), Rc::clone(&a))?;
-                                        *right = self
-                                            .try_implicit_cast(Rc::clone(right), Rc::clone(&b))?;
+                                        *left = try_implicit_cast(Rc::clone(left), Rc::clone(&a))?;
+                                        *right =
+                                            try_implicit_cast(Rc::clone(right), Rc::clone(&b))?;
                                     }
                                     _ => unreachable!(),
                                 }
@@ -1721,7 +1555,7 @@ impl TypeChecker {
 
                                 match &mut node.kind {
                                     ExprKind::BinOp { left, right, .. } => {
-                                        *right = self.try_implicit_cast(
+                                        *right = try_implicit_cast(
                                             Rc::clone(right),
                                             remove_qualifier(Rc::clone(&left.borrow().r#type)),
                                         )?;
@@ -1829,14 +1663,24 @@ impl TypeChecker {
 
                         match &mut node.kind {
                             ExprKind::Conditional {
+                                condition,
                                 true_expr,
                                 false_expr,
                                 ..
                             } => {
+                                *condition = try_implicit_cast(
+                                    Rc::clone(condition),
+                                    Rc::new(RefCell::new(Type {
+                                        file_id,
+                                        span,
+                                        attributes: vec![],
+                                        kind: TypeKind::Bool,
+                                    })),
+                                )?;
                                 *true_expr =
-                                    self.try_implicit_cast(Rc::clone(true_expr), Rc::clone(&a))?;
+                                    try_implicit_cast(Rc::clone(true_expr), Rc::clone(&a))?;
                                 *false_expr =
-                                    self.try_implicit_cast(Rc::clone(false_expr), Rc::clone(&b))?;
+                                    try_implicit_cast(Rc::clone(false_expr), Rc::clone(&b))?;
                             }
                             _ => unreachable!(),
                         }
@@ -1865,7 +1709,7 @@ impl TypeChecker {
                                 false_expr,
                                 ..
                             } => {
-                                let new_true_expr = self.try_implicit_cast(
+                                let new_true_expr = try_implicit_cast(
                                     Rc::clone(true_expr),
                                     Rc::new(RefCell::new(Type {
                                         kind: TypeKind::Pointer(Rc::new(RefCell::new(Type {
@@ -1881,7 +1725,7 @@ impl TypeChecker {
                                         )
                                     })),
                                 )?;
-                                let new_false_expr = self.try_implicit_cast(
+                                let new_false_expr = try_implicit_cast(
                                     Rc::clone(false_expr),
                                     Rc::new(RefCell::new(Type {
                                         kind: TypeKind::Pointer(Rc::new(RefCell::new(Type {
@@ -2074,7 +1918,7 @@ impl TypeChecker {
 
         if node.borrow().r#type.borrow().is_array() {
             if allow_array_to_ptr {
-                let expr = self.wrap_implicit_cast(
+                let expr = wrap_implicit_cast(
                     Rc::new(RefCell::new(node.borrow().clone())),
                     array_to_ptr(Rc::clone(&node.borrow().r#type)),
                     CastMethod::ArrayToPtr,
@@ -2082,7 +1926,7 @@ impl TypeChecker {
                 node.replace(expr);
             }
         } else if allow_lvalue_cast && node.borrow().is_lvalue {
-            let expr = self.wrap_implicit_cast(
+            let expr = wrap_implicit_cast(
                 Rc::new(RefCell::new(node.borrow().clone())),
                 lvalue_cast(Rc::clone(&node.borrow().r#type)),
                 CastMethod::LToRValue,
@@ -2091,7 +1935,7 @@ impl TypeChecker {
         }
 
         if allow_func_to_ptr && node.borrow().r#type.borrow().is_function() {
-            let expr = self.wrap_implicit_cast(
+            let expr = wrap_implicit_cast(
                 Rc::new(RefCell::new(node.borrow().clone())),
                 func_to_ptr(Rc::clone(&node.borrow().r#type)),
                 CastMethod::FuncToPtr,

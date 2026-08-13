@@ -8,7 +8,7 @@ use crate::{
     },
     ctype::{
         Type, TypeKind,
-        cast::{integer_promote, remove_qualifier},
+        cast::{integer_promote, remove_qualifier, try_implicit_cast},
     },
     symtab::{Namespace, Symbol, SymbolKind},
     typechecker::Context,
@@ -18,6 +18,9 @@ use std::{cell::RefCell, rc::Rc};
 
 impl TypeChecker {
     pub fn visit_stmt(&mut self, node: Rc<RefCell<Stmt>>) -> Result<(), Diagnostic<usize>> {
+        let file_id = node.borrow().file_id;
+        let span = node.borrow().span;
+
         self.contexts
             .push(Context::Stmt(node.borrow().kind.clone(), Rc::clone(&node)));
 
@@ -157,7 +160,7 @@ impl TypeChecker {
                     Some(t) => t.borrow_mut().add(
                         Namespace::Label,
                         Rc::new(RefCell::new(Symbol {
-                            define_loc: None,
+                            define_loc: None, //如果函数解析结束后还是None, 说明这个label没有声明
                             declare_locs: vec![(node.file_id, node.span)],
                             name: name.clone(),
                             kind: SymbolKind::Label(None),
@@ -198,6 +201,21 @@ impl TypeChecker {
                 self.visit_stmt(Rc::clone(body))?;
                 if let Some(t) = else_body {
                     self.visit_stmt(Rc::clone(t))?;
+                }
+
+                match &mut node.kind {
+                    StmtKind::If { condition, .. } => {
+                        *condition = try_implicit_cast(
+                            Rc::clone(condition),
+                            Rc::new(RefCell::new(Type {
+                                file_id,
+                                span,
+                                attributes: vec![],
+                                kind: TypeKind::Bool,
+                            })),
+                        )?;
+                    }
+                    _ => unreachable!(),
                 }
 
                 node.symtab = Some(self.leave_scope());
@@ -252,7 +270,7 @@ impl TypeChecker {
                         else {
                             unreachable!();
                         };
-                        *expr = self.try_implicit_cast(
+                        *expr = try_implicit_cast(
                             Rc::clone(expr),
                             remove_qualifier(Rc::clone(return_type)),
                         )?;
@@ -336,7 +354,7 @@ impl TypeChecker {
 
                 match &mut node.kind {
                     StmtKind::Case { expr, .. } => {
-                        *expr = self.try_implicit_cast(
+                        *expr = try_implicit_cast(
                             Rc::clone(expr),
                             integer_promote(condition_type.unwrap()),
                         )?;
@@ -387,6 +405,21 @@ impl TypeChecker {
 
                 self.visit_stmt(Rc::clone(body))?;
 
+                match &mut node.kind {
+                    StmtKind::While { condition, .. } => {
+                        *condition = try_implicit_cast(
+                            Rc::clone(condition),
+                            Rc::new(RefCell::new(Type {
+                                file_id,
+                                span,
+                                attributes: vec![],
+                                kind: TypeKind::Bool,
+                            })),
+                        )?;
+                    }
+                    _ => unreachable!(),
+                }
+
                 node.symtab = Some(self.leave_scope());
             }
             StmtKind::DoWhile { condition, body } => {
@@ -403,6 +436,21 @@ impl TypeChecker {
                 }
 
                 self.visit_stmt(Rc::clone(body))?;
+
+                match &mut node.kind {
+                    StmtKind::DoWhile { condition, .. } => {
+                        *condition = try_implicit_cast(
+                            Rc::clone(condition),
+                            Rc::new(RefCell::new(Type {
+                                file_id,
+                                span,
+                                attributes: vec![],
+                                kind: TypeKind::Bool,
+                            })),
+                        )?;
+                    }
+                    _ => unreachable!(),
+                }
 
                 node.symtab = Some(self.leave_scope());
             }
@@ -490,6 +538,24 @@ impl TypeChecker {
                 }
 
                 self.visit_stmt(Rc::clone(body))?;
+
+                match &mut node.kind {
+                    StmtKind::For {
+                        condition: Some(condition),
+                        ..
+                    } => {
+                        *condition = try_implicit_cast(
+                            Rc::clone(condition),
+                            Rc::new(RefCell::new(Type {
+                                file_id,
+                                span,
+                                attributes: vec![],
+                                kind: TypeKind::Bool,
+                            })),
+                        )?;
+                    }
+                    _ => {}
+                }
 
                 node.symtab = Some(self.leave_scope());
             }

@@ -11,8 +11,6 @@ main:
         add sp, sp, -64
     entry:
         li t0, 1
-        sw t0, -40(fp)
-        lw t0, -40(fp)
         sw t0, -32(fp)
         li a0, 0
         ld ra, -8(fp)

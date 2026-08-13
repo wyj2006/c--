@@ -39,14 +39,20 @@ impl CodeGen {
 
         match kind {
             ExprKind::Name(name) => {
-                let symbol = self.lookup(Namespace::Ordinary, name).unwrap();
+                let symbol = match self.lookup(Namespace::Ordinary, name) {
+                    Some(t) => t,
+                    None => panic!("{name} not defined"), //一般是内建函数
+                };
                 match &symbol.borrow().kind {
                     SymbolKind::EnumConst { value } => {
                         Ok(Operand::Immediate(value.to_i64().unwrap_or(i64::MAX)))
                     }
                     _ => {
                         let key = symbol.as_ptr() as usize;
-                        Ok(self.symbol_values.get(&key).unwrap().clone())
+                        match self.symbol_values.get(&key) {
+                            Some(t) => Ok(t.clone()),
+                            None => panic!("{name} not in symbol_values"),
+                        }
                     }
                 }
             }
@@ -82,7 +88,6 @@ impl CodeGen {
 
                 self.position_at_end(&cond_block)?;
                 let cond = self.visit_expr(condition)?;
-                let cond = self.to_bool(&cond, Some(r#type))?;
                 self.add_instruction(
                     Opcode::BEqZ,
                     &[cond.clone(), Operand::Symbol(false_block.clone())],
@@ -234,8 +239,6 @@ impl CodeGen {
                 }
                 UnaryOpKind::Not => {
                     let operand_value = self.visit_expr(operand)?;
-                    let operand_value =
-                        self.to_bool(&operand_value, Some(&operand.borrow().r#type))?;
                     let value = self.assign_ireg()?;
                     self.add_instruction(Opcode::SetEqZ, &[value.clone(), operand_value])?;
                     Ok(value)
@@ -488,7 +491,7 @@ impl CodeGen {
                     BinOpKind::Lt => {
                         let left_value = self.visit_expr(left)?;
                         let right_value = self.visit_expr(right)?;
-                        match &r#type.borrow().kind {
+                        match &left.borrow().r#type.borrow().kind {
                             t if t.is_integer() => {
                                 let value = self.assign_ireg()?;
                                 self.add_instruction(
@@ -525,7 +528,7 @@ impl CodeGen {
                         let right_value = self.visit_expr(right)?;
 
                         let value = self.assign_ireg()?;
-                        match &r#type.borrow().kind {
+                        match &left.borrow().r#type.borrow().kind {
                             t if t.is_integer() => {
                                 // a<=b => not(a-b>0)
                                 let t = self.assign_ireg()?;
@@ -560,7 +563,7 @@ impl CodeGen {
                         let right_value = self.visit_expr(right)?;
 
                         let value = self.assign_ireg()?;
-                        match &r#type.borrow().kind {
+                        match &left.borrow().r#type.borrow().kind {
                             t if t.is_integer() => {
                                 let t = self.assign_ireg()?;
                                 self.add_instruction(
@@ -602,7 +605,7 @@ impl CodeGen {
                         let right_value = self.visit_expr(right)?;
 
                         let value = self.assign_ireg()?;
-                        match &r#type.borrow().kind {
+                        match &left.borrow().r#type.borrow().kind {
                             t if t.is_integer() => {
                                 let t = self.assign_ireg()?;
                                 self.add_instruction(
@@ -648,7 +651,7 @@ impl CodeGen {
                         let right_value = self.visit_expr(right)?;
 
                         let value = self.assign_ireg()?;
-                        match &r#type.borrow().kind {
+                        match &left.borrow().r#type.borrow().kind {
                             t if t.is_integer() => {
                                 let t = self.assign_ireg()?;
                                 self.add_instruction(
@@ -678,7 +681,7 @@ impl CodeGen {
                         let right_value = self.visit_expr(right)?;
 
                         let value = self.assign_ireg()?;
-                        match &r#type.borrow().kind {
+                        match &left.borrow().r#type.borrow().kind {
                             t if t.is_integer() => {
                                 let t = self.assign_ireg()?;
                                 self.add_instruction(
@@ -754,7 +757,6 @@ impl CodeGen {
 
                         self.position_at_end(&left_block)?;
                         let left_value = self.visit_expr(left)?;
-                        let left_value = self.to_bool(&left_value, Some(&left.borrow().r#type))?;
                         self.add_instruction(Opcode::SetNeqZ, &[value.clone(), left_value])?;
                         self.add_instruction(
                             Opcode::BEqZ,
@@ -763,8 +765,6 @@ impl CodeGen {
 
                         self.position_at_end(&right_block)?;
                         let right_value = self.visit_expr(right)?;
-                        let right_value =
-                            self.to_bool(&right_value, Some(&right.borrow().r#type))?;
                         self.add_instruction(Opcode::SetNeqZ, &[value.clone(), right_value])?;
                         self.add_instruction(
                             Opcode::Jump,
@@ -785,7 +785,6 @@ impl CodeGen {
 
                         self.position_at_end(&left_block)?;
                         let left_value = self.visit_expr(left)?;
-                        let left_value = self.to_bool(&left_value, Some(&left.borrow().r#type))?;
                         self.add_instruction(Opcode::SetNeqZ, &[value.clone(), left_value])?;
                         self.add_instruction(
                             Opcode::BNeqZ,
@@ -794,8 +793,6 @@ impl CodeGen {
 
                         self.position_at_end(&right_block)?;
                         let right_value = self.visit_expr(right)?;
-                        let right_value =
-                            self.to_bool(&right_value, Some(&right.borrow().r#type))?;
                         self.add_instruction(Opcode::SetNeqZ, &[value.clone(), right_value])?;
                         self.add_instruction(
                             Opcode::Jump,
@@ -1118,6 +1115,7 @@ impl CodeGen {
 
                 let mut arg_frame_size = 0;
                 for (arg, arg_value) in arguments.iter().zip(arg_values) {
+                    let arg_value = self.normalize_to_reg(&arg_value)?;
                     let arg_type = get_inner_type(arg.borrow().r#type.clone());
                     match arg_type.borrow().kind.clone() {
                         t if t.is_float_type() => {
@@ -1264,7 +1262,7 @@ impl CodeGen {
 
                         Ok(value)
                     }
-                    t if t.is_aggregate() && t.size().unwrap() <= xsize * 2 => {
+                    t if t.is_aggregate() && t.size().unwrap() > xsize * 2 => {
                         //a0存的就是地址
                         let t = self.assign_ireg()?;
                         self.add_instruction(Opcode::Move, &[t.clone(), A0_REG])?;

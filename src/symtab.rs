@@ -37,6 +37,19 @@ pub struct Symbol {
     pub attributes: Vec<Rc<RefCell<Attribute>>>,
 }
 
+impl Symbol {
+    pub fn new(name: &str, kind: SymbolKind, r#type: &Rc<RefCell<Type>>) -> Symbol {
+        Symbol {
+            define_loc: None,
+            declare_locs: vec![],
+            name: name.to_string(),
+            kind,
+            r#type: r#type.clone(),
+            attributes: vec![],
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum SymbolKind {
     Label(/*label的声明语句*/ Option<Rc<RefCell<Stmt>>>),

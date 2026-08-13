@@ -16,12 +16,12 @@ TranslationUnit <(1, 1), (12, 1)>
     Compound <(11, 12), (11, 36)>
       DeclStmt <(11, 14), (11, 34)>
         VarDecl <(11, 16), (11, 18)> x B:struct <unnamed struct (7, 9)> 
-          Initializer <(11, 20), (11, 33)> B:struct <unnamed struct (7, 9)> [[17]] 
-            Initializer <(11, 26), (11, 32)> A:struct <unnamed struct (2, 9)> [17] 
+          Initializer <(11, 20), (11, 33)> B:struct <unnamed struct (7, 9)> [[17]] has_side_effects
+            Initializer <(11, 26), (11, 32)> A:struct <unnamed struct (2, 9)> [17] has_side_effects
               Designation <(11, 21), (11, 25)> c
-              Initializer <(11, 27), (11, 28)> int 1 
+              Initializer <(11, 27), (11, 28)> int 1 has_side_effects
                 Designation <(11, 27), (11, 28)> a
                 Integer 10 1 [] <(11, 27), (11, 28)> int 1  
-              Initializer <(11, 30), (11, 31)> int 2 
+              Initializer <(11, 30), (11, 31)> int 2 has_side_effects
                 Designation <(11, 30), (11, 31)> b
                 Integer 10 2 [] <(11, 30), (11, 31)> int 2

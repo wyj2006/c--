@@ -1,0 +1,166 @@
+---
+source: src/legalizer/riscv/tests/complex.rs
+expression: codegen.to_string()
+---
+main:
+    prologue:
+        sd ra, -8(sp)
+        sd sp, -16(sp)
+        sd fp, -24(sp)
+        mv fp, sp
+        add sp, sp, -96
+    entry:
+        add t0, fp, -88
+        add t1, t0, 0
+        add t0, fp, -40
+        add t0, t0, 0
+        flw ft1, 0(t0)
+        add t0, fp, -48
+        add t0, t0, 0
+        flw ft0, 0(t0)
+        fadd.s ft4, ft1, ft0
+        add t0, fp, -56
+        add t0, t0, 0
+        flw ft1, 0(t0)
+        add t0, fp, -64
+        add t0, t0, 0
+        flw ft0, 0(t0)
+        fmul.s ft2, ft1, ft0
+        add t0, fp, -56
+        add t0, t0, 4
+        flw ft1, 0(t0)
+        add t0, fp, -64
+        add t0, t0, 4
+        flw ft0, 0(t0)
+        fmul.s ft0, ft1, ft0
+        fsub.s ft1, ft2, ft0
+        add t0, fp, -72
+        add t0, t0, 0
+        flw ft0, 0(t0)
+        fmul.s ft3, ft1, ft0
+        add t0, fp, -56
+        add t0, t0, 0
+        flw ft1, 0(t0)
+        add t0, fp, -64
+        add t0, t0, 4
+        flw ft0, 0(t0)
+        fmul.s ft2, ft1, ft0
+        add t0, fp, -64
+        add t0, t0, 0
+        flw ft1, 0(t0)
+        add t0, fp, -56
+        add t0, t0, 4
+        flw ft0, 0(t0)
+        fmul.s ft0, ft1, ft0
+        fadd.s ft1, ft2, ft0
+        add t0, fp, -72
+        add t0, t0, 4
+        flw ft0, 0(t0)
+        fmul.s ft0, ft1, ft0
+        fadd.s ft3, ft3, ft0
+        add t0, fp, -72
+        add t0, t0, 0
+        flw ft1, 0(t0)
+        add t0, fp, -72
+        add t0, t0, 0
+        flw ft0, 0(t0)
+        fmul.s ft2, ft1, ft0
+        add t0, fp, -72
+        add t0, t0, 4
+        flw ft1, 0(t0)
+        add t0, fp, -72
+        add t0, t0, 4
+        flw ft0, 0(t0)
+        fmul.s ft0, ft1, ft0
+        fadd.s ft0, ft2, ft0
+        fdiv.s ft0, ft3, ft0
+        fsub.s ft1, ft4, ft0
+        add t0, fp, -80
+        add t0, t0, 0
+        flw ft0, 0(t0)
+        fneg.s ft0, ft0
+        fadd.s ft0, ft1, ft0
+        fsw ft0, 0(t1)
+        add t0, fp, -88
+        add t1, t0, 4
+        add t0, fp, -40
+        add t0, t0, 4
+        flw ft1, 0(t0)
+        add t0, fp, -48
+        add t0, t0, 4
+        flw ft0, 0(t0)
+        fadd.s ft4, ft1, ft0
+        add t0, fp, -72
+        add t0, t0, 0
+        flw ft3, 0(t0)
+        add t0, fp, -56
+        add t0, t0, 0
+        flw ft1, 0(t0)
+        add t0, fp, -64
+        add t0, t0, 4
+        flw ft0, 0(t0)
+        fmul.s ft2, ft1, ft0
+        add t0, fp, -64
+        add t0, t0, 0
+        flw ft1, 0(t0)
+        add t0, fp, -56
+        add t0, t0, 4
+        flw ft0, 0(t0)
+        fmul.s ft0, ft1, ft0
+        fadd.s ft0, ft2, ft0
+        fmul.s ft3, ft3, ft0
+        add t0, fp, -56
+        add t0, t0, 0
+        flw ft1, 0(t0)
+        add t0, fp, -64
+        add t0, t0, 0
+        flw ft0, 0(t0)
+        fmul.s ft2, ft1, ft0
+        add t0, fp, -56
+        add t0, t0, 4
+        flw ft1, 0(t0)
+        add t0, fp, -64
+        add t0, t0, 4
+        flw ft0, 0(t0)
+        fmul.s ft0, ft1, ft0
+        fsub.s ft1, ft2, ft0
+        add t0, fp, -72
+        add t0, t0, 4
+        flw ft0, 0(t0)
+        fmul.s ft0, ft1, ft0
+        fsub.s ft3, ft3, ft0
+        add t0, fp, -72
+        add t0, t0, 0
+        flw ft1, 0(t0)
+        add t0, fp, -72
+        add t0, t0, 0
+        flw ft0, 0(t0)
+        fmul.s ft2, ft1, ft0
+        add t0, fp, -72
+        add t0, t0, 4
+        flw ft1, 0(t0)
+        add t0, fp, -72
+        add t0, t0, 4
+        flw ft0, 0(t0)
+        fmul.s ft0, ft1, ft0
+        fadd.s ft0, ft2, ft0
+        fdiv.s ft0, ft3, ft0
+        fsub.s ft1, ft4, ft0
+        add t0, fp, -80
+        add t0, t0, 4
+        flw ft0, 0(t0)
+        fneg.s ft0, ft0
+        fadd.s ft0, ft1, ft0
+        fsw ft0, 0(t1)
+        add t0, fp, -88
+        mv a0, t0
+        add t0, fp, -32
+        mv a1, t0
+        li a2, 8
+        call memcpy
+        li a0, 0
+        ld ra, -8(fp)
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+    .global main

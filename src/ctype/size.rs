@@ -1,7 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
-
 use crate::{
-    ast::expr::Expr,
     ctype::{RecordKind, Type, TypeKind},
     symtab::SymbolKind,
     variant::Variant,
@@ -22,7 +19,7 @@ impl TypeKind {
             TypeKind::Char | TypeKind::SignedChar | TypeKind::UnsignedChar => Some(1),
             TypeKind::Short | TypeKind::UShort => Some(2),
             TypeKind::Unsigned | TypeKind::Signed | TypeKind::Int | TypeKind::UInt => Some(4),
-            TypeKind::Long | TypeKind::ULong => Some(4),
+            TypeKind::Long | TypeKind::ULong => Some(8), //当成64位机器
             TypeKind::LongLong | TypeKind::ULongLong => Some(8),
             TypeKind::Pointer(_) | TypeKind::Nullptr => Some(8),
             TypeKind::BitInt { width_expr, .. } => {
@@ -128,27 +125,20 @@ impl TypeKind {
                     };
                     if bit_field > 0 {
                         bit_fields.push(bit_field);
+                        //TODO 超出32/64位时不再continue
                         if i < members.len() - 1 {
                             continue;
                         }
                     }
-                    if bit_fields.len() > 0 {
+
+                    if bit_fields.iter().sum::<usize>() > 64 || bit_fields.len() > 0 {
                         //处理位域
                         let bitfield_type = Type {
-                            kind: TypeKind::BitInt {
-                                unsigned: true,
-                                width_expr: Rc::new(RefCell::new(Expr::new_const_int(
-                                    member_type.borrow().file_id,
-                                    member_type.borrow().span,
-                                    bit_fields.iter().sum::<usize>(),
-                                    Rc::new(RefCell::new(Type {
-                                        kind: TypeKind::LongLong,
-                                        ..Type::new(
-                                            member_type.borrow().file_id,
-                                            member_type.borrow().span,
-                                        )
-                                    })),
-                                ))),
+                            //32位机器上unsigned long是32位, 64位机器上unsigned long是64位
+                            kind: match bit_fields.iter().sum::<usize>() {
+                                0..=8 => TypeKind::UnsignedChar,
+                                9..=16 => TypeKind::UShort,
+                                _ => TypeKind::ULong,
                             },
                             ..Type::new(member_type.borrow().file_id, member_type.borrow().span)
                         };

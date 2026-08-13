@@ -24,8 +24,7 @@ main:
         sll t0, t0, 56
         sra t0, t0, 56
         sw t0, -48(fp)
-        add t0, fp, -56
-        flw ft0, t0
+        flw ft0, -56(fp)
         fcvt.l.s t0, ft0
         sb t0, -32(fp)
         lwu t0, -48(fp)
@@ -34,8 +33,7 @@ main:
         lh t0, -40(fp)
         fcvt.d.l ft0, t0
         fsd ft0, -64(fp)
-        add t0, fp, -64
-        fld ft0, t0
+        fld ft0, -64(fp)
         fcvt.l.d t0, ft0
         sh t0, -40(fp)
         li a0, 0

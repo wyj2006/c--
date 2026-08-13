@@ -1,0 +1,53 @@
+---
+source: src/legalizer/riscv/tests/complex.rs
+expression: codegen.to_string()
+---
+main:
+    prologue:
+        sd ra, -8(sp)
+        sd sp, -16(sp)
+        sd fp, -24(sp)
+        mv fp, sp
+        add sp, sp, -64
+    entry:
+        add t0, fp, -40
+        add t0, t0, 0
+        flw ft0, 0(t0)
+        fsw ft0, -32(fp)
+        add t0, fp, -48
+        add t0, t0, 0
+        flw ft0, -32(fp)
+        fsw ft0, 0(t0)
+        add t0, fp, -48
+        add t1, t0, 4
+        li t0, 0
+        fmv.s.x ft0, t0
+        fsw ft0, 0(t1)
+        add t0, fp, -48
+        mv a0, t0
+        add t0, fp, -40
+        mv a1, t0
+        li a2, 8
+        call memcpy
+        add t0, fp, -56
+        add t1, t0, 0
+        li t0, 1
+        fcvt.s.l ft0, t0
+        fsw ft0, 0(t1)
+        add t0, fp, -56
+        add t1, t0, 4
+        li t0, 0
+        fmv.s.x ft0, t0
+        fsw ft0, 0(t1)
+        add t0, fp, -56
+        mv a0, t0
+        add t0, fp, -40
+        mv a1, t0
+        li a2, 8
+        call memcpy
+        li a0, 0
+        ld ra, -8(fp)
+        ld sp, -16(fp)
+        ld fp, -24(fp)
+        ret 
+    .global main

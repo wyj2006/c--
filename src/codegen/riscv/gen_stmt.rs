@@ -51,14 +51,29 @@ impl CodeGen {
             StmtKind::Goto(name) => {
                 let symbol = self.lookup(Namespace::Label, name).unwrap();
                 let key = symbol.as_ptr() as usize;
-                let label = self.stmt_labels.get(&key).unwrap().get(0).unwrap().clone();
+                let label = match self.stmt_labels.get(&key) {
+                    Some(operands) => operands[0].clone(),
+                    //Label可能在之后才定义
+                    None => Operand::Symbol(self.gen_unique_label_name(name)),
+                };
                 self.add_instruction(Opcode::Jump, &[label])?;
             }
             StmtKind::Label { name, stmt } => {
                 let symbol = self.lookup(Namespace::Label, name).unwrap();
                 let key = symbol.as_ptr() as usize;
+                let label_name = match self.stmt_labels.get(&key) {
+                    Some(operands) => match &operands[0] {
+                        Operand::Symbol(name) => name.clone(),
+                        _ => unreachable!(),
+                    },
+                    None => name.clone(),
+                };
+
                 self.stmt_labels
-                    .insert(key, vec![Operand::Symbol(name.to_string())]);
+                    .insert(key, vec![Operand::Symbol(label_name.to_string())]);
+
+                let block = self.append_basic_block(&label_name)?;
+                self.position_at_end(&block)?;
 
                 if let Some(stmt) = stmt {
                     self.visit_stmt(stmt)?;
@@ -78,7 +93,6 @@ impl CodeGen {
 
                 self.position_at_end(&cond_block)?;
                 let cond = self.visit_expr(condition)?;
-                let cond = self.to_bool(&cond, Some(&condition.borrow().r#type))?;
                 self.add_instruction(Opcode::BEqZ, &[cond, Operand::Symbol(else_block.clone())])?;
 
                 self.position_at_end(&then_block)?;
@@ -109,7 +123,6 @@ impl CodeGen {
 
                 self.position_at_end(&cond_block)?;
                 let cond = self.visit_expr(condition)?;
-                let cond = self.to_bool(&cond, Some(&condition.borrow().r#type))?;
                 self.add_instruction(Opcode::BEqZ, &[cond, Operand::Symbol(exit_block.clone())])?;
 
                 self.position_at_end(&body_block)?;
@@ -139,7 +152,6 @@ impl CodeGen {
 
                 self.position_at_end(&cond_block)?;
                 let cond = self.visit_expr(condition)?;
-                let cond = self.to_bool(&cond, Some(&condition.borrow().r#type))?;
                 self.add_instruction(Opcode::BEqZ, &[cond, Operand::Symbol(exit_block.clone())])?;
                 self.add_instruction(Opcode::Jump, &[Operand::Symbol(body_block.clone())])?;
 
@@ -178,7 +190,6 @@ impl CodeGen {
                 self.position_at_end(&cond_block)?;
                 if let Some(condition) = condition {
                     let cond = self.visit_expr(condition)?;
-                    let cond = self.to_bool(&cond, Some(&condition.borrow().r#type))?;
                     self.add_instruction(
                         Opcode::BEqZ,
                         &[cond, Operand::Symbol(exit_block.clone())],
