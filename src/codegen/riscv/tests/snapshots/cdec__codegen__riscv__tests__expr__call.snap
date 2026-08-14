@@ -2,6 +2,9 @@
 source: src/codegen/riscv/tests/expr.rs
 expression: codegen.to_string()
 ---
+    .global f
+    .global main
+    .section .text
 f:
     prologue:
         sd ra, -8(sp)
@@ -78,5 +81,4 @@ main:
         ld sp, -16(fp)
         ld fp, -24(fp)
         ret 
-    .global f
-    .global main
+    .section .data

@@ -1,9 +1,6 @@
 use crate::{
     ast::{Initializer, InitializerKind},
-    codegen::riscv::{
-        CodeGen, FP_REG,
-        instruction::{Opcode, Operand},
-    },
+    codegen::riscv::{CodeGen, FP_REG, instruction::Operand},
     ctype::{
         RecordKind, Type, TypeKind, array_element, get_inner_type,
         layout::{ConstDesignation, compute_layout},
@@ -137,12 +134,14 @@ impl CodeGen {
                         ConstDesignation::from_designation(&initializer.borrow().designations)?;
                     let (offset, symbol) =
                         self.compute_offset_and_symbol(&r#type, designation, 0)?;
-                    let ptr = self.assign_ireg()?;
-                    self.add_instruction(
-                        Opcode::Add,
-                        &[ptr.clone(), base.clone(), Operand::Immediate(offset as i64)],
+                    self.visit_initializer(
+                        initializer,
+                        Some(Operand::Address {
+                            base: Box::new(base.clone()),
+                            offset: offset as i64,
+                        }),
+                        &symbol,
                     )?;
-                    self.visit_initializer(initializer, Some(ptr), &symbol)?;
                 }
             }
             InitializerKind::Expr(expr) => {

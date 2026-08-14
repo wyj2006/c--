@@ -145,14 +145,19 @@ impl CodeGen {
     //将其它类型的操作数转换成寄存器的形式
     pub fn normalize_to_reg(&mut self, operand: &Operand) -> Result<Operand, Diagnostic<usize>> {
         match operand {
-            Operand::Address { base, offset } => {
-                let value = self.assign_ireg()?;
-                self.add_instruction(
-                    Opcode::Add,
-                    &[value.clone(), (**base).clone(), Operand::Immediate(*offset)],
-                )?;
-                Ok(value)
-            }
+            Operand::Address { .. } => match self.normalize_to_address(operand)? {
+                //相当于先展开了Address再进行后续的操作
+                Operand::Address { base, offset } => {
+                    let value = self.assign_ireg()?;
+                    let base = self.normalize_to_reg(&base)?;
+                    self.add_instruction(
+                        Opcode::Add,
+                        &[value.clone(), base, Operand::Immediate(offset)],
+                    )?;
+                    Ok(value)
+                }
+                _ => unreachable!(),
+            },
             Operand::Symbol(name) => {
                 let value = self.assign_ireg()?;
                 self.add_instruction(
@@ -215,6 +220,17 @@ impl CodeGen {
                 base: Box::new(operand.clone()),
                 offset: 0,
             }),
+            Operand::Address { base, offset } => match self.normalize_to_address(base)? {
+                //展开嵌套的Address
+                Operand::Address { base, offset: b } => Ok(Operand::Address {
+                    base,
+                    offset: *offset + b,
+                }),
+                base => Ok(Operand::Address {
+                    base: Box::new(base),
+                    offset: *offset,
+                }),
+            },
             _ => Ok(operand.clone()),
         }
     }
@@ -227,7 +243,6 @@ impl CodeGen {
         let mut operands = operands.to_vec();
 
         //规范指令的操作数
-        //TODO 严格区分
         match opcode {
             Opcode::LoadB
             | Opcode::LoadBU
@@ -246,18 +261,6 @@ impl CodeGen {
             | Opcode::FLoadS => {
                 operands[0] = self.normalize_to_reg(&operands[0])?;
                 operands[1] = self.normalize_to_address(&operands[1])?;
-                match &operands[1] {
-                    Operand::Address { base, offset: b } => match &**base {
-                        Operand::Address { base, offset: a } => {
-                            operands[1] = Operand::Address {
-                                base: base.clone(),
-                                offset: *a + *b,
-                            };
-                        }
-                        _ => {}
-                    },
-                    _ => {}
-                }
             }
             Opcode::BEqZ | Opcode::BNeqZ => {
                 operands[0] = self.normalize_to_reg(&operands[0])?;

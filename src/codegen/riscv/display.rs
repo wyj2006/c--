@@ -47,23 +47,32 @@ impl CodeGen {
 
 impl Display for CodeGen {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut global_datas = vec![];
+
+        for (name, (value, r#type)) in &self.globals {
+            if r#type.borrow().is_function() {
+                writeln!(f, "    .global {name}")?;
+            } else {
+                global_datas.push((name, value, r#type));
+            }
+        }
+
+        writeln!(f, "    .section .text")?;
         for (_, function) in &self.functions {
             if function.basic_blocks.len() > 0 {
                 write!(f, "{}", function)?;
             }
         }
 
-        for (name, (value, r#type)) in &self.globals {
-            if r#type.borrow().is_function() {
-                writeln!(f, "    .global {name}")?;
-            } else {
-                writeln!(f, "{name}:")?;
-                match value {
-                    Some(value) => self.display_variant(f, value, r#type)?,
-                    None => writeln!(f, "    .zero {}", r#type.borrow().size().unwrap())?,
-                }
+        writeln!(f, "    .section .data")?;
+        for (name, value, r#type) in global_datas {
+            writeln!(f, "{name}:")?;
+            match value {
+                Some(value) => self.display_variant(f, value, r#type)?,
+                None => writeln!(f, "    .zero {}", r#type.borrow().size().unwrap())?,
             }
         }
+
         Ok(())
     }
 }

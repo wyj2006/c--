@@ -2,6 +2,8 @@
 source: src/legalizer/riscv/tests/complex.rs
 expression: codegen.to_string()
 ---
+    .global main
+    .section .text
 main:
     prologue:
         sd ra, -8(sp)
@@ -10,148 +12,76 @@ main:
         mv fp, sp
         add sp, sp, -96
     entry:
-        add t0, fp, -88
-        add t1, t0, 0
-        add t0, fp, -40
-        add t0, t0, 0
-        flw ft1, 0(t0)
-        add t0, fp, -48
-        add t0, t0, 0
-        flw ft0, 0(t0)
+        flw ft1, -40(fp)
+        flw ft0, -48(fp)
         fadd.s ft4, ft1, ft0
-        add t0, fp, -56
-        add t0, t0, 0
-        flw ft1, 0(t0)
-        add t0, fp, -64
-        add t0, t0, 0
-        flw ft0, 0(t0)
+        flw ft1, -56(fp)
+        flw ft0, -64(fp)
         fmul.s ft2, ft1, ft0
-        add t0, fp, -56
-        add t0, t0, 4
-        flw ft1, 0(t0)
-        add t0, fp, -64
-        add t0, t0, 4
-        flw ft0, 0(t0)
+        flw ft1, -52(fp)
+        flw ft0, -60(fp)
         fmul.s ft0, ft1, ft0
         fsub.s ft1, ft2, ft0
-        add t0, fp, -72
-        add t0, t0, 0
-        flw ft0, 0(t0)
+        flw ft0, -72(fp)
         fmul.s ft3, ft1, ft0
-        add t0, fp, -56
-        add t0, t0, 0
-        flw ft1, 0(t0)
-        add t0, fp, -64
-        add t0, t0, 4
-        flw ft0, 0(t0)
+        flw ft1, -56(fp)
+        flw ft0, -60(fp)
         fmul.s ft2, ft1, ft0
-        add t0, fp, -64
-        add t0, t0, 0
-        flw ft1, 0(t0)
-        add t0, fp, -56
-        add t0, t0, 4
-        flw ft0, 0(t0)
+        flw ft1, -64(fp)
+        flw ft0, -52(fp)
         fmul.s ft0, ft1, ft0
         fadd.s ft1, ft2, ft0
-        add t0, fp, -72
-        add t0, t0, 4
-        flw ft0, 0(t0)
+        flw ft0, -68(fp)
         fmul.s ft0, ft1, ft0
         fadd.s ft3, ft3, ft0
-        add t0, fp, -72
-        add t0, t0, 0
-        flw ft1, 0(t0)
-        add t0, fp, -72
-        add t0, t0, 0
-        flw ft0, 0(t0)
+        flw ft1, -72(fp)
+        flw ft0, -72(fp)
         fmul.s ft2, ft1, ft0
-        add t0, fp, -72
-        add t0, t0, 4
-        flw ft1, 0(t0)
-        add t0, fp, -72
-        add t0, t0, 4
-        flw ft0, 0(t0)
+        flw ft1, -68(fp)
+        flw ft0, -68(fp)
         fmul.s ft0, ft1, ft0
         fadd.s ft0, ft2, ft0
         fdiv.s ft0, ft3, ft0
         fsub.s ft1, ft4, ft0
-        add t0, fp, -80
-        add t0, t0, 0
-        flw ft0, 0(t0)
+        flw ft0, -80(fp)
         fneg.s ft0, ft0
         fadd.s ft0, ft1, ft0
-        fsw ft0, 0(t1)
-        add t0, fp, -88
-        add t1, t0, 4
-        add t0, fp, -40
-        add t0, t0, 4
-        flw ft1, 0(t0)
-        add t0, fp, -48
-        add t0, t0, 4
-        flw ft0, 0(t0)
+        fsw ft0, -88(fp)
+        flw ft1, -36(fp)
+        flw ft0, -44(fp)
         fadd.s ft4, ft1, ft0
-        add t0, fp, -72
-        add t0, t0, 0
-        flw ft3, 0(t0)
-        add t0, fp, -56
-        add t0, t0, 0
-        flw ft1, 0(t0)
-        add t0, fp, -64
-        add t0, t0, 4
-        flw ft0, 0(t0)
+        flw ft3, -72(fp)
+        flw ft1, -56(fp)
+        flw ft0, -60(fp)
         fmul.s ft2, ft1, ft0
-        add t0, fp, -64
-        add t0, t0, 0
-        flw ft1, 0(t0)
-        add t0, fp, -56
-        add t0, t0, 4
-        flw ft0, 0(t0)
+        flw ft1, -64(fp)
+        flw ft0, -52(fp)
         fmul.s ft0, ft1, ft0
         fadd.s ft0, ft2, ft0
         fmul.s ft3, ft3, ft0
-        add t0, fp, -56
-        add t0, t0, 0
-        flw ft1, 0(t0)
-        add t0, fp, -64
-        add t0, t0, 0
-        flw ft0, 0(t0)
+        flw ft1, -56(fp)
+        flw ft0, -64(fp)
         fmul.s ft2, ft1, ft0
-        add t0, fp, -56
-        add t0, t0, 4
-        flw ft1, 0(t0)
-        add t0, fp, -64
-        add t0, t0, 4
-        flw ft0, 0(t0)
+        flw ft1, -52(fp)
+        flw ft0, -60(fp)
         fmul.s ft0, ft1, ft0
         fsub.s ft1, ft2, ft0
-        add t0, fp, -72
-        add t0, t0, 4
-        flw ft0, 0(t0)
+        flw ft0, -68(fp)
         fmul.s ft0, ft1, ft0
         fsub.s ft3, ft3, ft0
-        add t0, fp, -72
-        add t0, t0, 0
-        flw ft1, 0(t0)
-        add t0, fp, -72
-        add t0, t0, 0
-        flw ft0, 0(t0)
+        flw ft1, -72(fp)
+        flw ft0, -72(fp)
         fmul.s ft2, ft1, ft0
-        add t0, fp, -72
-        add t0, t0, 4
-        flw ft1, 0(t0)
-        add t0, fp, -72
-        add t0, t0, 4
-        flw ft0, 0(t0)
+        flw ft1, -68(fp)
+        flw ft0, -68(fp)
         fmul.s ft0, ft1, ft0
         fadd.s ft0, ft2, ft0
         fdiv.s ft0, ft3, ft0
         fsub.s ft1, ft4, ft0
-        add t0, fp, -80
-        add t0, t0, 4
-        flw ft0, 0(t0)
+        flw ft0, -76(fp)
         fneg.s ft0, ft0
         fadd.s ft0, ft1, ft0
-        fsw ft0, 0(t1)
+        fsw ft0, -84(fp)
         add t0, fp, -88
         mv a0, t0
         add t0, fp, -32
@@ -163,4 +93,4 @@ main:
         ld sp, -16(fp)
         ld fp, -24(fp)
         ret 
-    .global main
+    .section .data

@@ -167,12 +167,10 @@ impl CodeGen {
                         0,
                     )?;
 
-                    let addr = self.assign_ireg()?;
-                    self.add_instruction(
-                        Opcode::Add,
-                        &[addr.clone(), base, Operand::Immediate(offset as i64)],
-                    )?;
-                    Ok(addr)
+                    Ok(Operand::Address {
+                        base: Box::new(base.clone()),
+                        offset: offset as i64,
+                    })
                 }
             }
             ExprKind::UnaryOp { op, operand } => match op {
@@ -183,26 +181,7 @@ impl CodeGen {
                             op: UnaryOpKind::Dereference,
                             operand,
                         } => Ok(self.visit_expr(operand)?),
-                        _ => match self.visit_expr(operand)? {
-                            t @ Operand::Symbol(_) => {
-                                let value = self.assign_ireg()?;
-                                self.add_instruction(
-                                    Opcode::LoadAddr,
-                                    &[value.clone(), t.clone()],
-                                )?;
-                                Ok(value)
-                            }
-                            Operand::Address { base, offset } => {
-                                let value = self.assign_ireg()?;
-                                self.add_instruction(
-                                    Opcode::Add,
-                                    &[value.clone(), (*base).clone(), Operand::Immediate(offset)],
-                                )?;
-                                Ok(value)
-                            }
-                            //操作数是左值的话, 它的求值结果本身就是地址
-                            t => Ok(t),
-                        },
+                        _ => Ok(self.visit_expr(operand)?),
                     }
                 }
                 UnaryOpKind::Dereference => {
@@ -1115,7 +1094,6 @@ impl CodeGen {
 
                 let mut arg_frame_size = 0;
                 for (arg, arg_value) in arguments.iter().zip(arg_values) {
-                    let arg_value = self.normalize_to_reg(&arg_value)?;
                     let arg_type = get_inner_type(arg.borrow().r#type.clone());
                     match arg_type.borrow().kind.clone() {
                         t if t.is_float_type() => {
@@ -1179,14 +1157,10 @@ impl CodeGen {
                                 }
 
                                 if size > xsize {
-                                    self.add_instruction(
-                                        Opcode::Add,
-                                        &[
-                                            arg_value.clone(),
-                                            arg_value.clone(),
-                                            Operand::Immediate(xsize as i64),
-                                        ],
-                                    )?;
+                                    let arg_value = Operand::Address {
+                                        base: Box::new(arg_value.clone()),
+                                        offset: xsize as i64,
+                                    };
 
                                     if ireg_used < 8 {
                                         self.add_instruction(
@@ -1226,26 +1200,12 @@ impl CodeGen {
                             _ => unreachable!(),
                         };
 
-                        let value = self.assign_ireg()?;
-                        self.add_instruction(
-                            Opcode::Add,
-                            &[
-                                value.clone(),
-                                FP_REG,
-                                Operand::Immediate(-(frame_size as i64)),
-                            ],
-                        )?;
+                        let value = Operand::Address {
+                            base: Box::new(FP_REG),
+                            offset: -(frame_size as i64),
+                        };
 
-                        self.add_instruction(
-                            store_opcode,
-                            &[
-                                A0_REG,
-                                Operand::Address {
-                                    base: Box::new(value.clone()),
-                                    offset: 0,
-                                },
-                            ],
-                        )?;
+                        self.add_instruction(store_opcode, &[A0_REG, value.clone()])?;
 
                         if t.size().unwrap() > xsize {
                             self.add_instruction(

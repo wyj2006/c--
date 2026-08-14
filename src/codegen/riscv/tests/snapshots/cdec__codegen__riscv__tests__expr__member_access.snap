@@ -2,6 +2,8 @@
 source: src/codegen/riscv/tests/expr.rs
 expression: codegen.to_string()
 ---
+    .global main
+    .section .text
 main:
     prologue:
         sd ra, -8(sp)
@@ -10,34 +12,27 @@ main:
         mv fp, sp
         add sp, sp, -64
     entry:
-        add t0, fp, -56
-        add t2, t0, 0
-        add t0, fp, -56
-        add t3, t0, 4
         li t1, 3
         li t0, 4
-        mul t0, t1, t0
-        add t0, t3, t0
+        mul t1, t1, t0
+        add t0, fp, -52
+        add t0, t0, t1
         lw t0, 0(t0)
-        sw t0, 0(t2)
-        add t0, fp, -56
-        add t2, t0, 28
-        add t0, fp, -56
-        add t0, t0, 28
-        lbu t1, 0(t0)
+        sw t0, -56(fp)
+        lbu t1, -28(fp)
         srl t1, t1, 2
         and t1, t1, 15
         sll t1, t1, 60
         sra t1, t1, 60
-        lbu t0, 0(t2)
+        lbu t0, -28(fp)
         and t0, t0, -4
         and t1, t1, 3
         sll t1, t1, 0
         or t1, t1, t0
-        sb t1, 0(t2)
+        sb t1, -28(fp)
         li a0, 0
         ld ra, -8(fp)
         ld sp, -16(fp)
         ld fp, -24(fp)
         ret 
-    .global main
+    .section .data

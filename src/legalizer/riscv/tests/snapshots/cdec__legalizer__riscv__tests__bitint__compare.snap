@@ -2,6 +2,10 @@
 source: src/legalizer/riscv/tests/bitint.rs
 expression: codegen.to_string()
 ---
+    .global main
+    .global __bitint_gt_signed_100
+    .global __bitint_lt_signed_100
+    .section .text
 __bitint_lt_signed_100:
     prologue3:
         sd ra, -8(sp)
@@ -16,12 +20,8 @@ __bitint_lt_signed_100:
         sd a3, -48(fp)
         li t0, 1
         sb t0, -64(fp)
-        add t0, fp, -40
-        add t0, t0, 0
-        ld t1, 0(t0)
-        add t0, fp, -56
-        add t0, t0, 0
-        ld t0, 0(t0)
+        ld t1, -40(fp)
+        ld t0, -56(fp)
         sltu t0, t1, t0
         seqz t0, t0
         beqz t0, if_else6
@@ -32,17 +32,13 @@ __bitint_lt_signed_100:
         j if_merge6
     if_else6:
     if_merge6:
-        add t0, fp, -40
-        add t0, t0, 8
-        ld t2, 0(t0)
+        ld t2, -32(fp)
         srl t2, t2, 0
         li t0, 68719476735
         and t2, t2, t0
         sll t2, t2, 56
         srl t2, t2, 56
-        add t0, fp, -56
-        add t0, t0, 8
-        ld t1, 0(t0)
+        ld t1, -48(fp)
         srl t1, t1, 0
         li t0, 68719476735
         and t1, t1, t0
@@ -59,9 +55,7 @@ __bitint_lt_signed_100:
     if_else7:
     if_merge7:
     finished2:
-        add t0, fp, -40
-        add t0, t0, 8
-        ld t1, 0(t0)
+        ld t1, -32(fp)
         srl t1, t1, 0
         li t0, 68719476735
         and t1, t1, t0
@@ -70,9 +64,7 @@ __bitint_lt_signed_100:
         srl t0, t1, 35
         and t0, t0, 1
         sd t0, -72(fp)
-        add t0, fp, -56
-        add t0, t0, 8
-        ld t1, 0(t0)
+        ld t1, -48(fp)
         srl t1, t1, 0
         li t0, 68719476735
         and t1, t1, t0
@@ -176,12 +168,8 @@ __bitint_gt_signed_100:
         sd a3, -48(fp)
         li t0, 1
         sb t0, -64(fp)
-        add t0, fp, -40
-        add t0, t0, 0
-        ld t1, 0(t0)
-        add t0, fp, -56
-        add t0, t0, 0
-        ld t0, 0(t0)
+        ld t1, -40(fp)
+        ld t0, -56(fp)
         sub t0, t1, t0
         sgtz t0, t0
         seqz t0, t0
@@ -193,17 +181,13 @@ __bitint_gt_signed_100:
         j if_merge
     if_else:
     if_merge:
-        add t0, fp, -40
-        add t0, t0, 8
-        ld t2, 0(t0)
+        ld t2, -32(fp)
         srl t2, t2, 0
         li t0, 68719476735
         and t2, t2, t0
         sll t2, t2, 56
         srl t2, t2, 56
-        add t0, fp, -56
-        add t0, t0, 8
-        ld t1, 0(t0)
+        ld t1, -48(fp)
         srl t1, t1, 0
         li t0, 68719476735
         and t1, t1, t0
@@ -221,9 +205,7 @@ __bitint_gt_signed_100:
     if_else2:
     if_merge2:
     finished:
-        add t0, fp, -40
-        add t0, t0, 8
-        ld t1, 0(t0)
+        ld t1, -32(fp)
         srl t1, t1, 0
         li t0, 68719476735
         and t1, t1, t0
@@ -232,9 +214,7 @@ __bitint_gt_signed_100:
         srl t0, t1, 35
         and t0, t0, 1
         sd t0, -72(fp)
-        add t0, fp, -56
-        add t0, t0, 8
-        ld t1, 0(t0)
+        ld t1, -48(fp)
         srl t1, t1, 0
         li t0, 68719476735
         and t1, t1, t0
@@ -332,50 +312,34 @@ main:
         mv fp, sp
         add sp, sp, -128
     entry:
-        add t0, fp, -48
-        ld a0, 0(t0)
-        add t0, t0, 8
-        ld a1, 0(t0)
-        add t0, fp, -64
-        ld a2, 0(t0)
-        add t0, t0, 8
-        ld a3, 0(t0)
+        ld a0, -48(fp)
+        ld a1, -40(fp)
+        ld a2, -64(fp)
+        ld a3, -56(fp)
         call __bitint_gt_signed_100
         mv t0, a0
         sb t0, -32(fp)
-        add t0, fp, -80
-        ld a0, 0(t0)
-        add t0, t0, 8
-        ld a1, 0(t0)
-        add t0, fp, -96
-        ld a2, 0(t0)
-        add t0, t0, 8
-        ld a3, 0(t0)
+        ld a0, -80(fp)
+        ld a1, -72(fp)
+        ld a2, -96(fp)
+        ld a3, -88(fp)
         call __bitint_lt_signed_100
         mv t0, a0
         sb t0, -32(fp)
-        add t0, fp, -112
-        add t0, t0, 0
-        ld t1, 0(t0)
-        add t0, fp, -128
-        add t0, t0, 0
-        ld t0, 0(t0)
+        ld t1, -112(fp)
+        ld t0, -128(fp)
         sub t0, t1, t0
         seqz t0, t0
         snez t0, t0
         beqz t0, and_merge
     and_right:
-        add t0, fp, -112
-        add t0, t0, 8
-        ld t2, 0(t0)
+        ld t2, -104(fp)
         srl t2, t2, 0
         li t0, 68719476735
         and t2, t2, t0
         sll t2, t2, 56
         srl t2, t2, 56
-        add t0, fp, -128
-        add t0, t0, 8
-        ld t1, 0(t0)
+        ld t1, -120(fp)
         srl t1, t1, 0
         li t0, 68719476735
         and t1, t1, t0
@@ -392,6 +356,4 @@ main:
         ld sp, -16(fp)
         ld fp, -24(fp)
         ret 
-    .global main
-    .global __bitint_gt_signed_100
-    .global __bitint_lt_signed_100
+    .section .data

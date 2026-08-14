@@ -2,6 +2,8 @@
 source: src/codegen/riscv/tests/init.rs
 expression: codegen.to_string()
 ---
+    .section .text
+    .section .data
 x:
     .dword 1
     .word 2

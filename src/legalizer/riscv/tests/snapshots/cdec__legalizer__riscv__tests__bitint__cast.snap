@@ -2,6 +2,13 @@
 source: src/legalizer/riscv/tests/bitint.rs
 expression: codegen.to_string()
 ---
+    .global main
+    .global __bitint_sext_int_struct___SignedBitInt100
+    .global __bitint_sext_struct___SignedBitInt100_struct___SignedBitInt200
+    .global __float_to_struct___SignedBitInt100
+    .global __bitint_sext_long_struct___SignedBitInt100
+    .global __struct___SignedBitInt100_to_float
+    .section .text
 __struct___SignedBitInt100_to_float:
     prologue6:
         sd ra, -8(sp)
@@ -12,9 +19,7 @@ __struct___SignedBitInt100_to_float:
     entry6:
         sd a0, -40(fp)
         sd a1, -32(fp)
-        add t0, fp, -40
-        add t0, t0, 0
-        ld t0, 0(t0)
+        ld t0, -40(fp)
         and t0, t0, 255
         fcvt.s.l ft0, t0
         fmv.s fa0, ft0
@@ -41,11 +46,10 @@ __float_to_struct___SignedBitInt100:
         fcvt.l.s t0, ft0
         mv a0, t0
         call __bitint_sext_long_struct___SignedBitInt100
-        add t0, fp, -48
-        sd a0, 0(t0)
-        sd a1, 8(t0)
-        ld a0, 0(t0)
-        ld a1, 8(t0)
+        sd a0, -48(fp)
+        sd a1, -40(fp)
+        ld a0, -48(fp)
+        ld a1, -40(fp)
         ld ra, -8(fp)
         ld sp, -16(fp)
         ld fp, -24(fp)
@@ -84,22 +88,18 @@ __bitint_sext_long_struct___SignedBitInt100:
         j cond_merge3
     cond_merge3:
         sd t0, -64(fp)
-        add t0, fp, -48
-        add t1, t0, 0
         ld t0, -32(fp)
         and t0, t0, 255
-        sd t0, 0(t1)
-        add t0, fp, -48
-        add t3, t0, 8
+        sd t0, -48(fp)
         ld t2, -64(fp)
-        ld t1, 0(t3)
+        ld t1, -40(fp)
         li t0, -68719476736
         and t1, t1, t0
         li t0, 68719476735
         and t2, t2, t0
         sll t2, t2, 0
         or t2, t2, t1
-        sd t2, 0(t3)
+        sd t2, -40(fp)
         ld a0, -48(fp)
         ld a1, -40(fp)
         ld ra, -8(fp)
@@ -124,17 +124,9 @@ __bitint_sext_struct___SignedBitInt100_struct___SignedBitInt200:
         sd a1, -32(fp)
         li t0, 0
         sd t0, -88(fp)
-        add t0, fp, -72
-        add t1, t0, 0
-        add t0, fp, -40
-        add t0, t0, 0
-        ld t0, 0(t0)
-        sd t0, 0(t1)
-        add t0, fp, -72
-        add t2, t0, 8
-        add t0, fp, -40
-        add t0, t0, 8
-        ld t1, 0(t0)
+        ld t0, -40(fp)
+        sd t0, -72(fp)
+        ld t1, -32(fp)
         srl t1, t1, 0
         li t0, 68719476735
         and t1, t1, t0
@@ -144,10 +136,8 @@ __bitint_sext_struct___SignedBitInt100_struct___SignedBitInt200:
         sll t0, t0, 28
         sra t0, t0, 28
         and t0, t0, 255
-        sd t0, 0(t2)
-        add t0, fp, -40
-        add t0, t0, 8
-        ld t1, 0(t0)
+        sd t0, -64(fp)
+        ld t1, -32(fp)
         srl t1, t1, 0
         li t0, 68719476735
         and t1, t1, t0
@@ -168,23 +158,17 @@ __bitint_sext_struct___SignedBitInt100_struct___SignedBitInt200:
         j cond_merge2
     cond_merge2:
         sd t0, -88(fp)
-        add t0, fp, -72
-        add t1, t0, 8
         ld t0, -88(fp)
-        sd t0, 0(t1)
-        add t0, fp, -72
-        add t1, t0, 16
+        sd t0, -64(fp)
         ld t0, -88(fp)
-        sd t0, 0(t1)
-        add t0, fp, -72
-        add t2, t0, 24
+        sd t0, -56(fp)
         ld t1, -88(fp)
-        lbu t0, 0(t2)
+        lbu t0, -48(fp)
         and t0, t0, -256
         and t1, t1, 255
         sll t1, t1, 0
         or t1, t1, t0
-        sb t1, 0(t2)
+        sb t1, -48(fp)
         mv a0, a0
         add t0, fp, -72
         mv a1, t0
@@ -232,23 +216,19 @@ __bitint_sext_int_struct___SignedBitInt100:
         j cond_merge
     cond_merge:
         sd t0, -64(fp)
-        add t0, fp, -48
-        add t1, t0, 0
         lw t0, -32(fp)
         sll t0, t0, 32
         sra t0, t0, 32
-        sd t0, 0(t1)
-        add t0, fp, -48
-        add t3, t0, 8
+        sd t0, -48(fp)
         ld t2, -64(fp)
-        ld t1, 0(t3)
+        ld t1, -40(fp)
         li t0, -68719476736
         and t1, t1, t0
         li t0, 68719476735
         and t2, t2, t0
         sll t2, t2, 0
         or t2, t2, t1
-        sd t2, 0(t3)
+        sd t2, -40(fp)
         ld a0, -48(fp)
         ld a1, -40(fp)
         ld ra, -8(fp)
@@ -269,25 +249,17 @@ main:
         mv fp, sp
         add sp, sp, -176
     entry:
-        add t0, fp, -112
-        add t1, t0, 0
-        add t0, fp, -72
-        add t0, t0, 0
-        ld t0, 0(t0)
-        sd t0, 0(t1)
-        add t0, fp, -112
-        add t3, t0, 8
-        add t0, fp, -72
-        add t0, t0, 8
-        ld t2, 0(t0)
-        ld t1, 0(t3)
+        ld t0, -72(fp)
+        sd t0, -112(fp)
+        ld t2, -64(fp)
+        ld t1, -104(fp)
         li t0, -68719476736
         and t1, t1, t0
         li t0, 68719476735
         and t2, t2, t0
         sll t2, t2, 0
         or t2, t2, t1
-        sd t2, 0(t3)
+        sd t2, -104(fp)
         add t0, fp, -112
         mv a0, t0
         add t0, fp, -40
@@ -295,10 +267,8 @@ main:
         li a2, 16
         call memcpy
         add a0, fp, -144
-        add t0, fp, -40
-        ld a1, 0(t0)
-        add t0, t0, 8
-        ld a2, 0(t0)
+        ld a1, -40(fp)
+        ld a2, -32(fp)
         call __bitint_sext_struct___SignedBitInt100_struct___SignedBitInt200
         mv t0, a0
         mv a0, t0
@@ -309,31 +279,25 @@ main:
         lw t0, -80(fp)
         mv a0, t0
         call __bitint_sext_int_struct___SignedBitInt100
+        sd a0, -160(fp)
+        sd a1, -152(fp)
         add t0, fp, -160
-        sd a0, 0(t0)
-        sd a1, 8(t0)
         mv a0, t0
         add t0, fp, -40
         mv a1, t0
         li a2, 16
         call memcpy
-        add t0, fp, -40
-        add t0, t0, 0
-        ld t0, 0(t0)
+        ld t0, -40(fp)
         and t0, t0, 15
         sw t0, -80(fp)
-        add t0, fp, -40
-        add t0, t0, 0
-        ld t1, 0(t0)
+        ld t1, -40(fp)
         li t0, 0
         sub t0, t1, t0
         snez t0, t0
         snez t0, t0
         beqz t0, and_merge
     and_right:
-        add t0, fp, -40
-        add t0, t0, 8
-        ld t1, 0(t0)
+        ld t1, -32(fp)
         srl t1, t1, 0
         li t0, 68719476735
         and t1, t1, t0
@@ -346,19 +310,17 @@ main:
         j and_merge
     and_merge:
         sb t0, -88(fp)
-        add t0, fp, -40
-        ld a0, 0(t0)
-        add t0, t0, 8
-        ld a1, 0(t0)
+        ld a0, -40(fp)
+        ld a1, -32(fp)
         call __struct___SignedBitInt100_to_float
         fmv.d ft0, fa0
         fsw ft0, -96(fp)
         flw ft0, -96(fp)
         fmv.s fa0, ft0
         call __float_to_struct___SignedBitInt100
+        sd a0, -176(fp)
+        sd a1, -168(fp)
         add t0, fp, -176
-        sd a0, 0(t0)
-        sd a1, 8(t0)
         mv a0, t0
         add t0, fp, -40
         mv a1, t0
@@ -369,9 +331,4 @@ main:
         ld sp, -16(fp)
         ld fp, -24(fp)
         ret 
-    .global main
-    .global __bitint_sext_int_struct___SignedBitInt100
-    .global __bitint_sext_struct___SignedBitInt100_struct___SignedBitInt200
-    .global __float_to_struct___SignedBitInt100
-    .global __bitint_sext_long_struct___SignedBitInt100
-    .global __struct___SignedBitInt100_to_float
+    .section .data
